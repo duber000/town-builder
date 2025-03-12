@@ -18,27 +18,16 @@ town_data = {
 MODELS_PATH = os.path.join(os.path.dirname(__file__), 'static', 'models')
 
 # Helper function to load available models
-#def get_available_models():
-#    models = {}
-#    for category in ['buildings', 'terrain', 'roads']:
-#        models[category] = []
-#        category_path = os.path.join(MODELS_PATH, category)
-#        if os.path.exists(category_path):
-#            for model_file in os.listdir(category_path):
-#                if model_file.endswith('.gltf'):
-#                    models[category].append(model_file)
-#    return models
-# Modify the get_available_models function
 def get_available_models():
-    models = {
-        "buildings": []
-    }
-
-    buildings_path = os.path.join(MODELS_PATH, 'buildings')
-    if os.path.exists(buildings_path):
-        if os.path.exists(os.path.join(buildings_path, 'house.gltf')):
-            models["buildings"].append('house.gltf')
-
+    models = {}
+    # Scan all subdirectories in the models folder
+    for category in os.listdir(MODELS_PATH):
+        category_path = os.path.join(MODELS_PATH, category)
+        if os.path.isdir(category_path):
+            models[category] = []
+            for model_file in os.listdir(category_path):
+                if model_file.endswith('.gltf'):
+                    models[category].append(model_file)
     return models
 
 # Routes
