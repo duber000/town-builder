@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Town Builder</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #canvas-container { width: 100%; height: 100%; display: block; }
+        #toolbar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .model-item {
+            cursor: pointer;
+            padding: 5px;
+            border: 1px solid #444;
+            margin: 2px 0;
+            border-radius: 3px;
+        }
+        .model-item:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <h3>Town Builder</h3>
+        <div class="category">
+            <h4>Buildings</h4>
+            <div id="house-model" class="model-item" data-category="buildings" data-model="house.gltf">
+                House
+            </div>
+        </div>
+        <div>
+            <button id="clear-scene">Clear Scene</button>
+        </div>
+    </div>
+    
+    <div id="canvas-container"></div>
+    
+    <script>
+        // Basic Three.js setup
+        let scene, camera, renderer, controls;
+        let raycaster, mouse;
+        let groundPlane;
+        let selectedModel = null;
+        let placementMode = false;
+        let placementIndicator = null;
+        
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            
+            // Add ground plane
+            const planeGeometry = new THREE.PlaneGeometry(20, 20);
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x7CFC00 });
+            groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+            groundPlane.rotation.x = -Math.PI / 2;
+            groundPlane.receiveShadow = true;
+            scene.add(groundPlane);
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            // Add directional light (sun)
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            // Setup raycaster for mouse picking
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            
+            // Create placement indicator (transparent cube)
+            const indicatorGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const indicatorMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0.3
+            });
+            placementIndicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+            placementIndicator.visible = false;
+            scene.add(placementIndicator);
+            
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('click', onMouseClick);
+            
+            // Model selection
+            document.getElementById('house-model').addEventListener('click', function(event) {
+                event.stopPropagation();
+                console.log("House model selected");
+                selectModel('buildings', 'house.gltf');
+            });
+            
+            // Clear scene button
+            document.getElementById('clear-scene').addEventListener('click', function() {
+                clearScene();
+            });
+            
+            // Start animation loop
+            animate();
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Handle mouse move for model placement preview
+        function onMouseMove(event) {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Update placement indicator if in placement mode
+            if (placementMode) {
+                updatePlacementIndicator();
+            }
+        }
+        
+        // Handle mouse click for model placement
+        function onMouseClick(event) {
+            if (placementMode && placementIndicator.visible) {
+                placeModel();
+            }
+        }
+        
+        // Update the placement indicator position
+        function updatePlacementIndicator() {
+            // Cast ray from camera through mouse position
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Check for intersections with the ground plane
+            const intersects = raycaster.intersectObject(groundPlane);
+            
+            if (intersects.length > 0) {
+                // Round position to grid
+                const position = intersects[0].point;
+                position.x = Math.round(position.x);
+                position.z = Math.round(position.z);
+                
+                // Update indicator position
+                placementIndicator.position.copy(position);
+                placementIndicator.position.y = 0.5; // Half height of cube
+                placementIndicator.visible = true;
+            } else {
+                placementIndicator.visible = false;
+            }
+        }
+        
+        // Select a model for placement
+        function selectModel(category, modelName) {
+            console.log(`Selecting model: ${category}/${modelName}`);
+            
+            // Load the GLTF model
+            const loader = new THREE.GLTFLoader();
+            const modelPath = `/static/models/${category}/${modelName}`;
+            
+            console.log(`Loading model from: ${modelPath}`);
+            
+            loader.load(
+                modelPath,
+                function(gltf) {
+                    console.log("Model loaded successfully", gltf);
+                    
+                    // Store the loaded model for later use
+                    selectedModel = gltf.scene;
+                    
+                    // Enable placement mode
+                    placementMode = true;
+                    placementIndicator.visible = true;
+                    
+                    // Adjust placeholder size to match model
+                    const box = new THREE.Box3().setFromObject(selectedModel);
+                    const size = box.getSize(new THREE.Vector3());
+                    placementIndicator.scale.set(size.x, size.y, size.z);
+                    
+                    console.log("Ready to place model");
+                },
+                function(xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                function(error) {
+                    console.error('Error loading model', error);
+                }
+            );
+        }
+        
+        // Place the selected model at the indicator position
+        function placeModel() {
+            if (!selectedModel) return;
+            
+            const modelInstance = selectedModel.clone();
+            modelInstance.position.copy(placementIndicator.position);
+            
+            // Adjust position to account for model origin
+            const box = new THREE.Box3().setFromObject(modelInstance);
+            const center = box.getCenter(new THREE.Vector3());
+            modelInstance.position.y -= (box.min.y - placementIndicator.position.y + 0.5);
+            
+            scene.add(modelInstance);
+            console.log("Model placed at", modelInstance.position);
+            
+            // Exit placement mode
+            placementMode = false;
+            placementIndicator.visible = false;
+        }
+        
+        // Clear all placed models from the scene
+        function clearScene() {
+            // Remove all objects except ground, lights, and placement indicator
+            const objectsToRemove = [];
+            scene.traverse(function(object) {
+                if (object !== groundPlane && 
+                    object !== placementIndicator && 
+                    object.type === "Group") {
+                    objectsToRemove.push(object);
+                }
+            });
+            
+            objectsToRemove.forEach(function(object) {
+                scene.remove(object);
+            });
+            
+            console.log("Scene cleared");
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize everything
+        init();
+    </script>
+</body>
+</html>
