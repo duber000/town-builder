@@ -27,7 +27,7 @@ A web-based 3D town building application using Flask and Three.js.
 To run the application in development mode:
 
 ```
-python app.py
+uv run uwsgi --http :5000 --module app:app
 ```
 
 Then open your browser to http://127.0.0.1:5000/
