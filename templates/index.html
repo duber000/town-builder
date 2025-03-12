@@ -82,7 +82,7 @@
             
             // Add ground plane
             const planeGeometry = new THREE.PlaneGeometry(20, 20);
-            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x7CFC00 });
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xA9A9A9 }); // Dark gray
             groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
             groundPlane.rotation.x = -Math.PI / 2;
             groundPlane.receiveShadow = true;
