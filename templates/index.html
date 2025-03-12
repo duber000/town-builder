@@ -34,12 +34,16 @@
 <body>
     <div id="toolbar">
         <h3>Town Builder</h3>
+        {% for category, model_list in models.items() %}
         <div class="category">
-            <h4>Buildings</h4>
-            <div id="house-model" class="model-item" data-category="buildings" data-model="house.gltf">
-                House
+            <h4>{{ category|title }}</h4>
+            {% for model in model_list %}
+            <div class="model-item" data-category="{{ category }}" data-model="{{ model }}">
+                {{ model.split('.')[0]|title }}
             </div>
+            {% endfor %}
         </div>
+        {% endfor %}
         <div>
             <button id="clear-scene">Clear Scene</button>
         </div>
@@ -114,11 +118,15 @@
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('click', onMouseClick);
             
-            // Model selection
-            document.getElementById('house-model').addEventListener('click', function(event) {
-                event.stopPropagation();
-                console.log("House model selected");
-                selectModel('buildings', 'house.gltf');
+            // Model selection - dynamic event listeners
+            document.querySelectorAll('.model-item').forEach(item => {
+                item.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    const category = this.dataset.category;
+                    const model = this.dataset.model;
+                    console.log(`${category}/${model} model selected`);
+                    selectModel(category, model);
+                });
             });
             
             // Clear scene button
