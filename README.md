@@ -2,8 +2,9 @@
 
 A web-based 3D town building application using Flask and Three.js.
 
-Inspired by [https://github.com/flo-bit/room](Florian's Room)
-Assets from [https://kaylousberg.itch.io/city-builder-bits](Kaykit Bits)
+Inspired by [Florian's Room](https://github.com/flo-bit/room)
+
+Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 
 ## Features
 
