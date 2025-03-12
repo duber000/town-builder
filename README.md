@@ -2,6 +2,9 @@
 
 A web-based 3D town building application using Flask and Three.js.
 
+Inspired by [https://github.com/flo-bit/room](Florian's Room)
+Assets from [https://kaylousberg.itch.io/city-builder-bits](Kaykit Bits)
+
 ## Features
 
 - Interactive 3D environment for building a virtual town
@@ -19,7 +22,7 @@ A web-based 3D town building application using Flask and Three.js.
 1. Clone the repository
 2. Install dependencies:
    ```
-   pip install flask pygltflib
+   uv add flask pygltflib
    ```
 
 ## Running the Application
@@ -37,3 +40,6 @@ Then open your browser to http://127.0.0.1:5000/
 - `app.py` - Flask application and server-side logic
 - `templates/` - HTML templates
 - `static/models/` - 3D model files (GLTF format)
+
+## Development
+- Development assisted by Claude and Gemini via [aider](https://aider.chat/)
