@@ -176,7 +176,7 @@ def get_available_models(self):
                 self.model_buttons[category][model] = model_button
             
             y_pos -= 0.15
-    
+            
     def toggle_category(self, category):
         # Find the category frame and toggle visibility
         for child in self.main_frame.getChildren():
@@ -188,16 +188,24 @@ def get_available_models(self):
                         child.show()
                     else:
                         child.hide()
-    
+                        
     def select_model(self, category, model):
-        self.current_category = category
+        # Construct the path to the selected model
+        model_path = f"static/models/{category}/{model}.gltf"
+
+        # Load the model
+        self.selected_model = self.loader.loadModel(model_path)
+
+        # Reparent the model to render
+        self.selected_model.reparentTo(self.render)
+        
         self.current_model = model
+        self.current_category = category
         print(f"Selected {model} from {category}")
     
     def set_mode(self, mode):
         self.mode = mode
         print(f"Mode set to: {mode}")
-    
     def setup_collision(self):
         # Setup collision traverser
         self.cTrav = CollisionTraverser()
