@@ -18,6 +18,14 @@
             color: white;
             padding: 10px;
             border-radius: 5px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #model-container {
+            overflow-y: auto;
+            max-height: 70vh;
+            padding-right: 5px;
         }
         .model-item {
             cursor: pointer;
@@ -34,17 +42,19 @@
 <body>
     <div id="toolbar">
         <h3>Town Builder</h3>
-        {% for category, model_list in models.items() %}
-        <div class="category">
-            <h4>{{ category|title }}</h4>
-            {% for model in model_list %}
-            <div class="model-item" data-category="{{ category }}" data-model="{{ model }}">
-                {{ model.split('.')[0]|title }}
+        <div id="model-container">
+            {% for category, model_list in models.items() %}
+            <div class="category">
+                <h4>{{ category|title }}</h4>
+                {% for model in model_list %}
+                <div class="model-item" data-category="{{ category }}" data-model="{{ model }}">
+                    {{ model.split('.')[0]|title }}
+                </div>
+                {% endfor %}
             </div>
             {% endfor %}
         </div>
-        {% endfor %}
-        <div>
+        <div style="margin-top: 10px;">
             <button id="clear-scene">Clear Scene</button>
         </div>
     </div>
