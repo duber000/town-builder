@@ -20,6 +20,9 @@ class TownBuilder(ShowBase):
         # Load ground plane
         self.setup_ground()
         
+        # Setup keyboard controls
+        self.setup_keyboard_controls()
+        
         # Initialize town data
         self.town_data = {
             "buildings": []
@@ -44,8 +47,9 @@ class TownBuilder(ShowBase):
         # Mode (place, edit, delete)
         self.mode = "place"
         
-        # Task for mouse control
+        # Tasks for control
         self.taskMgr.add(self.mouse_task, "MouseTask")
+        self.taskMgr.add(self.keyboard_task, "KeyboardTask")
         
     def setup_lighting(self):
         # Add ambient light
@@ -513,6 +517,70 @@ class TownBuilder(ShowBase):
         elif axis == 'r':
             model_np.setR(value)
             model_data["rotation"]["r"] = value
+    
+    def setup_keyboard_controls(self):
+        """Setup keyboard controls for camera movement"""
+        # Movement speed
+        self.move_speed = 1.0
+        self.rotation_speed = 2.0
+        
+        # Accept keyboard input
+        self.accept('arrow_up', self.set_key, ['up', True])
+        self.accept('arrow_up-up', self.set_key, ['up', False])
+        self.accept('arrow_down', self.set_key, ['down', True])
+        self.accept('arrow_down-up', self.set_key, ['down', False])
+        self.accept('arrow_left', self.set_key, ['left', True])
+        self.accept('arrow_left-up', self.set_key, ['left', False])
+        self.accept('arrow_right', self.set_key, ['right', True])
+        self.accept('arrow_right-up', self.set_key, ['right', False])
+        
+        self.accept('w', self.set_key, ['up', True])
+        self.accept('w-up', self.set_key, ['up', False])
+        self.accept('s', self.set_key, ['down', True])
+        self.accept('s-up', self.set_key, ['down', False])
+        self.accept('a', self.set_key, ['left', True])
+        self.accept('a-up', self.set_key, ['left', False])
+        self.accept('d', self.set_key, ['right', True])
+        self.accept('d-up', self.set_key, ['right', False])
+        
+        # Dictionary to store key states
+        self.keys = {
+            'up': False,
+            'down': False,
+            'left': False,
+            'right': False
+        }
+    
+    def set_key(self, key, value):
+        """Set the state of a key"""
+        self.keys[key] = value
+    
+    def keyboard_task(self, task):
+        """Handle keyboard input for camera movement"""
+        # Skip if edit UI is open
+        if hasattr(self, 'edit_frame') and self.edit_frame:
+            return task.cont
+        
+        # Get camera direction vectors
+        forward = self.camera.getQuat().getForward()
+        forward.z = 0  # Keep movement in horizontal plane
+        forward.normalize()
+        
+        right = self.camera.getQuat().getRight()
+        right.z = 0  # Keep movement in horizontal plane
+        right.normalize()
+        
+        # Apply movement based on key states
+        if self.keys['up']:
+            self.camera.setPos(self.camera.getPos() + forward * self.move_speed)
+        if self.keys['down']:
+            self.camera.setPos(self.camera.getPos() - forward * self.move_speed)
+        if self.keys['left']:
+            self.camera.setPos(self.camera.getPos() - right * self.move_speed)
+        if self.keys['right']:
+            self.camera.setPos(self.camera.getPos() + right * self.move_speed)
+        
+        return task.cont
     
     def close_edit_ui(self):
         """Close the edit UI"""

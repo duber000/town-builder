@@ -13,6 +13,7 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 - Edit mode for adjusting position and rotation of placed objects
 - Delete mode for removing objects from the scene
 - Save and load town layouts
+- Keyboard navigation with arrow keys and WASD
 
 ## Requirements
 
@@ -37,6 +38,14 @@ uv run uwsgi --http :5000 --module app:app
 ```
 
 Then open your browser to http://127.0.0.1:5000/
+
+### Controls
+
+- **Mouse**: Click and drag to rotate the camera view
+- **Arrow keys** or **WASD**: Move the camera around the scene
+- **Place Mode**: Select a model from the sidebar, then click to place it
+- **Edit Mode**: Click on a model to adjust its position and rotation
+- **Delete Mode**: Click on a model to remove it
 
 ## Project Structure
 

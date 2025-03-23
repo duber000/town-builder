@@ -117,6 +117,9 @@
             camera.position.set(5, 5, 5);
             camera.lookAt(0, 0, 0);
             
+            // Setup keyboard controls
+            setupKeyboardControls();
+            
             // Create renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -637,9 +640,65 @@
             console.log("Scene cleared");
         }
         
+        // Keyboard controls
+        let moveSpeed = 0.2;
+        let keysPressed = {};
+        
+        function setupKeyboardControls() {
+            // Track key states
+            document.addEventListener('keydown', function(event) {
+                keysPressed[event.key.toLowerCase()] = true;
+            });
+            
+            document.addEventListener('keyup', function(event) {
+                keysPressed[event.key.toLowerCase()] = false;
+            });
+        }
+        
+        // Process keyboard input
+        function processKeyboardInput() {
+            // Skip if an input element is focused
+            if (document.activeElement.tagName === 'INPUT' || 
+                document.activeElement.tagName === 'TEXTAREA' ||
+                document.getElementById('edit-ui')) {
+                return;
+            }
+            
+            // Get camera direction vectors
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0; // Keep movement in horizontal plane
+            forward.normalize();
+            
+            const right = new THREE.Vector3();
+            right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+            
+            // WASD and arrow keys movement
+            if (keysPressed['w'] || keysPressed['arrowup']) {
+                camera.position.add(forward.multiplyScalar(moveSpeed));
+                controls.target.add(forward.clone().multiplyScalar(moveSpeed));
+            }
+            if (keysPressed['s'] || keysPressed['arrowdown']) {
+                camera.position.sub(forward.multiplyScalar(moveSpeed));
+                controls.target.sub(forward.clone().multiplyScalar(moveSpeed));
+            }
+            if (keysPressed['a'] || keysPressed['arrowleft']) {
+                camera.position.sub(right.multiplyScalar(moveSpeed));
+                controls.target.sub(right.clone().multiplyScalar(moveSpeed));
+            }
+            if (keysPressed['d'] || keysPressed['arrowright']) {
+                camera.position.add(right.multiplyScalar(moveSpeed));
+                controls.target.add(right.clone().multiplyScalar(moveSpeed));
+            }
+            
+            // Update controls after moving camera
+            controls.update();
+        }
+        
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
+            processKeyboardInput();
             controls.update();
             renderer.render(scene, camera);
         }
