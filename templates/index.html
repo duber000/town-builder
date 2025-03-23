@@ -38,6 +38,19 @@
         .mode-button.active {
             background-color: #2a2;
         }
+        #edit-ui {
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        #edit-ui button {
+            background-color: #2a2;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #edit-ui button:hover {
+            background-color: #3c3;
+        }
         #model-container {
             overflow-y: auto;
             max-height: 70vh;
@@ -91,6 +104,7 @@
         let currentMode = "place"; // Default mode: place, edit, delete
         let placementIndicator = null;
         let placedObjects = []; // Keep track of placed objects
+        let selectedEditModel = null; // Currently selected model for editing
         
         // Initialize the scene
         function init() {
@@ -217,12 +231,14 @@
             updatePlacementIndicator();
         }
         
-        // Handle mouse click for model placement or deletion
+        // Handle mouse click for model placement, deletion, or editing
         function onMouseClick(event) {
             if (currentMode === "place" && selectedModel && placementIndicator.visible) {
                 placeModel();
             } else if (currentMode === "delete" && placementIndicator.visible) {
                 deleteModel();
+            } else if (currentMode === "edit") {
+                selectModelForEdit();
             }
         }
         
@@ -231,8 +247,8 @@
             // Cast ray from camera through mouse position
             raycaster.setFromCamera(mouse, camera);
             
-            if (currentMode === "delete") {
-                // For delete mode, check intersections with placed objects
+            if (currentMode === "delete" || currentMode === "edit") {
+                // For delete/edit mode, check intersections with placed objects
                 const intersects = raycaster.intersectObjects(placedObjects, true);
                 
                 if (intersects.length > 0) {
@@ -244,11 +260,19 @@
                     
                     placementIndicator.position.copy(targetObject.position);
                     placementIndicator.visible = true;
+                    
+                    // In edit mode, highlight the object that would be selected
+                    if (currentMode === "edit") {
+                        placementIndicator.scale.copy(new THREE.Vector3(1, 1, 1));
+                        const box = new THREE.Box3().setFromObject(targetObject);
+                        const size = box.getSize(new THREE.Vector3());
+                        placementIndicator.scale.set(size.x * 1.1, size.y * 1.1, size.z * 1.1);
+                    }
                 } else {
                     placementIndicator.visible = false;
                 }
             } else {
-                // For place/edit mode, check intersections with ground
+                // For place mode, check intersections with ground
                 const intersects = raycaster.intersectObject(groundPlane);
                 
                 if (intersects.length > 0) {
@@ -398,8 +422,198 @@
             }
         }
         
+        // Select a model for editing
+        function selectModelForEdit() {
+            if (!placementIndicator.visible) return;
+            
+            // Find the model to edit
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(placedObjects, true);
+            
+            if (intersects.length > 0) {
+                // Find the root object (the model group)
+                let modelToEdit = intersects[0].object;
+                while (modelToEdit.parent && modelToEdit.parent !== scene) {
+                    modelToEdit = modelToEdit.parent;
+                }
+                
+                // Create or show edit UI
+                createEditUI(modelToEdit);
+                
+                console.log("Selected model for editing:", modelToEdit);
+            }
+        }
+        
+        // Create UI for editing a model
+        function createEditUI(model) {
+            // Remove any existing edit UI
+            removeEditUI();
+            
+            // Create edit UI container
+            const editUI = document.createElement('div');
+            editUI.id = 'edit-ui';
+            editUI.style.position = 'absolute';
+            editUI.style.top = '50%';
+            editUI.style.left = '50%';
+            editUI.style.transform = 'translate(-50%, -50%)';
+            editUI.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            editUI.style.color = 'white';
+            editUI.style.padding = '20px';
+            editUI.style.borderRadius = '5px';
+            editUI.style.zIndex = '1000';
+            
+            // Add title
+            const title = document.createElement('h3');
+            title.textContent = 'Edit Model';
+            editUI.appendChild(title);
+            
+            // Position controls
+            const positionDiv = document.createElement('div');
+            positionDiv.style.marginBottom = '15px';
+            
+            const posLabel = document.createElement('div');
+            posLabel.textContent = 'Position:';
+            posLabel.style.marginBottom = '5px';
+            positionDiv.appendChild(posLabel);
+            
+            // X position
+            const xDiv = document.createElement('div');
+            xDiv.style.display = 'flex';
+            xDiv.style.alignItems = 'center';
+            xDiv.style.marginBottom = '5px';
+            
+            const xLabel = document.createElement('label');
+            xLabel.textContent = 'X: ';
+            xLabel.style.width = '30px';
+            xDiv.appendChild(xLabel);
+            
+            const xSlider = document.createElement('input');
+            xSlider.type = 'range';
+            xSlider.min = '-10';
+            xSlider.max = '10';
+            xSlider.step = '0.5';
+            xSlider.value = model.position.x;
+            xSlider.style.flex = '1';
+            xSlider.addEventListener('input', function() {
+                model.position.x = parseFloat(this.value);
+            });
+            xDiv.appendChild(xSlider);
+            
+            const xValue = document.createElement('span');
+            xValue.textContent = model.position.x.toFixed(1);
+            xValue.style.width = '30px';
+            xValue.style.textAlign = 'right';
+            xSlider.addEventListener('input', function() {
+                xValue.textContent = parseFloat(this.value).toFixed(1);
+            });
+            xDiv.appendChild(xValue);
+            
+            positionDiv.appendChild(xDiv);
+            
+            // Z position (equivalent to Y in the UI for user clarity)
+            const zDiv = document.createElement('div');
+            zDiv.style.display = 'flex';
+            zDiv.style.alignItems = 'center';
+            zDiv.style.marginBottom = '5px';
+            
+            const zLabel = document.createElement('label');
+            zLabel.textContent = 'Z: ';
+            zLabel.style.width = '30px';
+            zDiv.appendChild(zLabel);
+            
+            const zSlider = document.createElement('input');
+            zSlider.type = 'range';
+            zSlider.min = '-10';
+            zSlider.max = '10';
+            zSlider.step = '0.5';
+            zSlider.value = model.position.z;
+            zSlider.style.flex = '1';
+            zSlider.addEventListener('input', function() {
+                model.position.z = parseFloat(this.value);
+            });
+            zDiv.appendChild(zSlider);
+            
+            const zValue = document.createElement('span');
+            zValue.textContent = model.position.z.toFixed(1);
+            zValue.style.width = '30px';
+            zValue.style.textAlign = 'right';
+            zSlider.addEventListener('input', function() {
+                zValue.textContent = parseFloat(this.value).toFixed(1);
+            });
+            zDiv.appendChild(zValue);
+            
+            positionDiv.appendChild(zDiv);
+            editUI.appendChild(positionDiv);
+            
+            // Rotation controls
+            const rotationDiv = document.createElement('div');
+            rotationDiv.style.marginBottom = '15px';
+            
+            const rotLabel = document.createElement('div');
+            rotLabel.textContent = 'Rotation:';
+            rotLabel.style.marginBottom = '5px';
+            rotationDiv.appendChild(rotLabel);
+            
+            // Y rotation (equivalent to heading)
+            const yRotDiv = document.createElement('div');
+            yRotDiv.style.display = 'flex';
+            yRotDiv.style.alignItems = 'center';
+            
+            const yRotLabel = document.createElement('label');
+            yRotLabel.textContent = 'Y: ';
+            yRotLabel.style.width = '30px';
+            yRotDiv.appendChild(yRotLabel);
+            
+            const yRotSlider = document.createElement('input');
+            yRotSlider.type = 'range';
+            yRotSlider.min = '0';
+            yRotSlider.max = '360';
+            yRotSlider.step = '5';
+            yRotSlider.value = (model.rotation.y * 180 / Math.PI) % 360;
+            yRotSlider.style.flex = '1';
+            yRotSlider.addEventListener('input', function() {
+                model.rotation.y = parseFloat(this.value) * Math.PI / 180;
+            });
+            yRotDiv.appendChild(yRotSlider);
+            
+            const yRotValue = document.createElement('span');
+            yRotValue.textContent = ((model.rotation.y * 180 / Math.PI) % 360).toFixed(0) + '°';
+            yRotValue.style.width = '40px';
+            yRotValue.style.textAlign = 'right';
+            yRotSlider.addEventListener('input', function() {
+                yRotValue.textContent = parseFloat(this.value).toFixed(0) + '°';
+            });
+            yRotDiv.appendChild(yRotValue);
+            
+            rotationDiv.appendChild(yRotDiv);
+            editUI.appendChild(rotationDiv);
+            
+            // Done button
+            const doneButton = document.createElement('button');
+            doneButton.textContent = 'Done';
+            doneButton.style.padding = '5px 15px';
+            doneButton.style.display = 'block';
+            doneButton.style.margin = '0 auto';
+            doneButton.addEventListener('click', removeEditUI);
+            editUI.appendChild(doneButton);
+            
+            // Add the edit UI to the document
+            document.body.appendChild(editUI);
+        }
+        
+        // Remove the edit UI
+        function removeEditUI() {
+            const existingUI = document.getElementById('edit-ui');
+            if (existingUI) {
+                existingUI.remove();
+            }
+        }
+        
         // Clear all placed models from the scene
         function clearScene() {
+            // Remove any edit UI
+            removeEditUI();
+            
             // Remove all objects except ground, lights, and placement indicator
             placedObjects.forEach(object => {
                 scene.remove(object);
