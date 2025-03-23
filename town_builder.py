@@ -22,10 +22,9 @@ class TownBuilder(ShowBase):
         
         # Initialize town data
         self.town_data = {
-            "buildings": [],
-            ""
-#            "terrain": [],
-#            "roads": []
+            "buildings": []
+            # "terrain": [],
+            # "roads": []
         }
         
         # Model paths
@@ -246,8 +245,8 @@ def get_available_models(self):
                 hit_pos.setY(round(hit_pos.getY() * 2) / 2)
                 
                 # If left mouse button is pressed
-                if self.mouseWatcherNode.isButtonDown(MouseButton.one()) and self.current_model:
-                    if self.mode == "place":
+                if self.mouseWatcherNode.isButtonDown(MouseButton.one()):
+                    if self.mode == "place" and self.current_model:
                         self.place_model(hit_pos)
                     elif self.mode == "delete":
                         self.delete_model(hit_pos)
@@ -257,10 +256,10 @@ def get_available_models(self):
     
     def place_model(self, position):
         # Avoid placing models too quickly
-        if hasattr(self, 'last_place_time') and task.time - self.last_place_time < 0.5:
+        if hasattr(self, 'last_place_time') and self.taskMgr.getTaskTime("MouseTask") - self.last_place_time < 0.5:
             return
         
-        self.last_place_time = task.time
+        self.last_place_time = self.taskMgr.getTaskTime("MouseTask")
         
         model_path = os.path.join(self.models_path, self.current_category, self.current_model)
         model = self.loader.loadModel(model_path)
@@ -310,6 +309,7 @@ def get_available_models(self):
             
             # Remove from town data
             del self.town_data[closest_category][closest_index]
+            print(f"Deleted model at position ({position.getX():.1f}, {position.getY():.1f})")
     
     def save_town(self):
         with open("town_data.json", "w") as f:
