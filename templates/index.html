@@ -208,10 +208,8 @@
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             
-            // Update placement indicator if in placement mode
-            if (placementMode) {
-                updatePlacementIndicator();
-            }
+            // Update placement indicator
+            updatePlacementIndicator();
         }
         
         // Handle mouse click for model placement or deletion
@@ -233,8 +231,13 @@
                 const intersects = raycaster.intersectObjects(placedObjects, true);
                 
                 if (intersects.length > 0) {
-                    const position = intersects[0].object.position;
-                    placementIndicator.position.copy(position);
+                    // Find the root object (the model group)
+                    let targetObject = intersects[0].object;
+                    while (targetObject.parent && targetObject.parent !== scene) {
+                        targetObject = targetObject.parent;
+                    }
+                    
+                    placementIndicator.position.copy(targetObject.position);
                     placementIndicator.visible = true;
                 } else {
                     placementIndicator.visible = false;
@@ -292,6 +295,12 @@
                     const box = new THREE.Box3().setFromObject(selectedModel);
                     const size = box.getSize(new THREE.Vector3());
                     placementIndicator.scale.set(size.x, size.y, size.z);
+                    
+                    // Make sure the indicator is visible
+                    placementIndicator.visible = true;
+                    
+                    // Update the indicator position immediately
+                    updatePlacementIndicator();
                     
                     console.log("Ready to place model");
                 },
