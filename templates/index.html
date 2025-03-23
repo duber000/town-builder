@@ -601,12 +601,24 @@
             document.body.appendChild(editUI);
         }
         
-        // Remove the edit UI
+        // Remove the edit UI and switch back to place mode
         function removeEditUI() {
             const existingUI = document.getElementById('edit-ui');
             if (existingUI) {
                 existingUI.remove();
             }
+            
+            // Switch back to place mode
+            currentMode = "place";
+            document.querySelectorAll('.mode-button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.mode === "place") {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Update indicator color
+            placementIndicator.material.color.set(0x00ff00);
         }
         
         // Clear all placed models from the scene
