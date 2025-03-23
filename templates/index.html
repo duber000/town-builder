@@ -22,6 +22,22 @@
             display: flex;
             flex-direction: column;
         }
+        .mode-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .mode-button {
+            padding: 5px 10px;
+            background-color: #555;
+            border: none;
+            border-radius: 3px;
+            color: white;
+            cursor: pointer;
+        }
+        .mode-button.active {
+            background-color: #2a2;
+        }
         #model-container {
             overflow-y: auto;
             max-height: 70vh;
@@ -42,6 +58,11 @@
 <body>
     <div id="toolbar">
         <h3>Town Builder</h3>
+        <div class="mode-buttons">
+            <button class="mode-button active" data-mode="place">Place</button>
+            <button class="mode-button" data-mode="edit">Edit</button>
+            <button class="mode-button" data-mode="delete">Delete</button>
+        </div>
         <div id="model-container">
             {% for category, model_list in models.items() %}
             <div class="category">
@@ -67,8 +88,9 @@
         let raycaster, mouse;
         let groundPlane;
         let selectedModel = null;
-        let placementMode = false;
+        let currentMode = "place"; // Default mode: place, edit, delete
         let placementIndicator = null;
+        let placedObjects = []; // Keep track of placed objects
         
         // Initialize the scene
         function init() {
@@ -139,6 +161,31 @@
                 });
             });
             
+            // Mode buttons
+            document.querySelectorAll('.mode-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    // Update active button styling
+                    document.querySelectorAll('.mode-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // Set current mode
+                    currentMode = this.dataset.mode;
+                    console.log(`Mode set to: ${currentMode}`);
+                    
+                    // Update UI based on mode
+                    if (currentMode === "place") {
+                        placementIndicator.material.color.set(0x00ff00); // Green for place
+                    } else if (currentMode === "delete") {
+                        placementIndicator.material.color.set(0xff0000); // Red for delete
+                        selectedModel = null; // Clear selected model in delete mode
+                    } else if (currentMode === "edit") {
+                        placementIndicator.material.color.set(0x0000ff); // Blue for edit
+                    }
+                });
+            });
+            
             // Clear scene button
             document.getElementById('clear-scene').addEventListener('click', function() {
                 clearScene();
@@ -167,10 +214,12 @@
             }
         }
         
-        // Handle mouse click for model placement
+        // Handle mouse click for model placement or deletion
         function onMouseClick(event) {
-            if (placementMode && placementIndicator.visible) {
+            if (currentMode === "place" && selectedModel && placementIndicator.visible) {
                 placeModel();
+            } else if (currentMode === "delete" && placementIndicator.visible) {
+                deleteModel();
             }
         }
         
@@ -179,26 +228,49 @@
             // Cast ray from camera through mouse position
             raycaster.setFromCamera(mouse, camera);
             
-            // Check for intersections with the ground plane
-            const intersects = raycaster.intersectObject(groundPlane);
-            
-            if (intersects.length > 0) {
-                // Round position to grid
-                const position = intersects[0].point;
-                position.x = Math.round(position.x);
-                position.z = Math.round(position.z);
+            if (currentMode === "delete") {
+                // For delete mode, check intersections with placed objects
+                const intersects = raycaster.intersectObjects(placedObjects, true);
                 
-                // Update indicator position
-                placementIndicator.position.copy(position);
-                placementIndicator.position.y = 0.5; // Half height of cube
-                placementIndicator.visible = true;
+                if (intersects.length > 0) {
+                    const position = intersects[0].object.position;
+                    placementIndicator.position.copy(position);
+                    placementIndicator.visible = true;
+                } else {
+                    placementIndicator.visible = false;
+                }
             } else {
-                placementIndicator.visible = false;
+                // For place/edit mode, check intersections with ground
+                const intersects = raycaster.intersectObject(groundPlane);
+                
+                if (intersects.length > 0) {
+                    // Round position to grid
+                    const position = intersects[0].point;
+                    position.x = Math.round(position.x);
+                    position.z = Math.round(position.z);
+                    
+                    // Update indicator position
+                    placementIndicator.position.copy(position);
+                    placementIndicator.position.y = 0.5; // Half height of cube
+                    placementIndicator.visible = true;
+                } else {
+                    placementIndicator.visible = false;
+                }
             }
         }
         
         // Select a model for placement
         function selectModel(category, modelName) {
+            // Switch to place mode when selecting a model
+            currentMode = "place";
+            document.querySelectorAll('.mode-button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.mode === "place") {
+                    btn.classList.add('active');
+                }
+            });
+            placementIndicator.material.color.set(0x00ff00); // Green for place
+            
             console.log(`Selecting model: ${category}/${modelName}`);
             
             // Load the GLTF model
@@ -214,10 +286,7 @@
                     
                     // Store the loaded model for later use
                     selectedModel = gltf.scene;
-                    
-                    // Enable placement mode
-                    placementMode = true;
-                    placementIndicator.visible = true;
+                    selectedModel.userData = { category, modelName };
                     
                     // Adjust placeholder size to match model
                     const box = new THREE.Box3().setFromObject(selectedModel);
@@ -242,34 +311,57 @@
             const modelInstance = selectedModel.clone();
             modelInstance.position.copy(placementIndicator.position);
             
+            // Copy userData from the original model
+            modelInstance.userData = { ...selectedModel.userData };
+            
             // Adjust position to account for model origin
             const box = new THREE.Box3().setFromObject(modelInstance);
             const center = box.getCenter(new THREE.Vector3());
             modelInstance.position.y -= (box.min.y - placementIndicator.position.y + 0.5);
             
             scene.add(modelInstance);
-            console.log("Model placed at", modelInstance.position);
+            placedObjects.push(modelInstance); // Add to our tracking array
             
-            // Exit placement mode
-            placementMode = false;
-            placementIndicator.visible = false;
+            console.log("Model placed at", modelInstance.position);
+        }
+        
+        // Delete the model at the indicator position
+        function deleteModel() {
+            if (!placementIndicator.visible) return;
+            
+            // Find the closest model to delete
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(placedObjects, true);
+            
+            if (intersects.length > 0) {
+                // Find the root object (the model group)
+                let objectToRemove = intersects[0].object;
+                while (objectToRemove.parent && objectToRemove.parent !== scene) {
+                    objectToRemove = objectToRemove.parent;
+                }
+                
+                // Remove from scene
+                scene.remove(objectToRemove);
+                
+                // Remove from our tracking array
+                const index = placedObjects.indexOf(objectToRemove);
+                if (index > -1) {
+                    placedObjects.splice(index, 1);
+                }
+                
+                console.log("Model deleted at", objectToRemove.position);
+            }
         }
         
         // Clear all placed models from the scene
         function clearScene() {
             // Remove all objects except ground, lights, and placement indicator
-            const objectsToRemove = [];
-            scene.traverse(function(object) {
-                if (object !== groundPlane && 
-                    object !== placementIndicator && 
-                    object.type === "Group") {
-                    objectsToRemove.push(object);
-                }
-            });
-            
-            objectsToRemove.forEach(function(object) {
+            placedObjects.forEach(object => {
                 scene.remove(object);
             });
+            
+            // Clear the tracking array
+            placedObjects = [];
             
             console.log("Scene cleared");
         }
