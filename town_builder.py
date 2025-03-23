@@ -108,6 +108,33 @@ def get_available_models(self):
                     pos=(0, 0, 0.85),
                     parent=self.main_frame)
         
+        # Mode buttons
+        self.mode_frame = DirectFrame(frameColor=(0.1, 0.1, 0.1, 0.8),
+                                     frameSize=(-0.25, 0.25, -0.08, 0),
+                                     pos=(0, 0, 0.75),
+                                     parent=self.main_frame)
+        
+        DirectButton(text="Place",
+                     scale=0.05,
+                     command=self.set_mode,
+                     extraArgs=["place"],
+                     pos=(-0.15, 0, -0.04),
+                     parent=self.mode_frame)
+        
+        DirectButton(text="Edit",
+                     scale=0.05,
+                     command=self.set_mode,
+                     extraArgs=["edit"],
+                     pos=(0, 0, -0.04),
+                     parent=self.mode_frame)
+        
+        DirectButton(text="Delete",
+                     scale=0.05,
+                     command=self.set_mode,
+                     extraArgs=["delete"],
+                     pos=(0.15, 0, -0.04),
+                     parent=self.mode_frame)
+        
         # Save/Load buttons
         DirectButton(text="Save Town",
                      scale=0.06,
@@ -119,28 +146,6 @@ def get_available_models(self):
                      scale=0.06,
                      command=self.load_town,
                      pos=(0, 0, -0.88),
-                     parent=self.main_frame)
-        
-        # Mode buttons
-        DirectButton(text="Place Mode",
-                     scale=0.05,
-                     command=self.set_mode,
-                     extraArgs=["place"],
-                     pos=(-0.15, 0, 0.75),
-                     parent=self.main_frame)
-        
-        DirectButton(text="Edit Mode",
-                     scale=0.05,
-                     command=self.set_mode,
-                     extraArgs=["edit"],
-                     pos=(0, 0, 0.75),
-                     parent=self.main_frame)
-        
-        DirectButton(text="Delete Mode",
-                     scale=0.05,
-                     command=self.set_mode,
-                     extraArgs=["delete"],
-                     pos=(0.15, 0, 0.75),
                      parent=self.main_frame)
         
         # Create category frames and model lists
@@ -206,6 +211,21 @@ def get_available_models(self):
     def set_mode(self, mode):
         self.mode = mode
         print(f"Mode set to: {mode}")
+        
+        # Update button colors to show active mode
+        for button in self.mode_frame.getChildren():
+            if isinstance(button, DirectButton):
+                # Reset all buttons to default color
+                button['frameColor'] = (0.8, 0.8, 0.8, 0.7)
+                
+                # Get button text
+                button_text = button['text']
+                
+                # Highlight the active mode button
+                if (mode == "place" and button_text == "Place") or \
+                   (mode == "edit" and button_text == "Edit") or \
+                   (mode == "delete" and button_text == "Delete"):
+                    button['frameColor'] = (0.2, 0.7, 0.2, 0.9)  # Green for active mode
     def setup_collision(self):
         # Setup collision traverser
         self.cTrav = CollisionTraverser()
