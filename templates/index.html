@@ -304,9 +304,24 @@
                     btn.classList.add('active');
                 }
             });
-            placementIndicator.material.color.set(0x00ff00); // Green for place
             
             console.log(`Selecting model: ${category}/${modelName}`);
+            
+            // Reset the placement indicator
+            placementIndicator.visible = true;
+            placementIndicator.material.color.set(0xffff00); // Yellow while loading
+            placementIndicator.scale.set(1, 1, 1); // Reset scale
+            
+            // Create a default cube as fallback
+            const createFallbackModel = () => {
+                console.log("Creating fallback cube model");
+                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                const cube = new THREE.Mesh(geometry, material);
+                const group = new THREE.Group();
+                group.add(cube);
+                return group;
+            };
             
             // Load the GLTF model
             const loader = new THREE.GLTFLoader();
@@ -316,47 +331,75 @@
             
             console.log(`Loading model from: ${modelPath}`);
             
-            // Show loading feedback
-            placementIndicator.visible = true;
-            placementIndicator.material.color.set(0xffff00); // Yellow while loading
+            // Set a timeout to detect if loading takes too long
+            const loadTimeout = setTimeout(() => {
+                console.warn("Model loading is taking a long time, might be an issue");
+            }, 5000);
             
             loader.load(
                 modelPath,
                 function(gltf) {
+                    clearTimeout(loadTimeout);
                     console.log("Model loaded successfully", gltf);
                     
-                    // Store the loaded model for later use
-                    selectedModel = gltf.scene;
-                    selectedModel.userData = { category, modelName };
-                    
-                    // Make model cast and receive shadows
-                    selectedModel.traverse(function(node) {
-                        if (node.isMesh) {
-                            node.castShadow = true;
-                            node.receiveShadow = true;
+                    try {
+                        // Store the loaded model for later use
+                        selectedModel = gltf.scene;
+                        selectedModel.userData = { category, modelName };
+                        
+                        // Make model cast and receive shadows
+                        selectedModel.traverse(function(node) {
+                            if (node.isMesh) {
+                                node.castShadow = true;
+                                node.receiveShadow = true;
+                            }
+                        });
+                        
+                        // Adjust placeholder size to match model
+                        const box = new THREE.Box3().setFromObject(selectedModel);
+                        const size = box.getSize(new THREE.Vector3());
+                        
+                        // Check if size is valid
+                        if (size.x > 0 && size.y > 0 && size.z > 0) {
+                            placementIndicator.scale.set(size.x, size.y, size.z);
+                        } else {
+                            console.warn("Model has invalid size, using default scale");
+                            placementIndicator.scale.set(1, 1, 1);
                         }
-                    });
-                    
-                    // Adjust placeholder size to match model
-                    const box = new THREE.Box3().setFromObject(selectedModel);
-                    const size = box.getSize(new THREE.Vector3());
-                    placementIndicator.scale.set(size.x, size.y, size.z);
-                    
-                    // Change back to green for placement
-                    placementIndicator.material.color.set(0x00ff00);
-                    
-                    // Update the indicator position immediately
-                    updatePlacementIndicator();
-                    
-                    console.log("Ready to place model");
+                        
+                        // Change back to green for placement
+                        placementIndicator.material.color.set(0x00ff00);
+                        
+                        // Update the indicator position immediately
+                        updatePlacementIndicator();
+                        
+                        console.log("Ready to place model");
+                    } catch (e) {
+                        console.error("Error processing loaded model:", e);
+                        selectedModel = createFallbackModel();
+                        placementIndicator.material.color.set(0xff8800); // Orange for partial error
+                    }
                 },
                 function(xhr) {
-                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                    if (xhr.lengthComputable) {
+                        const percentComplete = xhr.loaded / xhr.total * 100;
+                        console.log(percentComplete.toFixed(2) + '% loaded');
+                    } else {
+                        console.log('Loading progress: ' + xhr.loaded + ' bytes');
+                    }
                 },
                 function(error) {
-                    console.error('Error loading model', error);
-                    alert(`Failed to load model: ${modelName}. Check console for details.`);
-                    placementIndicator.material.color.set(0xff0000); // Red on error
+                    clearTimeout(loadTimeout);
+                    console.error('Error loading model:', error);
+                    console.error('Error details:', error.message);
+                    console.error('Model path was:', modelPath);
+                    
+                    // Create a fallback model
+                    selectedModel = createFallbackModel();
+                    placementIndicator.material.color.set(0xff0000); // Red for error
+                    
+                    // Show error in UI
+                    alert(`Failed to load model: ${modelName}\nError: ${error.message}\nCheck console for details.`);
                 }
             );
         }
