@@ -107,7 +107,12 @@
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Log that renderer is initialized
+            console.log("Renderer initialized:", renderer);
             
             // Add orbit controls
             controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -278,9 +283,15 @@
             
             // Load the GLTF model
             const loader = new THREE.GLTFLoader();
+            
+            // Make sure we're using the correct path format
             const modelPath = `/static/models/${category}/${modelName}`;
             
             console.log(`Loading model from: ${modelPath}`);
+            
+            // Show loading feedback
+            placementIndicator.visible = true;
+            placementIndicator.material.color.set(0xffff00); // Yellow while loading
             
             loader.load(
                 modelPath,
@@ -291,13 +302,21 @@
                     selectedModel = gltf.scene;
                     selectedModel.userData = { category, modelName };
                     
+                    // Make model cast and receive shadows
+                    selectedModel.traverse(function(node) {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    
                     // Adjust placeholder size to match model
                     const box = new THREE.Box3().setFromObject(selectedModel);
                     const size = box.getSize(new THREE.Vector3());
                     placementIndicator.scale.set(size.x, size.y, size.z);
                     
-                    // Make sure the indicator is visible
-                    placementIndicator.visible = true;
+                    // Change back to green for placement
+                    placementIndicator.material.color.set(0x00ff00);
                     
                     // Update the indicator position immediately
                     updatePlacementIndicator();
@@ -309,15 +328,22 @@
                 },
                 function(error) {
                     console.error('Error loading model', error);
+                    alert(`Failed to load model: ${modelName}. Check console for details.`);
+                    placementIndicator.material.color.set(0xff0000); // Red on error
                 }
             );
         }
         
         // Place the selected model at the indicator position
         function placeModel() {
-            if (!selectedModel) return;
+            if (!selectedModel) {
+                console.warn("No model selected for placement");
+                return;
+            }
             
             const modelInstance = selectedModel.clone();
+            
+            // Copy position from the indicator
             modelInstance.position.copy(placementIndicator.position);
             
             // Copy userData from the original model
@@ -325,13 +351,23 @@
             
             // Adjust position to account for model origin
             const box = new THREE.Box3().setFromObject(modelInstance);
-            const center = box.getCenter(new THREE.Vector3());
             modelInstance.position.y -= (box.min.y - placementIndicator.position.y + 0.5);
             
+            // Add to scene and tracking array
             scene.add(modelInstance);
-            placedObjects.push(modelInstance); // Add to our tracking array
+            placedObjects.push(modelInstance);
+            
+            // Save to server (optional)
+            // saveModelToServer(modelInstance);
             
             console.log("Model placed at", modelInstance.position);
+            
+            // Flash the indicator to provide feedback
+            const originalColor = placementIndicator.material.color.clone();
+            placementIndicator.material.color.set(0xffffff);
+            setTimeout(() => {
+                placementIndicator.material.color.copy(originalColor);
+            }, 200);
         }
         
         // Delete the model at the indicator position
@@ -382,8 +418,33 @@
             renderer.render(scene, camera);
         }
         
+        // Debug function to check if Three.js is working
+        function checkThreeJsStatus() {
+            console.log("THREE.js version:", THREE.REVISION);
+            console.log("WebGL Renderer:", renderer);
+            console.log("GLTFLoader available:", typeof THREE.GLTFLoader);
+            
+            // Test if we can load a simple model
+            const testLoader = new THREE.GLTFLoader();
+            testLoader.load(
+                '/static/models/buildings/house.gltf',
+                function(gltf) {
+                    console.log("Test model loaded successfully:", gltf);
+                },
+                function(xhr) {
+                    console.log("Test model loading progress:", (xhr.loaded / xhr.total * 100) + '%');
+                },
+                function(error) {
+                    console.error("Test model loading failed:", error);
+                }
+            );
+        }
+        
         // Initialize everything
         init();
+        
+        // Run diagnostics after a short delay
+        setTimeout(checkThreeJsStatus, 1000);
     </script>
 </body>
 </html>
