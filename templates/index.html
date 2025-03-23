@@ -311,8 +311,8 @@
             // Load the GLTF model
             const loader = new THREE.GLTFLoader();
             
-            // Make sure we're using the correct path format
-            const modelPath = `/static/models/${category}/${modelName}`;
+            // Make sure we're using the correct path format - remove any extra slashes
+            const modelPath = `/static/models/${category}/${modelName.replace(/^\//, '')}`;
             
             console.log(`Loading model from: ${modelPath}`);
             
@@ -709,27 +709,68 @@
             console.log("WebGL Renderer:", renderer);
             console.log("GLTFLoader available:", typeof THREE.GLTFLoader);
             
-            // Test if we can load a simple model
-            const testLoader = new THREE.GLTFLoader();
-            testLoader.load(
-                '/static/models/buildings/house.gltf',
-                function(gltf) {
-                    console.log("Test model loaded successfully:", gltf);
-                },
-                function(xhr) {
-                    console.log("Test model loading progress:", (xhr.loaded / xhr.total * 100) + '%');
-                },
-                function(error) {
-                    console.error("Test model loading failed:", error);
-                }
-            );
+            // List all available models from the DOM
+            console.log("Available models in DOM:");
+            document.querySelectorAll('.model-item').forEach(item => {
+                console.log(`- ${item.dataset.category}/${item.dataset.model}`);
+            });
+            
+            // Test if we can load a simple model - try the first available model
+            const firstModel = document.querySelector('.model-item');
+            if (firstModel) {
+                const category = firstModel.dataset.category;
+                const model = firstModel.dataset.model;
+                const testPath = `/static/models/${category}/${model}`;
+                
+                console.log(`Testing model load from: ${testPath}`);
+                
+                const testLoader = new THREE.GLTFLoader();
+                testLoader.load(
+                    testPath,
+                    function(gltf) {
+                        console.log("Test model loaded successfully:", gltf);
+                    },
+                    function(xhr) {
+                        console.log("Test model loading progress:", (xhr.loaded / xhr.total * 100) + '%');
+                    },
+                    function(error) {
+                        console.error("Test model loading failed:", error);
+                        console.error("Error details:", error.message);
+                    }
+                );
+            } else {
+                console.error("No models found in the DOM");
+            }
+        }
+        
+        // Check if static files are accessible
+        function checkStaticFiles() {
+            // Try to fetch a test file
+            fetch('/static/models')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    console.log("Static files directory is accessible");
+                    return response.text();
+                })
+                .then(html => {
+                    console.log("Static directory listing received");
+                })
+                .catch(error => {
+                    console.error("Error accessing static files:", error);
+                    alert("Error accessing model files. The server might not be serving static files correctly.");
+                });
         }
         
         // Initialize everything
         init();
         
         // Run diagnostics after a short delay
-        setTimeout(checkThreeJsStatus, 1000);
+        setTimeout(() => {
+            checkThreeJsStatus();
+            checkStaticFiles();
+        }, 1000);
     </script>
 </body>
 </html>

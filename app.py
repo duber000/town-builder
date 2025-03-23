@@ -1,9 +1,14 @@
 # Import necessary libraries
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import json
 from pygltflib import GLTF2
 import base64
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -21,14 +26,20 @@ MODELS_PATH = os.path.join(os.path.dirname(__file__), 'static', 'models')
 # Helper function to load available models
 def get_available_models():
     models = {}
-    # Scan all subdirectories in the models folder
-    for category in os.listdir(MODELS_PATH):
-        category_path = os.path.join(MODELS_PATH, category)
-        if os.path.isdir(category_path):
-            models[category] = []
-            for model_file in os.listdir(category_path):
-                if model_file.endswith('.gltf'):
-                    models[category].append(model_file)
+    try:
+        # Scan all subdirectories in the models folder
+        for category in os.listdir(MODELS_PATH):
+            category_path = os.path.join(MODELS_PATH, category)
+            if os.path.isdir(category_path):
+                models[category] = []
+                for model_file in os.listdir(category_path):
+                    if model_file.endswith('.gltf'):
+                        models[category].append(model_file)
+                        logger.debug(f"Found model: {category}/{model_file}")
+        
+        logger.info(f"Loaded {sum(len(models[cat]) for cat in models)} models from {len(models)} categories")
+    except Exception as e:
+        logger.error(f"Error loading models: {e}")
     return models
 
 # Routes
@@ -36,7 +47,15 @@ def get_available_models():
 def index():
     """Render the main town builder interface"""
     models = get_available_models()
+    logger.info(f"Rendering index with {sum(len(models[cat]) for cat in models)} models")
     return render_template('index.html', models=models)
+
+# Add a route to serve static files directly (as a fallback)
+@app.route('/static/<path:path>')
+def serve_static(path):
+    """Serve static files directly"""
+    logger.debug(f"Serving static file: {path}")
+    return send_from_directory('static', path)
 
 @app.route('/api/models')
 def list_models():
