@@ -80,17 +80,29 @@ class TownBuilder(ShowBase):
 #                        models[category].append(model_file)
 #        return models
 
-def get_available_models(self):
-    models = {
-        'buildings': []
-    }
-
-    buildings_path = os.path.join(self.models_path, 'buildings')
-    if os.path.exists(buildings_path):
-        if os.path.exists(os.path.join(buildings_path, 'house.gltf')):
-            models['buildings'].append('house.gltf')
-
-    return models
+    def get_available_models(self):
+        models = {
+            'buildings': [],
+            'props': [],
+            'street': [],
+            'park': [],
+            'trees': []
+        }
+        
+        # Check if we're using the static/models path structure
+        static_models_path = os.path.join("static", "models")
+        if os.path.exists(static_models_path):
+            self.models_path = static_models_path
+        
+        # Load models from each category
+        for category in models.keys():
+            category_path = os.path.join(self.models_path, category)
+            if os.path.exists(category_path):
+                for model_file in os.listdir(category_path):
+                    if model_file.endswith('.gltf') and not model_file.endswith('_withoutBase.gltf'):
+                        models[category].append(model_file)
+        
+        return models
     
     def setup_gui(self):
         # Create model categories as buttons
@@ -196,17 +208,33 @@ def get_available_models(self):
                         
     def select_model(self, category, model):
         # Construct the path to the selected model
-        model_path = f"static/models/{category}/{model}.gltf"
-
-        # Load the model
-        self.selected_model = self.loader.loadModel(model_path)
-
-        # Reparent the model to render
-        self.selected_model.reparentTo(self.render)
+        model_path = os.path.join(self.models_path, category, model)
         
-        self.current_model = model
-        self.current_category = category
-        print(f"Selected {model} from {category}")
+        # Remove any existing preview model
+        if hasattr(self, 'preview_model') and self.preview_model:
+            self.preview_model.removeNode()
+        
+        try:
+            # Load the model
+            self.preview_model = self.loader.loadModel(model_path)
+            
+            # Make it semi-transparent for preview
+            self.preview_model.setTransparency(TransparencyAttrib.MAlpha)
+            self.preview_model.setAlphaScale(0.5)
+            
+            # Don't add it to the scene yet - we'll position it during mouse movement
+            self.preview_model.reparentTo(self.render)
+            
+            # Store the model info
+            self.current_model = model
+            self.current_category = category
+            
+            # Switch to place mode
+            self.set_mode("place")
+            
+            print(f"Selected {model} from {category}")
+        except Exception as e:
+            print(f"Error loading model: {e}")
     
     def set_mode(self, mode):
         self.mode = mode
@@ -264,13 +292,18 @@ def get_available_models(self):
                 hit_pos.setX(round(hit_pos.getX() * 2) / 2)
                 hit_pos.setY(round(hit_pos.getY() * 2) / 2)
                 
+                # Update preview model position in place mode
+                if self.mode == "place" and hasattr(self, 'preview_model') and self.preview_model:
+                    self.preview_model.setPos(hit_pos)
+                
                 # If left mouse button is pressed
                 if self.mouseWatcherNode.isButtonDown(MouseButton.one()):
                     if self.mode == "place" and self.current_model:
                         self.place_model(hit_pos)
                     elif self.mode == "delete":
                         self.delete_model(hit_pos)
-                    # Edit mode would involve selecting and then modifying
+                    elif self.mode == "edit":
+                        self.select_for_edit(hit_pos)
         
         return task.cont
     
@@ -281,6 +314,11 @@ def get_available_models(self):
         
         self.last_place_time = self.taskMgr.getTaskTime("MouseTask")
         
+        # Make sure the category exists in town_data
+        if self.current_category not in self.town_data:
+            self.town_data[self.current_category] = []
+        
+        # Create a permanent model (not the preview)
         model_path = os.path.join(self.models_path, self.current_category, self.current_model)
         model = self.loader.loadModel(model_path)
         model.setPos(position)
@@ -299,6 +337,8 @@ def get_available_models(self):
         
         # Store reference to NodePath for deletion
         model.setPythonTag("data", model_data)
+        
+        print(f"Placed {self.current_model} at ({position.getX():.1f}, {position.getY():.1f}, {position.getZ():.1f})")
     
     def delete_model(self, position):
         # Find closest model to clicked position
@@ -331,10 +371,157 @@ def get_available_models(self):
             del self.town_data[closest_category][closest_index]
             print(f"Deleted model at position ({position.getX():.1f}, {position.getY():.1f})")
     
+    def select_for_edit(self, position):
+        """Select a model for editing"""
+        # Find closest model to clicked position
+        min_dist = 1.0  # Maximum distance for selection
+        closest_model = None
+        closest_category = None
+        closest_index = -1
+        closest_np = None
+        
+        for category in self.town_data:
+            for i, model_data in enumerate(self.town_data[category]):
+                model_pos = model_data["position"]
+                dx = model_pos["x"] - position.getX()
+                dy = model_pos["y"] - position.getY()
+                dist = (dx*dx + dy*dy) ** 0.5
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_model = model_data
+                    closest_category = category
+                    closest_index = i
+        
+        if closest_model:
+            # Find the NodePath for this model
+            for np in self.render.getChildren():
+                if hasattr(np, "getPythonTag") and np.getPythonTag("data") == closest_model:
+                    closest_np = np
+                    break
+            
+            if closest_np:
+                # Clear any existing edit UI
+                if hasattr(self, 'edit_frame') and self.edit_frame:
+                    self.edit_frame.destroy()
+                
+                # Create edit UI
+                self.create_edit_ui(closest_model, closest_category, closest_index, closest_np)
+                
+                print(f"Selected model for editing: {closest_model['model']}")
+    
     def save_town(self):
         with open("town_data.json", "w") as f:
             json.dump(self.town_data, f, indent=2)
         print("Town saved to town_data.json")
+    
+    def create_edit_ui(self, model_data, category, index, model_np):
+        """Create UI for editing a model"""
+        self.edit_frame = DirectFrame(frameColor=(0.2, 0.2, 0.2, 0.8),
+                                     frameSize=(-0.3, 0.3, -0.4, 0.4),
+                                     pos=(0, 0, 0))
+        
+        # Title
+        DirectLabel(text=f"Edit {model_data['model']}",
+                   scale=0.05,
+                   pos=(0, 0, 0.35),
+                   parent=self.edit_frame)
+        
+        # Position controls
+        DirectLabel(text="Position:",
+                   scale=0.04,
+                   pos=(-0.2, 0, 0.25),
+                   parent=self.edit_frame,
+                   align=TextNode.ALeft)
+        
+        # X position
+        DirectLabel(text="X:",
+                   scale=0.04,
+                   pos=(-0.25, 0, 0.15),
+                   parent=self.edit_frame,
+                   align=TextNode.ALeft)
+        
+        x_slider = DirectSlider(range=(-10, 10),
+                               value=model_data["position"]["x"],
+                               pos=(0, 0, 0.15),
+                               scale=0.4,
+                               parent=self.edit_frame,
+                               command=lambda v: self.update_model_position(model_np, model_data, 'x', v))
+        
+        # Y position
+        DirectLabel(text="Y:",
+                   scale=0.04,
+                   pos=(-0.25, 0, 0.05),
+                   parent=self.edit_frame,
+                   align=TextNode.ALeft)
+        
+        y_slider = DirectSlider(range=(-10, 10),
+                               value=model_data["position"]["y"],
+                               pos=(0, 0, 0.05),
+                               scale=0.4,
+                               parent=self.edit_frame,
+                               command=lambda v: self.update_model_position(model_np, model_data, 'y', v))
+        
+        # Rotation controls
+        DirectLabel(text="Rotation:",
+                   scale=0.04,
+                   pos=(-0.2, 0, -0.05),
+                   parent=self.edit_frame,
+                   align=TextNode.ALeft)
+        
+        # Heading rotation
+        DirectLabel(text="H:",
+                   scale=0.04,
+                   pos=(-0.25, 0, -0.15),
+                   parent=self.edit_frame,
+                   align=TextNode.ALeft)
+        
+        h_slider = DirectSlider(range=(0, 360),
+                               value=model_data["rotation"]["h"],
+                               pos=(0, 0, -0.15),
+                               scale=0.4,
+                               parent=self.edit_frame,
+                               command=lambda v: self.update_model_rotation(model_np, model_data, 'h', v))
+        
+        # Done button
+        DirectButton(text="Done",
+                    scale=0.05,
+                    pos=(0, 0, -0.35),
+                    parent=self.edit_frame,
+                    command=self.close_edit_ui)
+    
+    def update_model_position(self, model_np, model_data, axis, value):
+        """Update model position based on slider input"""
+        if axis == 'x':
+            model_np.setX(value)
+            model_data["position"]["x"] = value
+        elif axis == 'y':
+            model_np.setY(value)
+            model_data["position"]["y"] = value
+        elif axis == 'z':
+            model_np.setZ(value)
+            model_data["position"]["z"] = value
+    
+    def update_model_rotation(self, model_np, model_data, axis, value):
+        """Update model rotation based on slider input"""
+        if axis == 'h':
+            model_np.setH(value)
+            model_data["rotation"]["h"] = value
+        elif axis == 'p':
+            model_np.setP(value)
+            model_data["rotation"]["p"] = value
+        elif axis == 'r':
+            model_np.setR(value)
+            model_data["rotation"]["r"] = value
+    
+    def close_edit_ui(self):
+        """Close the edit UI"""
+        if hasattr(self, 'edit_frame') and self.edit_frame:
+            self.edit_frame.destroy()
+            self.edit_frame = None
+        
+        # Switch back to place mode
+        self.set_mode("place")
     
     def load_town(self):
         try:

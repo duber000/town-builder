@@ -10,6 +10,8 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 
 - Interactive 3D environment for building a virtual town
 - Drag and drop placement of buildings, roads, and other objects
+- Edit mode for adjusting position and rotation of placed objects
+- Delete mode for removing objects from the scene
 - Save and load town layouts
 
 ## Requirements
