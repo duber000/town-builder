@@ -452,7 +452,7 @@ class TownBuilder(ShowBase):
                                parent=self.edit_frame,
                                command=lambda v: self.update_model_position(model_np, model_data, 'x', v))
         
-        # Y position
+        # Y position (horizontal)
         DirectLabel(text="Y:",
                    scale=0.04,
                    pos=(-0.25, 0, 0.05),
@@ -466,23 +466,37 @@ class TownBuilder(ShowBase):
                                parent=self.edit_frame,
                                command=lambda v: self.update_model_position(model_np, model_data, 'y', v))
         
+        # Z position (height)
+        DirectLabel(text="Z:",
+                   scale=0.04,
+                   pos=(-0.25, 0, -0.05),
+                   parent=self.edit_frame,
+                   align=TextNode.ALeft)
+        
+        z_slider = DirectSlider(range=(0, 5),
+                               value=model_data["position"]["z"],
+                               pos=(0, 0, -0.05),
+                               scale=0.4,
+                               parent=self.edit_frame,
+                               command=lambda v: self.update_model_position(model_np, model_data, 'z', v))
+        
         # Rotation controls
         DirectLabel(text="Rotation:",
                    scale=0.04,
-                   pos=(-0.2, 0, -0.05),
+                   pos=(-0.2, 0, -0.15),
                    parent=self.edit_frame,
                    align=TextNode.ALeft)
         
         # Heading rotation
         DirectLabel(text="H:",
                    scale=0.04,
-                   pos=(-0.25, 0, -0.15),
+                   pos=(-0.25, 0, -0.25),
                    parent=self.edit_frame,
                    align=TextNode.ALeft)
         
         h_slider = DirectSlider(range=(0, 360),
                                value=model_data["rotation"]["h"],
-                               pos=(0, 0, -0.15),
+                               pos=(0, 0, -0.25),
                                scale=0.4,
                                parent=self.edit_frame,
                                command=lambda v: self.update_model_rotation(model_np, model_data, 'h', v))

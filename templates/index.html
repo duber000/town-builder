@@ -556,6 +556,40 @@
             
             positionDiv.appendChild(xDiv);
             
+            // Y position (height)
+            const yDiv = document.createElement('div');
+            yDiv.style.display = 'flex';
+            yDiv.style.alignItems = 'center';
+            yDiv.style.marginBottom = '5px';
+            
+            const yLabel = document.createElement('label');
+            yLabel.textContent = 'Y: ';
+            yLabel.style.width = '30px';
+            yDiv.appendChild(yLabel);
+            
+            const ySlider = document.createElement('input');
+            ySlider.type = 'range';
+            ySlider.min = '0';
+            ySlider.max = '5';
+            ySlider.step = '0.1';
+            ySlider.value = model.position.y;
+            ySlider.style.flex = '1';
+            ySlider.addEventListener('input', function() {
+                model.position.y = parseFloat(this.value);
+            });
+            yDiv.appendChild(ySlider);
+            
+            const yValue = document.createElement('span');
+            yValue.textContent = model.position.y.toFixed(1);
+            yValue.style.width = '30px';
+            yValue.style.textAlign = 'right';
+            ySlider.addEventListener('input', function() {
+                yValue.textContent = parseFloat(this.value).toFixed(1);
+            });
+            yDiv.appendChild(yValue);
+            
+            positionDiv.appendChild(yDiv);
+            
             // Z position (equivalent to Y in the UI for user clarity)
             const zDiv = document.createElement('div');
             zDiv.style.display = 'flex';
