@@ -23,6 +23,7 @@ class TownBuilder(ShowBase):
         # Initialize town data
         self.town_data = {
             "buildings": [],
+            ""
 #            "terrain": [],
 #            "roads": []
         }
@@ -350,3 +351,6 @@ def get_available_models(self):
 # Run the application
 app = TownBuilder()
 app.run()
+
+# Add logging
+print("cats")
