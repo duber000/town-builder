@@ -11,7 +11,8 @@ app = Flask(__name__)
 town_data = {
     "buildings": [],
     "terrain": [],
-    "roads": []
+    "roads": [],
+    "props": []  # Added props category for smaller objects
 }
 
 # Define paths for models
@@ -55,6 +56,52 @@ def update_town():
     town_data = data
     return jsonify({"status": "success"})
 
+@app.route('/api/town/model', methods=['DELETE'])
+def delete_model():
+    """Delete a model from the town layout"""
+    data = request.get_json()
+    model_id = data.get('id')
+    category = data.get('category')
+    position = data.get('position')
+    
+    if not category or (not model_id and not position):
+        return jsonify({"error": "Missing required parameters"}), 400
+    
+    global town_data
+    
+    # If we have an ID, use that for deletion
+    if model_id is not None:
+        for i, model in enumerate(town_data.get(category, [])):
+            if model.get('id') == model_id:
+                town_data[category].pop(i)
+                return jsonify({"status": "success", "message": f"Deleted model with ID {model_id}"})
+    
+    # Otherwise use position for deletion (find closest model)
+    elif position:
+        closest_model_index = -1
+        closest_distance = float('inf')
+        
+        for i, model in enumerate(town_data.get(category, [])):
+            model_pos = model.get('position', {})
+            dx = model_pos.get('x', 0) - position.get('x', 0)
+            dy = model_pos.get('y', 0) - position.get('y', 0)
+            dz = model_pos.get('z', 0) - position.get('z', 0)
+            
+            distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+            
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_model_index = i
+        
+        if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
+            deleted_model = town_data[category].pop(closest_model_index)
+            return jsonify({
+                "status": "success", 
+                "message": f"Deleted model at position ({position.get('x')}, {position.get('y')}, {position.get('z')})"
+            })
+    
+    return jsonify({"error": "Model not found"}), 404
+
 @app.route('/api/model/<category>/<model_name>')
 def get_model_info(category, model_name):
     """Get metadata about a specific model"""
@@ -81,6 +128,35 @@ def get_model_info(category, model_name):
         return jsonify({"error": str(e)}), 500
 
 # Panda3D Integration for rendering (server-side rendering option)
+@app.route('/api/town/model', methods=['PUT'])
+def edit_model():
+    """Edit a model in the town layout (position, rotation, scale)"""
+    data = request.get_json()
+    model_id = data.get('id')
+    category = data.get('category')
+    
+    if not category or not model_id:
+        return jsonify({"error": "Missing required parameters"}), 400
+    
+    global town_data
+    
+    for i, model in enumerate(town_data.get(category, [])):
+        if model.get('id') == model_id:
+            # Update model properties
+            if 'position' in data:
+                town_data[category][i]['position'] = data['position']
+            if 'rotation' in data:
+                town_data[category][i]['rotation'] = data['rotation']
+            if 'scale' in data:
+                town_data[category][i]['scale'] = data['scale']
+                
+            return jsonify({
+                "status": "success", 
+                "message": f"Updated model with ID {model_id}"
+            })
+    
+    return jsonify({"error": "Model not found"}), 404
+
 @app.route('/render_town', methods=['POST'])
 def render_town():
     """Render the town from the server side using Panda3D"""
