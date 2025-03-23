@@ -602,8 +602,7 @@ class TownBuilder(ShowBase):
             self.edit_frame.destroy()
             self.edit_frame = None
         
-        # Switch back to place mode
-        self.set_mode("place")
+        # Stay in edit mode - don't switch back to place mode
     
     def load_town(self):
         try:
