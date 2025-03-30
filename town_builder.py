@@ -25,6 +25,7 @@ class TownBuilder(ShowBase):
         
         # Initialize town data
         self.town_data = {
+            "townName": "My Town",
             "buildings": []
             # "terrain": [],
             # "roads": []
@@ -671,8 +672,9 @@ class TownBuilder(ShowBase):
             if hasattr(self, 'load_message') and self.load_message:
                 self.load_message.destroy()
                 
+            town_name = self.town_data.get("townName", "Unnamed Town")
             self.load_message = DirectLabel(
-                text=f"Town loaded from {filename}",
+                text=f"Town '{town_name}' loaded from {filename}",
                 scale=0.05,
                 pos=(0, 0, 0.9),
                 text_fg=(0, 1, 0, 1),  # Green text
@@ -735,11 +737,37 @@ class TownBuilder(ShowBase):
             parent=self.save_dialog
         )
         
+        # Town name input
+        DirectLabel(
+            text="Town Name:",
+            scale=0.04,
+            pos=(-0.25, 0, 0.08),
+            parent=self.save_dialog,
+            align=TextNode.ALeft
+        )
+        
+        self.town_name_entry = DirectEntry(
+            scale=0.04,
+            pos=(0, 0, 0.08),
+            width=12,
+            initialText=self.town_data.get("townName", "My Town"),
+            parent=self.save_dialog,
+            numLines=1
+        )
+        
         # Default filename
+        DirectLabel(
+            text="Filename:",
+            scale=0.04,
+            pos=(-0.25, 0, 0),
+            parent=self.save_dialog,
+            align=TextNode.ALeft
+        )
+        
         self.save_filename = DirectEntry(
-            scale=0.05,
-            pos=(0, 0, 0.05),
-            width=10,
+            scale=0.04,
+            pos=(0, 0, 0),
+            width=12,
             initialText="town_data.json",
             parent=self.save_dialog,
             numLines=1
@@ -764,8 +792,13 @@ class TownBuilder(ShowBase):
         )
     
     def do_save_town(self):
-        """Actually save the town with the specified filename"""
+        """Actually save the town with the specified filename and name"""
         filename = self.save_filename.get()
+        town_name = self.town_name_entry.get()
+        
+        # Update the town name in the data
+        self.town_data["townName"] = town_name
+        
         self.close_save_dialog()
         self.save_town(filename)
     

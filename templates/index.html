@@ -762,6 +762,21 @@
             title.textContent = 'Save Scene';
             saveDialog.appendChild(title);
             
+            // Town name input
+            const townNameLabel = document.createElement('label');
+            townNameLabel.textContent = 'Town Name: ';
+            townNameLabel.style.display = 'block';
+            townNameLabel.style.marginBottom = '5px';
+            saveDialog.appendChild(townNameLabel);
+            
+            const townNameInput = document.createElement('input');
+            townNameInput.type = 'text';
+            townNameInput.value = 'My Town';
+            townNameInput.style.width = '100%';
+            townNameInput.style.marginBottom = '15px';
+            townNameInput.style.padding = '5px';
+            saveDialog.appendChild(townNameInput);
+            
             // Filename input
             const filenameLabel = document.createElement('label');
             filenameLabel.textContent = 'Filename: ';
@@ -793,7 +808,7 @@
             saveButton.style.cursor = 'pointer';
             saveButton.addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
-                saveSceneToServer(filenameInput.value);
+                saveSceneToServer(filenameInput.value, townNameInput.value);
                 document.body.removeChild(saveDialog);
             });
             buttonsDiv.appendChild(saveButton);
@@ -818,9 +833,10 @@
         }
         
         // Save scene to server
-        function saveSceneToServer(filename) {
+        function saveSceneToServer(filename, townName) {
             // Collect data from all placed objects
             const sceneData = {
+                townName: townName || 'My Town',
                 buildings: [],
                 props: [],
                 street: [],
@@ -979,6 +995,11 @@
                     
                     // Load the town data
                     const townData = data.data;
+                    
+                    // Display town name if available
+                    if (townData.townName) {
+                        showNotification(`Loading town: ${townData.townName}`, 'info');
+                    }
                     
                     // Process each category of objects
                     Object.keys(townData).forEach(category => {
