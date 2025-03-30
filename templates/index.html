@@ -484,9 +484,45 @@
             // Copy userData from the original model
             modelInstance.userData = { ...selectedModel.userData };
             
-            // Adjust position to account for model origin
-            const box = new THREE.Box3().setFromObject(modelInstance);
-            modelInstance.position.y -= (box.min.y - placementIndicator.position.y + 0.5);
+            // Check if we're placing a vehicle on a road
+            const isVehicle = modelInstance.userData.category === 'vehicles';
+            let placedOnRoad = false;
+            
+            // If it's a vehicle, check if we're placing it on a road
+            if (isVehicle) {
+                // Find if there's a road model at this position
+                for (const object of placedObjects) {
+                    if (object.userData && 
+                        object.userData.category === 'street' && 
+                        object.userData.modelName.toLowerCase().includes('road')) {
+                        
+                        // Check if the vehicle is close to the road
+                        const distance = modelInstance.position.distanceTo(object.position);
+                        if (distance < 2) { // Within 2 units of the road
+                            // Get the bounding box of the road
+                            const roadBox = new THREE.Box3().setFromObject(object);
+                            const roadHeight = roadBox.max.y;
+                            
+                            // Get the bounding box of the vehicle
+                            const vehicleBox = new THREE.Box3().setFromObject(modelInstance);
+                            const vehicleHeight = vehicleBox.max.y - vehicleBox.min.y;
+                            
+                            // Place the vehicle on top of the road
+                            modelInstance.position.y = roadHeight + (vehicleHeight / 2);
+                            placedOnRoad = true;
+                            console.log("Placed vehicle on road at height:", modelInstance.position.y);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // If not a vehicle or not placed on road, adjust position normally
+            if (!isVehicle || !placedOnRoad) {
+                // Adjust position to account for model origin
+                const box = new THREE.Box3().setFromObject(modelInstance);
+                modelInstance.position.y -= (box.min.y - placementIndicator.position.y + 0.5);
+            }
             
             // Add to scene and tracking array
             scene.add(modelInstance);
@@ -1128,6 +1164,50 @@
                             node.receiveShadow = true;
                         }
                     });
+                    
+                    // Check if this is a vehicle that should be placed on a road
+                    const isVehicle = category === 'vehicles';
+                    let placedOnRoad = false;
+                    
+                    // If it's a vehicle, check if there's a road underneath
+                    if (isVehicle) {
+                        // Find if there's a road model at this position
+                        for (const object of placedObjects) {
+                            if (object.userData && 
+                                object.userData.category === 'street' && 
+                                object.userData.modelName.toLowerCase().includes('road')) {
+                                
+                                // Check if the vehicle is close to the road (horizontally)
+                                const vehiclePos = new THREE.Vector3(
+                                    modelData.position.x, 
+                                    0, 
+                                    modelData.position.z
+                                );
+                                const roadPos = new THREE.Vector3(
+                                    object.position.x,
+                                    0,
+                                    object.position.z
+                                );
+                                const distance = vehiclePos.distanceTo(roadPos);
+                                
+                                if (distance < 2) { // Within 2 units of the road
+                                    // Get the bounding box of the road
+                                    const roadBox = new THREE.Box3().setFromObject(object);
+                                    const roadHeight = roadBox.max.y;
+                                    
+                                    // Get the bounding box of the vehicle
+                                    const vehicleBox = new THREE.Box3().setFromObject(model);
+                                    const vehicleHeight = vehicleBox.max.y - vehicleBox.min.y;
+                                    
+                                    // Place the vehicle on top of the road
+                                    model.position.y = roadHeight + (vehicleHeight / 2);
+                                    placedOnRoad = true;
+                                    console.log("Placed loaded vehicle on road at height:", model.position.y);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     
                     // Add to scene and tracking array
                     scene.add(model);
