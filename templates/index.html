@@ -10,6 +10,21 @@
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
         #canvas-container { width: 100%; height: 100%; display: block; }
+        #town-name-display {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 1000;
+            text-align: center;
+            min-width: 200px;
+        }
         #toolbar {
             position: absolute;
             top: 10px;
@@ -69,6 +84,7 @@
     </style>
 </head>
 <body>
+    <div id="town-name-display">My Town</div>
     <div id="toolbar">
         <h3>Town Builder</h3>
         <div class="mode-buttons">
@@ -808,7 +824,10 @@
             saveButton.style.cursor = 'pointer';
             saveButton.addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
-                saveSceneToServer(filenameInput.value, townNameInput.value);
+                const townName = townNameInput.value;
+                saveSceneToServer(filenameInput.value, townName);
+                // Update the town name display
+                document.getElementById('town-name-display').textContent = townName;
                 document.body.removeChild(saveDialog);
             });
             buttonsDiv.appendChild(saveButton);
@@ -999,6 +1018,8 @@
                     // Display town name if available
                     if (townData.townName) {
                         showNotification(`Loading town: ${townData.townName}`, 'info');
+                        // Update the town name display
+                        document.getElementById('town-name-display').textContent = townData.townName;
                     }
                     
                     // Process each category of objects
