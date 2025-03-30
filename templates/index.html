@@ -1491,5 +1491,152 @@
             checkStaticFiles();
         }, 1000);
     </script>
+    <!-- Flash messages container -->
+    <div id="flash-messages-container"></div>
+    
+    <!-- Flash messages script -->
+    <script>
+        // Function to show notification with API error messages
+        function showApiErrorNotification(message, type = 'error') {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.padding = '10px 20px';
+            notification.style.borderRadius = '5px';
+            notification.style.color = 'white';
+            notification.style.zIndex = '2000';
+            notification.style.maxWidth = '300px';
+            
+            // Set color based on type
+            if (type === 'error') {
+                notification.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+            } else if (type === 'success') {
+                notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
+            } else {
+                notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
+            }
+            
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.style.float = 'right';
+            closeBtn.style.border = 'none';
+            closeBtn.style.background = 'transparent';
+            closeBtn.style.color = 'white';
+            closeBtn.style.fontSize = '20px';
+            closeBtn.style.marginLeft = '10px';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.onclick = function() {
+                document.body.removeChild(notification);
+            };
+            
+            notification.prepend(closeBtn);
+            document.body.appendChild(notification);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 5000);
+        }
+        
+        // Function to check for API errors after fetch requests
+        const originalFetch = window.fetch;
+        window.fetch = function() {
+            return originalFetch.apply(this, arguments)
+                .then(response => {
+                    // Clone the response so we can read it twice
+                    const responseClone = response.clone();
+                    
+                    // Process the response to check for errors
+                    if (!response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                        responseClone.json().then(data => {
+                            if (data.error) {
+                                showApiErrorNotification(data.error);
+                            } else if (data.detail) {
+                                showApiErrorNotification(data.detail);
+                            } else if (data.message) {
+                                showApiErrorNotification(data.message);
+                            }
+                        }).catch(() => {
+                            // If we can't parse JSON, just show the status
+                            if (!response.ok) {
+                                showApiErrorNotification(`API Error: ${response.status} ${response.statusText}`);
+                            }
+                        });
+                    }
+                    
+                    // Check for specific error messages in the response
+                    if (response.url.includes('/api/proxy/towns') && response.status === 400) {
+                        responseClone.text().then(text => {
+                            if (text.includes('town with this name already exists')) {
+                                showApiErrorNotification('A town with this name already exists. Please choose a different name.');
+                            }
+                        });
+                    }
+                    
+                    return response;
+                })
+                .catch(error => {
+                    showApiErrorNotification(`Network error: ${error.message}`);
+                    throw error;
+                });
+        };
+        
+        // Override the saveTownToAPI function to handle errors better
+        const originalSaveTownToAPI = window.saveTownToAPI;
+        window.saveTownToAPI = function(townName) {
+            // Create the town data for the API
+            const townData = {
+                name: townName || 'My Town',
+                description: "Created Through Town Builder.",
+                area: 1,
+                population: 1
+            };
+            
+            // Get API details from the server
+            fetch('/api/config')
+                .then(response => response.json())
+                .then(config => {
+                    // Send to the external API with JWT token
+                    return fetch(config.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.token}`
+                        },
+                        body: JSON.stringify(townData)
+                    });
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            try {
+                                const data = JSON.parse(text);
+                                throw new Error(data.detail || data.message || data.error || `HTTP error! status: ${response.status}`);
+                            } catch (e) {
+                                if (text.includes('town with this name already exists')) {
+                                    throw new Error('A town with this name already exists. Please choose a different name.');
+                                } else {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                            }
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Town saved to external API:', data);
+                    showNotification('Town saved to external API', 'success');
+                })
+                .catch(error => {
+                    console.error('Error saving town to external API:', error);
+                    showApiErrorNotification(error.message);
+                });
+        };
+    </script>
 </body>
 </html>
