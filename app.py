@@ -80,6 +80,10 @@ def save_town():
     """Save the town layout to a file"""
     try:
         filename = request.json.get('filename', 'town_data.json')
+        data = request.json.get('data')
+        
+        # If data is provided in the request, use it instead of global town_data
+        save_data = data if data is not None else town_data
         
         # Ensure the filename has .json extension
         if not filename.endswith('.json'):
@@ -87,7 +91,7 @@ def save_town():
             
         # Save the town data to the file
         with open(filename, 'w') as f:
-            json.dump(town_data, f, indent=2)
+            json.dump(save_data, f, indent=2)
             
         logger.info(f"Town saved to {filename}")
         return jsonify({"status": "success", "message": f"Town saved to {filename}"})

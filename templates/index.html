@@ -90,6 +90,7 @@
         </div>
         <div style="margin-top: 10px;">
             <button id="clear-scene">Clear Scene</button>
+            <button id="save-scene" style="margin-left: 10px;">Save Scene</button>
         </div>
     </div>
     
@@ -211,6 +212,11 @@
             // Clear scene button
             document.getElementById('clear-scene').addEventListener('click', function() {
                 clearScene();
+            });
+            
+            // Save scene button
+            document.getElementById('save-scene').addEventListener('click', function() {
+                showSaveDialog();
             });
             
             // Start animation loop
@@ -722,6 +728,176 @@
             document.addEventListener('keyup', function(event) {
                 keysPressed[event.key.toLowerCase()] = false;
             });
+        }
+        
+        // Show save dialog
+        function showSaveDialog() {
+            // Create dialog container
+            const saveDialog = document.createElement('div');
+            saveDialog.id = 'save-dialog';
+            saveDialog.style.position = 'absolute';
+            saveDialog.style.top = '50%';
+            saveDialog.style.left = '50%';
+            saveDialog.style.transform = 'translate(-50%, -50%)';
+            saveDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            saveDialog.style.color = 'white';
+            saveDialog.style.padding = '20px';
+            saveDialog.style.borderRadius = '5px';
+            saveDialog.style.zIndex = '1000';
+            
+            // Add title
+            const title = document.createElement('h3');
+            title.textContent = 'Save Scene';
+            saveDialog.appendChild(title);
+            
+            // Filename input
+            const filenameLabel = document.createElement('label');
+            filenameLabel.textContent = 'Filename: ';
+            filenameLabel.style.display = 'block';
+            filenameLabel.style.marginBottom = '5px';
+            saveDialog.appendChild(filenameLabel);
+            
+            const filenameInput = document.createElement('input');
+            filenameInput.type = 'text';
+            filenameInput.value = 'town_data.json';
+            filenameInput.style.width = '100%';
+            filenameInput.style.marginBottom = '15px';
+            filenameInput.style.padding = '5px';
+            saveDialog.appendChild(filenameInput);
+            
+            // Buttons container
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.style.display = 'flex';
+            buttonsDiv.style.justifyContent = 'space-between';
+            
+            // Save button
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Save';
+            saveButton.style.padding = '5px 15px';
+            saveButton.style.backgroundColor = '#2a2';
+            saveButton.style.color = 'white';
+            saveButton.style.border = 'none';
+            saveButton.style.borderRadius = '3px';
+            saveButton.style.cursor = 'pointer';
+            saveButton.addEventListener('click', function() {
+                saveSceneToServer(filenameInput.value);
+                document.body.removeChild(saveDialog);
+            });
+            buttonsDiv.appendChild(saveButton);
+            
+            // Cancel button
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.padding = '5px 15px';
+            cancelButton.style.backgroundColor = '#555';
+            cancelButton.style.color = 'white';
+            cancelButton.style.border = 'none';
+            cancelButton.style.borderRadius = '3px';
+            cancelButton.style.cursor = 'pointer';
+            cancelButton.addEventListener('click', function() {
+                document.body.removeChild(saveDialog);
+            });
+            buttonsDiv.appendChild(cancelButton);
+            
+            saveDialog.appendChild(buttonsDiv);
+            document.body.appendChild(saveDialog);
+        }
+        
+        // Save scene to server
+        function saveSceneToServer(filename) {
+            // Collect data from all placed objects
+            const sceneData = {
+                buildings: [],
+                props: [],
+                street: [],
+                park: [],
+                trees: []
+            };
+            
+            placedObjects.forEach(object => {
+                if (object.userData && object.userData.category) {
+                    const category = object.userData.category;
+                    const modelName = object.userData.modelName;
+                    
+                    // Create model data
+                    const modelData = {
+                        model: modelName,
+                        position: {
+                            x: object.position.x,
+                            y: object.position.y,
+                            z: object.position.z
+                        },
+                        rotation: {
+                            h: (object.rotation.y * 180 / Math.PI) % 360,
+                            p: (object.rotation.x * 180 / Math.PI) % 360,
+                            r: (object.rotation.z * 180 / Math.PI) % 360
+                        },
+                        scale: object.scale.x // Assuming uniform scale
+                    };
+                    
+                    // Add to appropriate category
+                    if (sceneData[category]) {
+                        sceneData[category].push(modelData);
+                    } else {
+                        // If category doesn't exist yet, create it
+                        sceneData[category] = [modelData];
+                    }
+                }
+            });
+            
+            // Send to server
+            fetch('/api/town/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: filename,
+                    data: sceneData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification(`Scene saved as ${filename}`, 'success');
+                } else {
+                    showNotification(`Error: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving scene:', error);
+                showNotification('Error saving scene', 'error');
+            });
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.left = '50%';
+            notification.style.transform = 'translateX(-50%)';
+            notification.style.padding = '10px 20px';
+            notification.style.borderRadius = '5px';
+            notification.style.color = 'white';
+            notification.style.zIndex = '2000';
+            
+            // Set color based on type
+            if (type === 'success') {
+                notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
+            } else if (type === 'error') {
+                notification.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+            } else {
+                notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
         }
         
         // Process keyboard input
