@@ -951,6 +951,9 @@
                 trees: []
             };
             
+            // Also save to the towns API
+            saveTownToAPI(townName);
+            
             placedObjects.forEach(object => {
                 if (object.userData && object.userData.category) {
                     const category = object.userData.category;
@@ -1302,6 +1305,9 @@
             
             // Save the town name change to the server
             saveTownNameToServer(newTownName);
+            
+            // Also save to the towns API
+            saveTownToAPI(newTownName);
         }
         
         // Save town name to server
@@ -1325,6 +1331,40 @@
             })
             .catch(error => {
                 console.error('Error saving town name:', error);
+            });
+        }
+        
+        // Save town to external API
+        function saveTownToAPI(townName) {
+            // Create the town data for the API
+            const townData = {
+                name: townName || 'My Town',
+                description: "Created Through Town Builder.",
+                area: 1,
+                population: 1
+            };
+            
+            // Send to the external API
+            fetch('http://localhost:8000/api/towns/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(townData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Town saved to external API:', data);
+                showNotification('Town saved to external API', 'success');
+            })
+            .catch(error => {
+                console.error('Error saving town to external API:', error);
+                showNotification('Error saving town to external API', 'error');
             });
         }
         
