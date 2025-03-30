@@ -72,7 +72,18 @@ def update_town():
     """Update the town layout"""
     data = request.get_json()
     global town_data
-    town_data = data
+    
+    # If we're just updating the town name
+    if 'townName' in data and len(data) == 1:
+        if 'townName' not in town_data:
+            town_data['townName'] = data['townName']
+        else:
+            town_data['townName'] = data['townName']
+        logger.info(f"Updated town name to: {data['townName']}")
+    else:
+        # Full town data update
+        town_data = data
+    
     return jsonify({"status": "success"})
 
 @app.route('/api/town/save', methods=['POST'])

@@ -24,6 +24,19 @@
             z-index: 1000;
             text-align: center;
             min-width: 200px;
+            cursor: pointer;
+        }
+        #town-name-input {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid #555;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px 15px;
+            width: 200px;
+            display: none;
         }
         #toolbar {
             position: absolute;
@@ -84,7 +97,10 @@
     </style>
 </head>
 <body>
-    <div id="town-name-display">My Town</div>
+    <div id="town-name-container" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000;">
+        <div id="town-name-display">My Town</div>
+        <input id="town-name-input" type="text" value="My Town">
+    </div>
     <div id="toolbar">
         <h3>Town Builder</h3>
         <div class="mode-buttons">
@@ -242,6 +258,24 @@
             document.getElementById('load-scene').addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
                 showLoadDialog();
+            });
+            
+            // Town name display click to edit
+            document.getElementById('town-name-display').addEventListener('click', function(event) {
+                event.stopPropagation();
+                startEditingTownName();
+            });
+            
+            // Town name input blur event
+            document.getElementById('town-name-input').addEventListener('blur', function() {
+                finishEditingTownName();
+            });
+            
+            // Town name input keypress event
+            document.getElementById('town-name-input').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    finishEditingTownName();
+                }
             });
             
             // Start animation loop
@@ -787,7 +821,7 @@
             
             const townNameInput = document.createElement('input');
             townNameInput.type = 'text';
-            townNameInput.value = 'My Town';
+            townNameInput.value = document.getElementById('town-name-display').textContent;
             townNameInput.style.width = '100%';
             townNameInput.style.marginBottom = '15px';
             townNameInput.style.padding = '5px';
@@ -1135,6 +1169,66 @@
             setTimeout(() => {
                 document.body.removeChild(notification);
             }, 3000);
+        }
+        
+        // Start editing town name
+        function startEditingTownName() {
+            const displayElement = document.getElementById('town-name-display');
+            const inputElement = document.getElementById('town-name-input');
+            
+            // Set input value to current town name
+            inputElement.value = displayElement.textContent;
+            
+            // Hide display, show input
+            displayElement.style.display = 'none';
+            inputElement.style.display = 'block';
+            
+            // Focus input
+            inputElement.focus();
+            inputElement.select();
+        }
+        
+        // Finish editing town name
+        function finishEditingTownName() {
+            const displayElement = document.getElementById('town-name-display');
+            const inputElement = document.getElementById('town-name-input');
+            
+            // Get new town name
+            const newTownName = inputElement.value.trim() || 'My Town';
+            
+            // Update display
+            displayElement.textContent = newTownName;
+            
+            // Hide input, show display
+            inputElement.style.display = 'none';
+            displayElement.style.display = 'block';
+            
+            // Save the town name change to the server
+            saveTownNameToServer(newTownName);
+        }
+        
+        // Save town name to server
+        function saveTownNameToServer(townName) {
+            fetch('/api/town', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    townName: townName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('Town name saved successfully');
+                } else {
+                    console.error('Error saving town name:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving town name:', error);
+            });
         }
         
         // Process keyboard input
