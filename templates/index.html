@@ -91,6 +91,7 @@
         <div style="margin-top: 10px;">
             <button id="clear-scene">Clear Scene</button>
             <button id="save-scene" style="margin-left: 10px;">Save Scene</button>
+            <button id="load-scene" style="margin-left: 10px;">Load Scene</button>
         </div>
     </div>
     
@@ -219,6 +220,12 @@
             document.getElementById('save-scene').addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
                 showSaveDialog();
+            });
+            
+            // Load scene button
+            document.getElementById('load-scene').addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
+                showLoadDialog();
             });
             
             // Start animation loop
@@ -875,6 +882,187 @@
                 console.error('Error saving scene:', error);
                 showNotification('Error saving scene', 'error');
             });
+        }
+        
+        // Show load dialog
+        function showLoadDialog() {
+            // Create dialog container
+            const loadDialog = document.createElement('div');
+            loadDialog.id = 'load-dialog';
+            loadDialog.style.position = 'absolute';
+            loadDialog.style.top = '50%';
+            loadDialog.style.left = '50%';
+            loadDialog.style.transform = 'translate(-50%, -50%)';
+            loadDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            loadDialog.style.color = 'white';
+            loadDialog.style.padding = '20px';
+            loadDialog.style.borderRadius = '5px';
+            loadDialog.style.zIndex = '1000';
+            
+            // Add title
+            const title = document.createElement('h3');
+            title.textContent = 'Load Scene';
+            loadDialog.appendChild(title);
+            
+            // Filename input
+            const filenameLabel = document.createElement('label');
+            filenameLabel.textContent = 'Filename: ';
+            filenameLabel.style.display = 'block';
+            filenameLabel.style.marginBottom = '5px';
+            loadDialog.appendChild(filenameLabel);
+            
+            const filenameInput = document.createElement('input');
+            filenameInput.type = 'text';
+            filenameInput.value = 'town_data.json';
+            filenameInput.style.width = '100%';
+            filenameInput.style.marginBottom = '15px';
+            filenameInput.style.padding = '5px';
+            loadDialog.appendChild(filenameInput);
+            
+            // Buttons container
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.style.display = 'flex';
+            buttonsDiv.style.justifyContent = 'space-between';
+            
+            // Load button
+            const loadButton = document.createElement('button');
+            loadButton.textContent = 'Load';
+            loadButton.style.padding = '5px 15px';
+            loadButton.style.backgroundColor = '#2a2';
+            loadButton.style.color = 'white';
+            loadButton.style.border = 'none';
+            loadButton.style.borderRadius = '3px';
+            loadButton.style.cursor = 'pointer';
+            loadButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
+                loadSceneFromServer(filenameInput.value);
+                document.body.removeChild(loadDialog);
+            });
+            buttonsDiv.appendChild(loadButton);
+            
+            // Cancel button
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.padding = '5px 15px';
+            cancelButton.style.backgroundColor = '#555';
+            cancelButton.style.color = 'white';
+            cancelButton.style.border = 'none';
+            cancelButton.style.borderRadius = '3px';
+            cancelButton.style.cursor = 'pointer';
+            cancelButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
+                document.body.removeChild(loadDialog);
+            });
+            buttonsDiv.appendChild(cancelButton);
+            
+            loadDialog.appendChild(buttonsDiv);
+            document.body.appendChild(loadDialog);
+        }
+        
+        // Load scene from server
+        function loadSceneFromServer(filename) {
+            // Send request to server
+            fetch('/api/town/load', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: filename
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Clear existing scene
+                    clearScene();
+                    
+                    // Load the town data
+                    const townData = data.data;
+                    
+                    // Process each category of objects
+                    Object.keys(townData).forEach(category => {
+                        if (Array.isArray(townData[category])) {
+                            townData[category].forEach(modelData => {
+                                // Load each model
+                                loadModelFromData(category, modelData);
+                            });
+                        }
+                    });
+                    
+                    showNotification(`Scene loaded from ${filename}`, 'success');
+                } else {
+                    showNotification(`Error: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading scene:', error);
+                showNotification('Error loading scene', 'error');
+            });
+        }
+        
+        // Load a model from data
+        function loadModelFromData(category, modelData) {
+            const modelPath = `/static/models/${category}/${modelData.model}`;
+            
+            // Load the model
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                modelPath,
+                function(gltf) {
+                    const model = gltf.scene;
+                    
+                    // Set position
+                    if (modelData.position) {
+                        model.position.set(
+                            modelData.position.x,
+                            modelData.position.y,
+                            modelData.position.z
+                        );
+                    }
+                    
+                    // Set rotation
+                    if (modelData.rotation) {
+                        // Convert from degrees to radians
+                        model.rotation.set(
+                            modelData.rotation.p * Math.PI / 180,
+                            modelData.rotation.h * Math.PI / 180,
+                            modelData.rotation.r * Math.PI / 180
+                        );
+                    }
+                    
+                    // Set scale if available
+                    if (modelData.scale) {
+                        const scale = typeof modelData.scale === 'number' ? 
+                            modelData.scale : 1.0;
+                        model.scale.set(scale, scale, scale);
+                    }
+                    
+                    // Store metadata
+                    model.userData = { 
+                        category: category,
+                        modelName: modelData.model,
+                        id: modelData.id
+                    };
+                    
+                    // Make model cast and receive shadows
+                    model.traverse(function(node) {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    
+                    // Add to scene and tracking array
+                    scene.add(model);
+                    placedObjects.push(model);
+                },
+                undefined,
+                function(error) {
+                    console.error('Error loading model:', error);
+                    showNotification(`Error loading model: ${modelData.model}`, 'error');
+                }
+            );
         }
         
         // Show notification
