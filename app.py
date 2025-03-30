@@ -7,6 +7,7 @@ import base64
 import logging
 import dotenv
 from os import getenv
+from flask_cors import CORS
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 dotenv.load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 
 # Get JWT token from environment variable
 API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
