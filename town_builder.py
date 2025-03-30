@@ -799,6 +799,37 @@ class TownBuilder(ShowBase):
         # Update the town name in the data
         self.town_data["townName"] = town_name
         
+        # Save to external API if environment variable is set
+        import os
+        api_token = os.environ.get('TOWN_API_JWT_TOKEN')
+        api_url = os.environ.get('TOWN_API_URL', 'http://localhost:8000/api/towns/')
+        
+        if api_token:
+            try:
+                import requests
+                # Create the town data for the API
+                town_data = {
+                    "name": town_name,
+                    "description": "Created Through Town Builder.",
+                    "area": 1,
+                    "population": 1
+                }
+                
+                # Send to the external API with JWT token
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {api_token}'
+                }
+                
+                response = requests.post(api_url, json=town_data, headers=headers)
+                
+                if response.status_code == 200 or response.status_code == 201:
+                    print(f"Town '{town_name}' saved to external API")
+                else:
+                    print(f"Error saving town to API: {response.status_code} - {response.text}")
+            except Exception as e:
+                print(f"Error saving town to API: {e}")
+        
         self.close_save_dialog()
         self.save_town(filename)
     

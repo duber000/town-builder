@@ -1344,14 +1344,20 @@
                 population: 1
             };
             
-            // Send to the external API
-            fetch('http://localhost:8000/api/towns/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(townData)
-            })
+            // Get API details from the server
+            fetch('/api/config')
+                .then(response => response.json())
+                .then(config => {
+                    // Send to the external API with JWT token
+                    return fetch(config.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.token}`
+                        },
+                        body: JSON.stringify(townData)
+                    });
+                })
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);

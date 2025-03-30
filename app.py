@@ -5,12 +5,21 @@ import json
 from pygltflib import GLTF2
 import base64
 import logging
+import dotenv
+from os import getenv
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+dotenv.load_dotenv()
+
 app = Flask(__name__)
+
+# Get JWT token from environment variable
+API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
+API_URL = getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
 
 # Store our town layout
 town_data = {
@@ -109,6 +118,14 @@ def save_town():
     except Exception as e:
         logger.error(f"Error saving town: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/config')
+def get_api_config():
+    """Get API configuration including JWT token"""
+    return jsonify({
+        "token": API_TOKEN,
+        "apiUrl": API_URL
+    })
 
 @app.route('/api/town/load', methods=['POST'])
 def load_town():
