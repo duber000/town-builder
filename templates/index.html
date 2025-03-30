@@ -1478,7 +1478,7 @@
                 })
                 .catch(error => {
                     console.error("Error accessing static files:", error);
-                    alert("Error accessing model files. The server might not be serving static files correctly.");
+                    // Only log to console, no popup alert
                 });
         }
         
