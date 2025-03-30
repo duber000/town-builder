@@ -5,7 +5,11 @@ build/
 dist/
 wheels/
 *.egg-info
+.env
 
 # Virtual environments
 .venv
 .aider*
+
+#Local Test
+town_data.json
