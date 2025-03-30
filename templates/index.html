@@ -609,6 +609,17 @@
             editUI.style.borderRadius = '5px';
             editUI.style.zIndex = '1000';
             
+            // Prevent clicks on the edit UI from propagating to the canvas
+            editUI.addEventListener('click', function(event) {
+                event.stopPropagation();
+            });
+            editUI.addEventListener('mousedown', function(event) {
+                event.stopPropagation();
+            });
+            editUI.addEventListener('mouseup', function(event) {
+                event.stopPropagation();
+            });
+            
             // Add title
             const title = document.createElement('h3');
             title.textContent = 'Edit Model';
@@ -641,7 +652,8 @@
             xSlider.step = '0.5';
             xSlider.value = model.position.x;
             xSlider.style.flex = '1';
-            xSlider.addEventListener('input', function() {
+            xSlider.addEventListener('input', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 model.position.x = parseFloat(this.value);
             });
             xDiv.appendChild(xSlider);
@@ -675,7 +687,8 @@
             ySlider.step = '0.1';
             ySlider.value = model.position.y;
             ySlider.style.flex = '1';
-            ySlider.addEventListener('input', function() {
+            ySlider.addEventListener('input', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 model.position.y = parseFloat(this.value);
             });
             yDiv.appendChild(ySlider);
@@ -709,7 +722,8 @@
             zSlider.step = '0.5';
             zSlider.value = model.position.z;
             zSlider.style.flex = '1';
-            zSlider.addEventListener('input', function() {
+            zSlider.addEventListener('input', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 model.position.z = parseFloat(this.value);
             });
             zDiv.appendChild(zSlider);
@@ -752,7 +766,8 @@
             yRotSlider.step = '5';
             yRotSlider.value = (model.rotation.y * 180 / Math.PI) % 360;
             yRotSlider.style.flex = '1';
-            yRotSlider.addEventListener('input', function() {
+            yRotSlider.addEventListener('input', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 model.rotation.y = parseFloat(this.value) * Math.PI / 180;
             });
             yRotDiv.appendChild(yRotSlider);
