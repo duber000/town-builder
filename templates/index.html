@@ -68,6 +68,8 @@
         }
         #edit-ui {
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            max-height: 80vh; /* Limit height */
+            overflow-y: auto; /* Add scroll if needed */
         }
         #edit-ui button {
             background-color: #2a2;
@@ -94,6 +96,34 @@
         .model-item:hover {
             background-color: #555;
         }
+        /* Style for sliders in edit UI */
+        #edit-ui input[type=range] {
+            width: 150px; /* Adjust width as needed */
+            margin: 0 10px;
+        }
+        #edit-ui .slider-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        #edit-ui .slider-label {
+            width: 30px;
+            text-align: right;
+            margin-right: 5px;
+        }
+        #edit-ui .slider-value {
+            width: 40px; /* Increased width for color values */
+            text-align: right;
+        }
+        #edit-ui .color-preview {
+            width: 30px;
+            height: 20px;
+            border: 1px solid #fff;
+            margin-left: 10px;
+            display: inline-block; /* Make it inline */
+            vertical-align: middle; /* Align with text */
+        }
+
     </style>
 </head>
 <body>
@@ -126,9 +156,9 @@
             <button id="load-scene" style="margin-left: 10px;">Load Scene</button>
         </div>
     </div>
-    
+
     <div id="canvas-container"></div>
-    
+
     <script>
         // Basic Three.js setup
         let scene, camera, renderer, controls;
@@ -139,21 +169,21 @@
         let placementIndicator = null;
         let placedObjects = []; // Keep track of placed objects
         let selectedEditModel = null; // Currently selected model for editing
-        
+
         // Initialize the scene
         function init() {
             // Create scene
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB); // Sky blue
-            
+
             // Create camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(5, 5, 5);
             camera.lookAt(0, 0, 0);
-            
+
             // Setup keyboard controls
             setupKeyboardControls();
-            
+
             // Create renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -161,13 +191,13 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.outputEncoding = THREE.sRGBEncoding;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
-            
+
             // Log that renderer is initialized
             console.log("Renderer initialized:", renderer);
-            
+
             // Add orbit controls
             controls = new THREE.OrbitControls(camera, renderer.domElement);
-            
+
             // Add ground plane
             const planeGeometry = new THREE.PlaneGeometry(20, 20);
             const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x2E8B57 }); // Dark green (Sea Green)
@@ -175,21 +205,21 @@
             groundPlane.rotation.x = -Math.PI / 2;
             groundPlane.receiveShadow = true;
             scene.add(groundPlane);
-            
+
             // Add ambient light
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             scene.add(ambientLight);
-            
+
             // Add directional light (sun)
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(5, 10, 5);
             directionalLight.castShadow = true;
             scene.add(directionalLight);
-            
+
             // Setup raycaster for mouse picking
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
-            
+
             // Create placement indicator (transparent cube)
             const indicatorGeometry = new THREE.BoxGeometry(1, 1, 1);
             const indicatorMaterial = new THREE.MeshBasicMaterial({
@@ -200,12 +230,12 @@
             placementIndicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
             placementIndicator.visible = false;
             scene.add(placementIndicator);
-            
+
             // Event listeners
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('click', onMouseClick);
-            
+
             // Model selection - dynamic event listeners
             document.querySelectorAll('.model-item').forEach(item => {
                 item.addEventListener('click', function(event) {
@@ -216,7 +246,7 @@
                     selectModel(category, model);
                 });
             });
-            
+
             // Mode buttons
             document.querySelectorAll('.mode-button').forEach(button => {
                 button.addEventListener('click', function() {
@@ -225,11 +255,11 @@
                         btn.classList.remove('active');
                     });
                     this.classList.add('active');
-                    
+
                     // Set current mode
                     currentMode = this.dataset.mode;
                     console.log(`Mode set to: ${currentMode}`);
-                    
+
                     // Update UI based on mode
                     if (currentMode === "place") {
                         placementIndicator.material.color.set(0x00ff00); // Green for place
@@ -241,68 +271,68 @@
                     }
                 });
             });
-            
+
             // Clear scene button
             document.getElementById('clear-scene').addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
-                
+
                 // Show confirmation dialog
                 if (confirm("Are ya sure you want to clear the scene?")) {
                     clearScene();
                 }
             });
-            
+
             // Save scene button
             document.getElementById('save-scene').addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
                 showSaveDialog();
             });
-            
+
             // Load scene button
             document.getElementById('load-scene').addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
                 showLoadDialog();
             });
-            
+
             // Town name display click to edit
             document.getElementById('town-name-display').addEventListener('click', function(event) {
                 event.stopPropagation();
                 startEditingTownName();
             });
-            
+
             // Town name input blur event
             document.getElementById('town-name-input').addEventListener('blur', function() {
                 finishEditingTownName();
             });
-            
+
             // Town name input keypress event
             document.getElementById('town-name-input').addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
                     finishEditingTownName();
                 }
             });
-            
+
             // Start animation loop
             animate();
         }
-        
+
         // Handle window resize
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
+
         // Handle mouse move for model placement preview
         function onMouseMove(event) {
             // Calculate mouse position in normalized device coordinates
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            
+
             // Update placement indicator
             updatePlacementIndicator();
         }
-        
+
         // Handle mouse click for model placement, deletion, or editing
         function onMouseClick(event) {
             if (currentMode === "place" && selectedModel && placementIndicator.visible) {
@@ -313,32 +343,36 @@
                 selectModelForEdit();
             }
         }
-        
+
         // Update the placement indicator position
         function updatePlacementIndicator() {
             // Cast ray from camera through mouse position
             raycaster.setFromCamera(mouse, camera);
-            
+
             if (currentMode === "delete" || currentMode === "edit") {
                 // For delete/edit mode, check intersections with placed objects
                 const intersects = raycaster.intersectObjects(placedObjects, true);
-                
+
                 if (intersects.length > 0) {
                     // Find the root object (the model group)
                     let targetObject = intersects[0].object;
                     while (targetObject.parent && targetObject.parent !== scene) {
                         targetObject = targetObject.parent;
                     }
-                    
+
                     placementIndicator.position.copy(targetObject.position);
                     placementIndicator.visible = true;
-                    
+
                     // In edit mode, highlight the object that would be selected
                     if (currentMode === "edit") {
                         placementIndicator.scale.copy(new THREE.Vector3(1, 1, 1));
                         const box = new THREE.Box3().setFromObject(targetObject);
                         const size = box.getSize(new THREE.Vector3());
+                        // Make indicator slightly larger than the object
                         placementIndicator.scale.set(size.x * 1.1, size.y * 1.1, size.z * 1.1);
+                        // Adjust indicator position to center it on the object
+                        const center = box.getCenter(new THREE.Vector3());
+                        placementIndicator.position.copy(center);
                     }
                 } else {
                     placementIndicator.visible = false;
@@ -346,23 +380,30 @@
             } else {
                 // For place mode, check intersections with ground
                 const intersects = raycaster.intersectObject(groundPlane);
-                
+
                 if (intersects.length > 0) {
                     // Round position to grid
                     const position = intersects[0].point;
                     position.x = Math.round(position.x);
                     position.z = Math.round(position.z);
-                    
+
                     // Update indicator position
                     placementIndicator.position.copy(position);
-                    placementIndicator.position.y = 0.5; // Half height of cube
+                    // Adjust Y based on the selected model's size if available
+                    if (selectedModel) {
+                        const box = new THREE.Box3().setFromObject(selectedModel);
+                        const size = box.getSize(new THREE.Vector3());
+                        placementIndicator.position.y = size.y / 2; // Center indicator vertically
+                    } else {
+                        placementIndicator.position.y = 0.5; // Default height
+                    }
                     placementIndicator.visible = true;
                 } else {
                     placementIndicator.visible = false;
                 }
             }
         }
-        
+
         // Select a model for placement
         function selectModel(category, modelName) {
             // Switch to place mode when selecting a model
@@ -373,14 +414,14 @@
                     btn.classList.add('active');
                 }
             });
-            
+
             console.log(`Selecting model: ${category}/${modelName}`);
-            
+
             // Reset the placement indicator
             placementIndicator.visible = true;
             placementIndicator.material.color.set(0xffff00); // Yellow while loading
             placementIndicator.scale.set(1, 1, 1); // Reset scale
-            
+
             // Create a default cube as fallback
             const createFallbackModel = () => {
                 console.log("Creating fallback cube model");
@@ -391,43 +432,47 @@
                 group.add(cube);
                 return group;
             };
-            
+
             // Load the GLTF model
             const loader = new THREE.GLTFLoader();
-            
+
             // Make sure we're using the correct path format - remove any extra slashes
             const modelPath = `/static/models/${category}/${modelName.replace(/^\//, '')}`;
-            
+
             console.log(`Loading model from: ${modelPath}`);
-            
+
             // Set a timeout to detect if loading takes too long
             const loadTimeout = setTimeout(() => {
                 console.warn("Model loading is taking a long time, might be an issue");
             }, 5000);
-            
+
             loader.load(
                 modelPath,
                 function(gltf) {
                     clearTimeout(loadTimeout);
                     console.log("Model loaded successfully", gltf);
-                    
+
                     try {
                         // Store the loaded model for later use
                         selectedModel = gltf.scene;
                         selectedModel.userData = { category, modelName };
-                        
+
                         // Make model cast and receive shadows
                         selectedModel.traverse(function(node) {
                             if (node.isMesh) {
                                 node.castShadow = true;
                                 node.receiveShadow = true;
+                                // Store original color if needed for reset later
+                                if (node.material && node.material.color) {
+                                    node.userData.originalColor = node.material.color.clone();
+                                }
                             }
                         });
-                        
+
                         // Adjust placeholder size to match model
                         const box = new THREE.Box3().setFromObject(selectedModel);
                         const size = box.getSize(new THREE.Vector3());
-                        
+
                         // Check if size is valid
                         if (size.x > 0 && size.y > 0 && size.z > 0) {
                             placementIndicator.scale.set(size.x, size.y, size.z);
@@ -435,13 +480,13 @@
                             console.warn("Model has invalid size, using default scale");
                             placementIndicator.scale.set(1, 1, 1);
                         }
-                        
+
                         // Change back to green for placement
                         placementIndicator.material.color.set(0x00ff00);
-                        
+
                         // Update the indicator position immediately
                         updatePlacementIndicator();
-                        
+
                         console.log("Ready to place model");
                     } catch (e) {
                         console.error("Error processing loaded model:", e);
@@ -462,54 +507,61 @@
                     console.error('Error loading model:', error);
                     console.error('Error details:', error.message);
                     console.error('Model path was:', modelPath);
-                    
+
                     // Create a fallback model
                     selectedModel = createFallbackModel();
                     placementIndicator.material.color.set(0xff0000); // Red for error
-                    
+
                     // Show error in UI
                     alert(`Failed to load model: ${modelName}\nError: ${error.message}\nCheck console for details.`);
                 }
             );
         }
-        
+
         // Place the selected model at the indicator position
         function placeModel() {
             if (!selectedModel) {
                 console.warn("No model selected for placement");
                 return;
             }
-            
+
             const modelInstance = selectedModel.clone();
-            
+
             // Copy position from the indicator
             modelInstance.position.copy(placementIndicator.position);
-            
+
             // Copy userData from the original model
             modelInstance.userData = { ...selectedModel.userData };
-            
+            // Ensure the clone also has original color data if needed
+            modelInstance.traverse(function(node) {
+                if (node.isMesh && node.material && node.material.color) {
+                    node.userData.originalColor = node.material.color.clone();
+                }
+            });
+
+
             // Check if we're placing a vehicle on a road
             const isVehicle = modelInstance.userData.category === 'vehicles';
             let placedOnRoad = false;
-            
+
             // If it's a vehicle, check if we're placing it on a road
             if (isVehicle) {
                 // Find if there's a road model at this position
                 for (const object of placedObjects) {
-                    if (object.userData && 
-                        object.userData.category === 'street' && 
+                    if (object.userData &&
+                        object.userData.category === 'street' &&
                         object.userData.modelName.toLowerCase().includes('road')) {
-                        
+
                         // Check if the vehicle is close to the road
                         const distance = modelInstance.position.distanceTo(object.position);
                         if (distance < 2) { // Within 2 units of the road
                             // Get the bounding box of the road
                             const roadBox = new THREE.Box3().setFromObject(object);
                             const roadHeight = roadBox.max.y;
-                            
+
                             // Get the bounding box of the vehicle
                             const vehicleBox = new THREE.Box3().setFromObject(modelInstance);
-                            
+
                             // Place the vehicle directly on top of the road (wheels touching)
                             modelInstance.position.y = roadHeight;
                             placedOnRoad = true;
@@ -519,23 +571,25 @@
                     }
                 }
             }
-            
+
             // If not a vehicle or not placed on road, adjust position normally
             if (!isVehicle || !placedOnRoad) {
-                // Adjust position to account for model origin
+                // Adjust position based on the model's bounding box bottom
                 const box = new THREE.Box3().setFromObject(modelInstance);
-                modelInstance.position.y -= (box.min.y - placementIndicator.position.y + 0.5);
+                const modelBottomY = box.min.y;
+                // Adjust so the bottom of the model aligns with the ground (y=0) or indicator's base
+                modelInstance.position.y -= modelBottomY;
             }
-            
+
             // Add to scene and tracking array
             scene.add(modelInstance);
             placedObjects.push(modelInstance);
-            
+
             // Save to server (optional)
             // saveModelToServer(modelInstance);
-            
+
             console.log("Model placed at", modelInstance.position);
-            
+
             // Flash the indicator to provide feedback
             const originalColor = placementIndicator.material.color.clone();
             placementIndicator.material.color.set(0xffffff);
@@ -543,62 +597,85 @@
                 placementIndicator.material.color.copy(originalColor);
             }, 200);
         }
-        
+
         // Delete the model at the indicator position
         function deleteModel() {
             if (!placementIndicator.visible) return;
-            
+
             // Find the closest model to delete
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(placedObjects, true);
-            
+
             if (intersects.length > 0) {
                 // Find the root object (the model group)
                 let objectToRemove = intersects[0].object;
                 while (objectToRemove.parent && objectToRemove.parent !== scene) {
                     objectToRemove = objectToRemove.parent;
                 }
-                
+
                 // Remove from scene
                 scene.remove(objectToRemove);
-                
+
                 // Remove from our tracking array
                 const index = placedObjects.indexOf(objectToRemove);
                 if (index > -1) {
                     placedObjects.splice(index, 1);
                 }
-                
+
                 console.log("Model deleted at", objectToRemove.position);
             }
         }
-        
+
         // Select a model for editing
         function selectModelForEdit() {
             if (!placementIndicator.visible) return;
-            
+
             // Find the model to edit
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(placedObjects, true);
-            
+
             if (intersects.length > 0) {
                 // Find the root object (the model group)
                 let modelToEdit = intersects[0].object;
                 while (modelToEdit.parent && modelToEdit.parent !== scene) {
                     modelToEdit = modelToEdit.parent;
                 }
-                
+
                 // Create or show edit UI
                 createEditUI(modelToEdit);
-                
+
                 console.log("Selected model for editing:", modelToEdit);
             }
         }
-        
+
+        // Helper function to apply color to a model's materials
+        function applyColorToModel(model, color) {
+            model.traverse(function(node) {
+                if (node.isMesh && node.material) {
+                    // Check if material is an array (multi-material object)
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach(material => {
+                            if (material.color) {
+                                material.color.copy(color);
+                            }
+                        });
+                    } else if (node.material.color) {
+                        node.material.color.copy(color);
+                    }
+                }
+            });
+            // Store the applied color in userData for saving
+            model.userData.color = { r: color.r, g: color.g, b: color.b };
+        }
+
         // Create UI for editing a model
         function createEditUI(model) {
             // Remove any existing edit UI
             removeEditUI();
-            
+
+            // Store the currently edited model
+            selectedEditModel = model;
+
             // Create edit UI container
             const editUI = document.createElement('div');
             editUI.id = 'edit-ui';
@@ -606,248 +683,237 @@
             editUI.style.top = '50%';
             editUI.style.left = '50%';
             editUI.style.transform = 'translate(-50%, -50%)';
-            editUI.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            editUI.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Darker background
             editUI.style.color = 'white';
             editUI.style.padding = '20px';
             editUI.style.borderRadius = '5px';
             editUI.style.zIndex = '1000';
-            
+            editUI.style.minWidth = '300px'; // Ensure minimum width
+
             // Prevent clicks on the edit UI from propagating to the canvas
-            editUI.addEventListener('click', function(event) {
-                event.stopPropagation();
-            });
-            editUI.addEventListener('mousedown', function(event) {
-                event.stopPropagation();
-            });
-            editUI.addEventListener('mouseup', function(event) {
-                event.stopPropagation();
-            });
-            
+            editUI.addEventListener('click', function(event) { event.stopPropagation(); });
+            editUI.addEventListener('mousedown', function(event) { event.stopPropagation(); });
+            editUI.addEventListener('mouseup', function(event) { event.stopPropagation(); });
+            editUI.addEventListener('mousemove', function(event) { event.stopPropagation(); }); // Prevent slider drag from moving camera
+
             // Add title
             const title = document.createElement('h3');
-            title.textContent = 'Edit Model';
+            title.textContent = `Edit ${model.userData.modelName || 'Model'}`;
+            title.style.textAlign = 'center';
+            title.style.marginBottom = '15px';
             editUI.appendChild(title);
-            
-            // Position controls
+
+            // --- Position Controls ---
             const positionDiv = document.createElement('div');
             positionDiv.style.marginBottom = '15px';
-            
             const posLabel = document.createElement('div');
             posLabel.textContent = 'Position:';
+            posLabel.style.fontWeight = 'bold';
             posLabel.style.marginBottom = '5px';
             positionDiv.appendChild(posLabel);
-            
-            // X position
-            const xDiv = document.createElement('div');
-            xDiv.style.display = 'flex';
-            xDiv.style.alignItems = 'center';
-            xDiv.style.marginBottom = '5px';
-            
-            const xLabel = document.createElement('label');
-            xLabel.textContent = 'X: ';
-            xLabel.style.width = '30px';
-            xDiv.appendChild(xLabel);
-            
-            const xSlider = document.createElement('input');
-            xSlider.type = 'range';
-            xSlider.min = '-10';
-            xSlider.max = '10';
-            xSlider.step = '0.5';
-            xSlider.value = model.position.x;
-            xSlider.style.flex = '1';
-            xSlider.addEventListener('input', function(event) {
-                event.stopPropagation(); // Prevent click from propagating to canvas
-                model.position.x = parseFloat(this.value);
+
+            ['x', 'y', 'z'].forEach(axis => {
+                const axisDiv = document.createElement('div');
+                axisDiv.className = 'slider-container'; // Use class for styling
+
+                const axisLabel = document.createElement('label');
+                axisLabel.textContent = axis.toUpperCase() + ': ';
+                axisLabel.className = 'slider-label'; // Use class for styling
+                axisDiv.appendChild(axisLabel);
+
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = axis === 'y' ? '0' : '-20'; // Adjust range as needed
+                slider.max = axis === 'y' ? '10' : '20';
+                slider.step = axis === 'y' ? '0.1' : '0.5';
+                slider.value = model.position[axis];
+                slider.addEventListener('input', function(event) {
+                    event.stopPropagation();
+                    model.position[axis] = parseFloat(this.value);
+                    valueSpan.textContent = parseFloat(this.value).toFixed(1);
+                });
+                axisDiv.appendChild(slider);
+
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = model.position[axis].toFixed(1);
+                valueSpan.className = 'slider-value'; // Use class for styling
+                axisDiv.appendChild(valueSpan);
+
+                positionDiv.appendChild(axisDiv);
             });
-            xDiv.appendChild(xSlider);
-            
-            const xValue = document.createElement('span');
-            xValue.textContent = model.position.x.toFixed(1);
-            xValue.style.width = '30px';
-            xValue.style.textAlign = 'right';
-            xSlider.addEventListener('input', function() {
-                xValue.textContent = parseFloat(this.value).toFixed(1);
-            });
-            xDiv.appendChild(xValue);
-            
-            positionDiv.appendChild(xDiv);
-            
-            // Y position (height)
-            const yDiv = document.createElement('div');
-            yDiv.style.display = 'flex';
-            yDiv.style.alignItems = 'center';
-            yDiv.style.marginBottom = '5px';
-            
-            const yLabel = document.createElement('label');
-            yLabel.textContent = 'Y: ';
-            yLabel.style.width = '30px';
-            yDiv.appendChild(yLabel);
-            
-            const ySlider = document.createElement('input');
-            ySlider.type = 'range';
-            ySlider.min = '0';
-            ySlider.max = '5';
-            ySlider.step = '0.1';
-            ySlider.value = model.position.y;
-            ySlider.style.flex = '1';
-            ySlider.addEventListener('input', function(event) {
-                event.stopPropagation(); // Prevent click from propagating to canvas
-                model.position.y = parseFloat(this.value);
-            });
-            yDiv.appendChild(ySlider);
-            
-            const yValue = document.createElement('span');
-            yValue.textContent = model.position.y.toFixed(1);
-            yValue.style.width = '30px';
-            yValue.style.textAlign = 'right';
-            ySlider.addEventListener('input', function() {
-                yValue.textContent = parseFloat(this.value).toFixed(1);
-            });
-            yDiv.appendChild(yValue);
-            
-            positionDiv.appendChild(yDiv);
-            
-            // Z position (equivalent to Y in the UI for user clarity)
-            const zDiv = document.createElement('div');
-            zDiv.style.display = 'flex';
-            zDiv.style.alignItems = 'center';
-            zDiv.style.marginBottom = '5px';
-            
-            const zLabel = document.createElement('label');
-            zLabel.textContent = 'Z: ';
-            zLabel.style.width = '30px';
-            zDiv.appendChild(zLabel);
-            
-            const zSlider = document.createElement('input');
-            zSlider.type = 'range';
-            zSlider.min = '-10';
-            zSlider.max = '10';
-            zSlider.step = '0.5';
-            zSlider.value = model.position.z;
-            zSlider.style.flex = '1';
-            zSlider.addEventListener('input', function(event) {
-                event.stopPropagation(); // Prevent click from propagating to canvas
-                model.position.z = parseFloat(this.value);
-            });
-            zDiv.appendChild(zSlider);
-            
-            const zValue = document.createElement('span');
-            zValue.textContent = model.position.z.toFixed(1);
-            zValue.style.width = '30px';
-            zValue.style.textAlign = 'right';
-            zSlider.addEventListener('input', function() {
-                zValue.textContent = parseFloat(this.value).toFixed(1);
-            });
-            zDiv.appendChild(zValue);
-            
-            positionDiv.appendChild(zDiv);
             editUI.appendChild(positionDiv);
-            
-            // Rotation controls
+
+            // --- Rotation Controls ---
             const rotationDiv = document.createElement('div');
             rotationDiv.style.marginBottom = '15px';
-            
             const rotLabel = document.createElement('div');
-            rotLabel.textContent = 'Rotation:';
+            rotLabel.textContent = 'Rotation (Y):';
+            rotLabel.style.fontWeight = 'bold';
             rotLabel.style.marginBottom = '5px';
             rotationDiv.appendChild(rotLabel);
-            
-            // Y rotation (equivalent to heading)
+
             const yRotDiv = document.createElement('div');
-            yRotDiv.style.display = 'flex';
-            yRotDiv.style.alignItems = 'center';
-            
+            yRotDiv.className = 'slider-container'; // Use class for styling
+
             const yRotLabel = document.createElement('label');
             yRotLabel.textContent = 'Y: ';
-            yRotLabel.style.width = '30px';
+            yRotLabel.className = 'slider-label'; // Use class for styling
             yRotDiv.appendChild(yRotLabel);
-            
+
             const yRotSlider = document.createElement('input');
             yRotSlider.type = 'range';
             yRotSlider.min = '0';
             yRotSlider.max = '360';
             yRotSlider.step = '5';
-            yRotSlider.value = (model.rotation.y * 180 / Math.PI) % 360;
-            yRotSlider.style.flex = '1';
+            yRotSlider.value = THREE.MathUtils.radToDeg(model.rotation.y).toFixed(0);
             yRotSlider.addEventListener('input', function(event) {
-                event.stopPropagation(); // Prevent click from propagating to canvas
-                model.rotation.y = parseFloat(this.value) * Math.PI / 180;
-            });
-            yRotDiv.appendChild(yRotSlider);
-            
-            const yRotValue = document.createElement('span');
-            yRotValue.textContent = ((model.rotation.y * 180 / Math.PI) % 360).toFixed(0) + '°';
-            yRotValue.style.width = '40px';
-            yRotValue.style.textAlign = 'right';
-            yRotSlider.addEventListener('input', function() {
+                event.stopPropagation();
+                model.rotation.y = THREE.MathUtils.degToRad(parseFloat(this.value));
                 yRotValue.textContent = parseFloat(this.value).toFixed(0) + '°';
             });
+            yRotDiv.appendChild(yRotSlider);
+
+            const yRotValue = document.createElement('span');
+            yRotValue.textContent = THREE.MathUtils.radToDeg(model.rotation.y).toFixed(0) + '°';
+            yRotValue.className = 'slider-value'; // Use class for styling
             yRotDiv.appendChild(yRotValue);
-            
+
             rotationDiv.appendChild(yRotDiv);
             editUI.appendChild(rotationDiv);
-            
-            // Done button
+
+            // --- Color Controls ---
+            const colorDiv = document.createElement('div');
+            colorDiv.style.marginBottom = '15px';
+            const colorLabel = document.createElement('div');
+            colorLabel.textContent = 'Color:';
+            colorLabel.style.fontWeight = 'bold';
+            colorLabel.style.marginBottom = '5px';
+            colorDiv.appendChild(colorLabel);
+
+            // Get current color (use userData if set, else find first material color)
+            let currentColor = new THREE.Color(0xffffff); // Default white
+            if (model.userData.color) {
+                currentColor.setRGB(model.userData.color.r, model.userData.color.g, model.userData.color.b);
+            } else {
+                model.traverse(function(node) {
+                    if (node.isMesh && node.material) {
+                        const material = Array.isArray(node.material) ? node.material[0] : node.material;
+                        if (material && material.color) {
+                            currentColor = material.color.clone();
+                            return; // Exit traversal once a color is found
+                        }
+                    }
+                });
+            }
+
+            const colorPreview = document.createElement('span');
+            colorPreview.className = 'color-preview';
+            colorPreview.style.backgroundColor = `#${currentColor.getHexString()}`;
+            colorLabel.appendChild(colorPreview); // Add preview next to label
+
+            ['r', 'g', 'b'].forEach(channel => {
+                const channelDiv = document.createElement('div');
+                channelDiv.className = 'slider-container'; // Use class for styling
+
+                const channelLabel = document.createElement('label');
+                channelLabel.textContent = channel.toUpperCase() + ': ';
+                channelLabel.className = 'slider-label'; // Use class for styling
+                channelDiv.appendChild(channelLabel);
+
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = '0';
+                slider.max = '1';
+                slider.step = '0.01';
+                slider.value = currentColor[channel];
+                slider.addEventListener('input', function(event) {
+                    event.stopPropagation();
+                    currentColor[channel] = parseFloat(this.value);
+                    applyColorToModel(model, currentColor);
+                    valueSpan.textContent = parseFloat(this.value).toFixed(2);
+                    colorPreview.style.backgroundColor = `#${currentColor.getHexString()}`; // Update preview
+                });
+                channelDiv.appendChild(slider);
+
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = currentColor[channel].toFixed(2);
+                valueSpan.className = 'slider-value'; // Use class for styling
+                channelDiv.appendChild(valueSpan);
+
+                colorDiv.appendChild(channelDiv);
+            });
+            editUI.appendChild(colorDiv);
+
+
+            // --- Done Button ---
             const doneButton = document.createElement('button');
             doneButton.textContent = 'Done';
-            doneButton.style.padding = '5px 15px';
+            doneButton.style.padding = '8px 20px'; // Make button larger
             doneButton.style.display = 'block';
-            doneButton.style.margin = '0 auto';
+            doneButton.style.margin = '15px auto 0'; // Add margin top
             doneButton.addEventListener('click', function(event) {
-                event.stopPropagation(); // Prevent click from propagating to canvas
+                event.stopPropagation();
                 removeEditUI();
             });
             editUI.appendChild(doneButton);
-            
+
             // Add the edit UI to the document
             document.body.appendChild(editUI);
         }
-        
+
+
         // Remove the edit UI but stay in edit mode
         function removeEditUI() {
             const existingUI = document.getElementById('edit-ui');
             if (existingUI) {
                 existingUI.remove();
             }
-            
+            selectedEditModel = null; // Clear the reference
+
             // Keep edit mode active
             // Update indicator color to blue for edit mode
-            placementIndicator.material.color.set(0x0000ff);
+            if (currentMode === 'edit') {
+                placementIndicator.material.color.set(0x0000ff);
+            }
         }
-        
+
         // Clear all placed models from the scene
         function clearScene() {
             // Remove any edit UI
             removeEditUI();
-            
+
             // Remove all objects except ground, lights, and placement indicator
             placedObjects.forEach(object => {
                 scene.remove(object);
             });
-            
+
             // Clear the tracking array
             placedObjects = [];
-            
+
             console.log("Scene cleared");
         }
-        
+
         // Keyboard controls
         let moveSpeed = 0.2;
         let keysPressed = {};
-        
+
         function setupKeyboardControls() {
             // Track key states
             document.addEventListener('keydown', function(event) {
                 keysPressed[event.key.toLowerCase()] = true;
             });
-            
+
             document.addEventListener('keyup', function(event) {
                 keysPressed[event.key.toLowerCase()] = false;
             });
         }
-        
+
         // Show save dialog
         function showSaveDialog() {
+            // Remove any existing dialogs first
+            const existingDialog = document.getElementById('save-dialog');
+            if (existingDialog) existingDialog.remove();
+
             // Create dialog container
             const saveDialog = document.createElement('div');
             saveDialog.id = 'save-dialog';
@@ -855,56 +921,61 @@
             saveDialog.style.top = '50%';
             saveDialog.style.left = '50%';
             saveDialog.style.transform = 'translate(-50%, -50%)';
-            saveDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            saveDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
             saveDialog.style.color = 'white';
             saveDialog.style.padding = '20px';
             saveDialog.style.borderRadius = '5px';
             saveDialog.style.zIndex = '1000';
-            
+            saveDialog.style.minWidth = '300px';
+
             // Add title
             const title = document.createElement('h3');
             title.textContent = 'Save Scene';
+            title.style.textAlign = 'center';
+            title.style.marginBottom = '15px';
             saveDialog.appendChild(title);
-            
+
             // Town name input
             const townNameLabel = document.createElement('label');
             townNameLabel.textContent = 'Town Name: ';
             townNameLabel.style.display = 'block';
             townNameLabel.style.marginBottom = '5px';
             saveDialog.appendChild(townNameLabel);
-            
+
             const townNameInput = document.createElement('input');
             townNameInput.type = 'text';
             townNameInput.value = document.getElementById('town-name-display').textContent;
-            townNameInput.style.width = '100%';
+            townNameInput.style.width = 'calc(100% - 12px)'; // Adjust for padding
             townNameInput.style.marginBottom = '15px';
             townNameInput.style.padding = '5px';
             saveDialog.appendChild(townNameInput);
-            
+
             // Filename input
             const filenameLabel = document.createElement('label');
             filenameLabel.textContent = 'Filename: ';
             filenameLabel.style.display = 'block';
             filenameLabel.style.marginBottom = '5px';
             saveDialog.appendChild(filenameLabel);
-            
+
             const filenameInput = document.createElement('input');
             filenameInput.type = 'text';
-            filenameInput.value = 'town_data.json';
-            filenameInput.style.width = '100%';
+            // Suggest filename based on town name
+            const suggestedFilename = (townNameInput.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'town') + '_data.json';
+            filenameInput.value = suggestedFilename;
+            filenameInput.style.width = 'calc(100% - 12px)'; // Adjust for padding
             filenameInput.style.marginBottom = '15px';
             filenameInput.style.padding = '5px';
             saveDialog.appendChild(filenameInput);
-            
+
             // Buttons container
             const buttonsDiv = document.createElement('div');
             buttonsDiv.style.display = 'flex';
-            buttonsDiv.style.justifyContent = 'space-between';
-            
+            buttonsDiv.style.justifyContent = 'space-around'; // Space out buttons
+
             // Save button
             const saveButton = document.createElement('button');
             saveButton.textContent = 'Save';
-            saveButton.style.padding = '5px 15px';
+            saveButton.style.padding = '8px 20px';
             saveButton.style.backgroundColor = '#2a2';
             saveButton.style.color = 'white';
             saveButton.style.border = 'none';
@@ -919,11 +990,11 @@
                 document.body.removeChild(saveDialog);
             });
             buttonsDiv.appendChild(saveButton);
-            
+
             // Cancel button
             const cancelButton = document.createElement('button');
             cancelButton.textContent = 'Cancel';
-            cancelButton.style.padding = '5px 15px';
+            cancelButton.style.padding = '8px 20px';
             cancelButton.style.backgroundColor = '#555';
             cancelButton.style.color = 'white';
             cancelButton.style.border = 'none';
@@ -934,31 +1005,28 @@
                 document.body.removeChild(saveDialog);
             });
             buttonsDiv.appendChild(cancelButton);
-            
+
             saveDialog.appendChild(buttonsDiv);
             document.body.appendChild(saveDialog);
         }
-        
+
         // Save scene to server
         function saveSceneToServer(filename, townName) {
             // Collect data from all placed objects
             const sceneData = {
                 townName: townName || 'My Town',
-                buildings: [],
-                props: [],
-                street: [],
-                park: [],
-                trees: []
+                // Initialize categories based on available models to ensure all are present
+                ...Object.keys({{ models | tojson }}).reduce((acc, key) => { acc[key] = []; return acc; }, {})
             };
-            
+
             // Also save to the towns API
             saveTownToAPI(townName);
-            
+
             placedObjects.forEach(object => {
                 if (object.userData && object.userData.category) {
                     const category = object.userData.category;
                     const modelName = object.userData.modelName;
-                    
+
                     // Create model data
                     const modelData = {
                         model: modelName,
@@ -968,23 +1036,30 @@
                             z: object.position.z
                         },
                         rotation: {
-                            h: (object.rotation.y * 180 / Math.PI) % 360,
-                            p: (object.rotation.x * 180 / Math.PI) % 360,
-                            r: (object.rotation.z * 180 / Math.PI) % 360
+                            // Save rotation in degrees for easier readability/editing
+                            h: THREE.MathUtils.radToDeg(object.rotation.y),
+                            p: THREE.MathUtils.radToDeg(object.rotation.x),
+                            r: THREE.MathUtils.radToDeg(object.rotation.z)
                         },
                         scale: object.scale.x // Assuming uniform scale
                     };
-                    
+
+                    // Add color data if it exists in userData
+                    if (object.userData.color) {
+                        modelData.color = object.userData.color; // {r, g, b}
+                    }
+
                     // Add to appropriate category
                     if (sceneData[category]) {
                         sceneData[category].push(modelData);
                     } else {
-                        // If category doesn't exist yet, create it
+                        // If category doesn't exist yet (shouldn't happen with init above), create it
+                        console.warn(`Category ${category} not pre-initialized in sceneData`);
                         sceneData[category] = [modelData];
                     }
                 }
             });
-            
+
             // Send to server
             fetch('/api/town/save', {
                 method: 'POST',
@@ -1009,9 +1084,13 @@
                 showNotification('Error saving scene', 'error');
             });
         }
-        
+
         // Show load dialog
         function showLoadDialog() {
+            // Remove any existing dialogs first
+            const existingDialog = document.getElementById('load-dialog');
+            if (existingDialog) existingDialog.remove();
+
             // Create dialog container
             const loadDialog = document.createElement('div');
             loadDialog.id = 'load-dialog';
@@ -1019,41 +1098,44 @@
             loadDialog.style.top = '50%';
             loadDialog.style.left = '50%';
             loadDialog.style.transform = 'translate(-50%, -50%)';
-            loadDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            loadDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
             loadDialog.style.color = 'white';
             loadDialog.style.padding = '20px';
             loadDialog.style.borderRadius = '5px';
             loadDialog.style.zIndex = '1000';
-            
+            loadDialog.style.minWidth = '300px';
+
             // Add title
             const title = document.createElement('h3');
             title.textContent = 'Load Scene';
+            title.style.textAlign = 'center';
+            title.style.marginBottom = '15px';
             loadDialog.appendChild(title);
-            
+
             // Filename input
             const filenameLabel = document.createElement('label');
             filenameLabel.textContent = 'Filename: ';
             filenameLabel.style.display = 'block';
             filenameLabel.style.marginBottom = '5px';
             loadDialog.appendChild(filenameLabel);
-            
+
             const filenameInput = document.createElement('input');
             filenameInput.type = 'text';
-            filenameInput.value = 'town_data.json';
-            filenameInput.style.width = '100%';
+            filenameInput.value = 'town_data.json'; // Default filename
+            filenameInput.style.width = 'calc(100% - 12px)'; // Adjust for padding
             filenameInput.style.marginBottom = '15px';
             filenameInput.style.padding = '5px';
             loadDialog.appendChild(filenameInput);
-            
+
             // Buttons container
             const buttonsDiv = document.createElement('div');
             buttonsDiv.style.display = 'flex';
-            buttonsDiv.style.justifyContent = 'space-between';
-            
+            buttonsDiv.style.justifyContent = 'space-around'; // Space out buttons
+
             // Load button
             const loadButton = document.createElement('button');
             loadButton.textContent = 'Load';
-            loadButton.style.padding = '5px 15px';
+            loadButton.style.padding = '8px 20px';
             loadButton.style.backgroundColor = '#2a2';
             loadButton.style.color = 'white';
             loadButton.style.border = 'none';
@@ -1065,11 +1147,11 @@
                 document.body.removeChild(loadDialog);
             });
             buttonsDiv.appendChild(loadButton);
-            
+
             // Cancel button
             const cancelButton = document.createElement('button');
             cancelButton.textContent = 'Cancel';
-            cancelButton.style.padding = '5px 15px';
+            cancelButton.style.padding = '8px 20px';
             cancelButton.style.backgroundColor = '#555';
             cancelButton.style.color = 'white';
             cancelButton.style.border = 'none';
@@ -1080,11 +1162,11 @@
                 document.body.removeChild(loadDialog);
             });
             buttonsDiv.appendChild(cancelButton);
-            
+
             loadDialog.appendChild(buttonsDiv);
             document.body.appendChild(loadDialog);
         }
-        
+
         // Load scene from server
         function loadSceneFromServer(filename) {
             // Send request to server
@@ -1102,19 +1184,21 @@
                 if (data.status === 'success') {
                     // Clear existing scene
                     clearScene();
-                    
+
                     // Load the town data
                     const townData = data.data;
-                    
+
                     // Display town name if available
                     if (townData.townName) {
                         showNotification(`Loading town: ${townData.townName}`, 'info');
                         // Update the town name display
                         document.getElementById('town-name-display').textContent = townData.townName;
+                        document.getElementById('town-name-input').value = townData.townName; // Also update input field
                     }
-                    
+
                     // Process each category of objects
                     Object.keys(townData).forEach(category => {
+                        // Skip non-array properties like townName
                         if (Array.isArray(townData[category])) {
                             townData[category].forEach(modelData => {
                                 // Load each model
@@ -1122,7 +1206,7 @@
                             });
                         }
                     });
-                    
+
                     showNotification(`Scene loaded from ${filename}`, 'success');
                 } else {
                     showNotification(`Error: ${data.message}`, 'error');
@@ -1133,18 +1217,18 @@
                 showNotification('Error loading scene', 'error');
             });
         }
-        
+
         // Load a model from data
         function loadModelFromData(category, modelData) {
             const modelPath = `/static/models/${category}/${modelData.model}`;
-            
+
             // Load the model
             const loader = new THREE.GLTFLoader();
             loader.load(
                 modelPath,
                 function(gltf) {
                     const model = gltf.scene;
-                    
+
                     // Set position
                     if (modelData.position) {
                         model.position.set(
@@ -1153,55 +1237,64 @@
                             modelData.position.z
                         );
                     }
-                    
-                    // Set rotation
+
+                    // Set rotation (convert degrees from JSON back to radians)
                     if (modelData.rotation) {
-                        // Convert from degrees to radians
                         model.rotation.set(
-                            modelData.rotation.p * Math.PI / 180,
-                            modelData.rotation.h * Math.PI / 180,
-                            modelData.rotation.r * Math.PI / 180
+                            THREE.MathUtils.degToRad(modelData.rotation.p || 0),
+                            THREE.MathUtils.degToRad(modelData.rotation.h || 0),
+                            THREE.MathUtils.degToRad(modelData.rotation.r || 0)
                         );
                     }
-                    
+
                     // Set scale if available
                     if (modelData.scale) {
-                        const scale = typeof modelData.scale === 'number' ? 
+                        const scale = typeof modelData.scale === 'number' ?
                             modelData.scale : 1.0;
                         model.scale.set(scale, scale, scale);
                     }
-                    
+
                     // Store metadata
-                    model.userData = { 
+                    model.userData = {
                         category: category,
                         modelName: modelData.model,
-                        id: modelData.id
+                        id: modelData.id // Keep ID if present
                     };
-                    
+
+                    // Apply color if available in data
+                    if (modelData.color) {
+                        const loadedColor = new THREE.Color(modelData.color.r, modelData.color.g, modelData.color.b);
+                        applyColorToModel(model, loadedColor); // Use helper to apply and store in userData
+                    }
+
                     // Make model cast and receive shadows
                     model.traverse(function(node) {
                         if (node.isMesh) {
                             node.castShadow = true;
                             node.receiveShadow = true;
+                            // Store original color if not already colored by loaded data
+                            if (!modelData.color && node.material && node.material.color) {
+                                node.userData.originalColor = node.material.color.clone();
+                            }
                         }
                     });
-                    
+
                     // Check if this is a vehicle that should be placed on a road
                     const isVehicle = category === 'vehicles';
                     let placedOnRoad = false;
-                    
+
                     // If it's a vehicle, check if there's a road underneath
                     if (isVehicle) {
                         // Find if there's a road model at this position
                         for (const object of placedObjects) {
-                            if (object.userData && 
-                                object.userData.category === 'street' && 
+                            if (object.userData &&
+                                object.userData.category === 'street' &&
                                 object.userData.modelName.toLowerCase().includes('road')) {
-                                
+
                                 // Check if the vehicle is close to the road (horizontally)
                                 const vehiclePos = new THREE.Vector3(
-                                    modelData.position.x, 
-                                    0, 
+                                    modelData.position.x,
+                                    0,
                                     modelData.position.z
                                 );
                                 const roadPos = new THREE.Vector3(
@@ -1210,15 +1303,12 @@
                                     object.position.z
                                 );
                                 const distance = vehiclePos.distanceTo(roadPos);
-                                
+
                                 if (distance < 2) { // Within 2 units of the road
                                     // Get the bounding box of the road
                                     const roadBox = new THREE.Box3().setFromObject(object);
                                     const roadHeight = roadBox.max.y;
-                                    
-                                    // Get the bounding box of the vehicle
-                                    const vehicleBox = new THREE.Box3().setFromObject(model);
-                                    
+
                                     // Place the vehicle directly on top of the road (wheels touching)
                                     model.position.y = roadHeight;
                                     placedOnRoad = true;
@@ -1228,7 +1318,7 @@
                             }
                         }
                     }
-                    
+
                     // Add to scene and tracking array
                     scene.add(model);
                     placedObjects.push(model);
@@ -1240,20 +1330,21 @@
                 }
             );
         }
-        
+
         // Show notification
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
             notification.textContent = message;
             notification.style.position = 'fixed';
-            notification.style.top = '20px';
+            notification.style.bottom = '20px'; // Position at bottom
             notification.style.left = '50%';
             notification.style.transform = 'translateX(-50%)';
             notification.style.padding = '10px 20px';
             notification.style.borderRadius = '5px';
             notification.style.color = 'white';
             notification.style.zIndex = '2000';
-            
+            notification.style.textAlign = 'center';
+
             // Set color based on type
             if (type === 'success') {
                 notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
@@ -1262,54 +1353,56 @@
             } else {
                 notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
             }
-            
+
             document.body.appendChild(notification);
-            
+
             // Remove after 3 seconds
             setTimeout(() => {
-                document.body.removeChild(notification);
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
             }, 3000);
         }
-        
+
         // Start editing town name
         function startEditingTownName() {
             const displayElement = document.getElementById('town-name-display');
             const inputElement = document.getElementById('town-name-input');
-            
+
             // Set input value to current town name
             inputElement.value = displayElement.textContent;
-            
+
             // Hide display, show input
             displayElement.style.display = 'none';
             inputElement.style.display = 'block';
-            
+
             // Focus input
             inputElement.focus();
             inputElement.select();
         }
-        
+
         // Finish editing town name
         function finishEditingTownName() {
             const displayElement = document.getElementById('town-name-display');
             const inputElement = document.getElementById('town-name-input');
-            
+
             // Get new town name
             const newTownName = inputElement.value.trim() || 'My Town';
-            
+
             // Update display
             displayElement.textContent = newTownName;
-            
+
             // Hide input, show display
             inputElement.style.display = 'none';
             displayElement.style.display = 'block';
-            
+
             // Save the town name change to the server
             saveTownNameToServer(newTownName);
-            
+
             // Also save to the towns API
             saveTownToAPI(newTownName);
         }
-        
+
         // Save town name to server
         function saveTownNameToServer(townName) {
             fetch('/api/town', {
@@ -1333,7 +1426,7 @@
                 console.error('Error saving town name:', error);
             });
         }
-        
+
         // Save town to external API
         function saveTownToAPI(townName) {
             // Create the town data for the API
@@ -1343,7 +1436,7 @@
                 area: 1,
                 population: 1
             };
-            
+
             // Get API details from the server
             fetch('/api/config')
                 .then(response => response.json())
@@ -1360,7 +1453,20 @@
                 })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    // Try to parse error details
+                    return response.text().then(text => {
+                        try {
+                            const data = JSON.parse(text);
+                            // Check for specific known error messages
+                            if (data.name && data.name[0] && data.name[0].includes('town with this name already exists')) {
+                                throw new Error('A town with this name already exists in the API. Please choose a different name.');
+                            }
+                            throw new Error(data.detail || data.message || data.error || `API Error: ${response.status}`);
+                        } catch (e) {
+                            // If parsing fails or it's not the specific error, re-throw
+                            throw e instanceof Error ? e : new Error(`API Error: ${response.status}`);
+                        }
+                    });
                 }
                 return response.json();
             })
@@ -1370,79 +1476,88 @@
             })
             .catch(error => {
                 console.error('Error saving town to external API:', error);
-                showNotification('Error saving town to external API', 'error');
+                // Use the specific error handler for API errors
+                showApiErrorNotification(error.message || 'Error saving town to external API');
             });
         }
-        
+
+
         // Process keyboard input
         function processKeyboardInput() {
-            // Skip if an input element is focused
-            if (document.activeElement.tagName === 'INPUT' || 
+            // Skip if an input element is focused or edit UI is open
+            if (document.activeElement.tagName === 'INPUT' ||
                 document.activeElement.tagName === 'TEXTAREA' ||
-                document.getElementById('edit-ui')) {
+                document.getElementById('edit-ui') ||
+                document.getElementById('save-dialog') ||
+                document.getElementById('load-dialog')) {
                 return;
             }
-            
+
             // Get camera direction vectors
             const forward = new THREE.Vector3();
             camera.getWorldDirection(forward);
             forward.y = 0; // Keep movement in horizontal plane
             forward.normalize();
-            
+
             const right = new THREE.Vector3();
-            right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-            
+            // Use camera's up vector for cross product to handle looking straight down/up
+            right.crossVectors(camera.up, forward).normalize(); // Swapped order for correct right vector
+
             // WASD and arrow keys movement
+            let moveDirection = new THREE.Vector3(0, 0, 0);
             if (keysPressed['w'] || keysPressed['arrowup']) {
-                camera.position.add(forward.multiplyScalar(moveSpeed));
-                controls.target.add(forward.clone().multiplyScalar(moveSpeed));
+                moveDirection.add(forward);
             }
             if (keysPressed['s'] || keysPressed['arrowdown']) {
-                camera.position.sub(forward.multiplyScalar(moveSpeed));
-                controls.target.sub(forward.clone().multiplyScalar(moveSpeed));
+                moveDirection.sub(forward);
             }
             if (keysPressed['a'] || keysPressed['arrowleft']) {
-                camera.position.sub(right.multiplyScalar(moveSpeed));
-                controls.target.sub(right.clone().multiplyScalar(moveSpeed));
+                moveDirection.sub(right); // Use subtract for left
             }
             if (keysPressed['d'] || keysPressed['arrowright']) {
-                camera.position.add(right.multiplyScalar(moveSpeed));
-                controls.target.add(right.clone().multiplyScalar(moveSpeed));
+                moveDirection.add(right); // Use add for right
             }
-            
+
+            // Normalize diagonal movement and apply speed
+            if (moveDirection.lengthSq() > 0) {
+                moveDirection.normalize().multiplyScalar(moveSpeed);
+                camera.position.add(moveDirection);
+                controls.target.add(moveDirection); // Move target along with camera
+            }
+
             // Update controls after moving camera
             controls.update();
         }
-        
+
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
             processKeyboardInput();
-            controls.update();
+            controls.update(); // OrbitControls update
             renderer.render(scene, camera);
         }
-        
+
         // Debug function to check if Three.js is working
         function checkThreeJsStatus() {
             console.log("THREE.js version:", THREE.REVISION);
             console.log("WebGL Renderer:", renderer);
             console.log("GLTFLoader available:", typeof THREE.GLTFLoader);
-            
+
             // List all available models from the DOM
             console.log("Available models in DOM:");
             document.querySelectorAll('.model-item').forEach(item => {
                 console.log(`- ${item.dataset.category}/${item.dataset.model}`);
             });
-            
+
             // Test if we can load a simple model - try the first available model
             const firstModel = document.querySelector('.model-item');
             if (firstModel) {
                 const category = firstModel.dataset.category;
                 const model = firstModel.dataset.model;
                 const testPath = `/static/models/${category}/${model}`;
-                
+
                 console.log(`Testing model load from: ${testPath}`);
-                
+
                 const testLoader = new THREE.GLTFLoader();
                 testLoader.load(
                     testPath,
@@ -1450,7 +1565,7 @@
                         console.log("Test model loaded successfully:", gltf);
                     },
                     function(xhr) {
-                        console.log("Test model loading progress:", (xhr.loaded / xhr.total * 100) + '%');
+                        // console.log("Test model loading progress:", (xhr.loaded / xhr.total * 100) + '%');
                     },
                     function(error) {
                         console.error("Test model loading failed:", error);
@@ -1461,7 +1576,7 @@
                 console.error("No models found in the DOM");
             }
         }
-        
+
         // Check if static files are accessible
         function checkStaticFiles() {
             // Try to fetch a test file
@@ -1474,169 +1589,121 @@
                     return response.text();
                 })
                 .then(html => {
-                    console.log("Static directory listing received");
+                    // console.log("Static directory listing received"); // Often disabled
                 })
                 .catch(error => {
                     console.error("Error accessing static files:", error);
                     // Only log to console, no popup alert
                 });
         }
-        
+
         // Initialize everything
         init();
-        
+
         // Run diagnostics after a short delay
         setTimeout(() => {
             checkThreeJsStatus();
             checkStaticFiles();
         }, 1000);
-    </script>
-    <!-- Flash messages container -->
-    <div id="flash-messages-container"></div>
-    
-    <!-- Flash messages script -->
-    <script>
+
+        // --- API Error Handling and Notifications ---
+
         // Function to show notification with API error messages
         function showApiErrorNotification(message, type = 'error') {
             const notification = document.createElement('div');
-            notification.textContent = message;
+            // Sanitize message slightly
+            notification.textContent = String(message).substring(0, 200); // Limit length
             notification.style.position = 'fixed';
-            notification.style.top = '20px';
+            notification.style.bottom = '20px'; // Position at bottom
             notification.style.right = '20px';
             notification.style.padding = '10px 20px';
             notification.style.borderRadius = '5px';
             notification.style.color = 'white';
-            notification.style.zIndex = '2000';
+            notification.style.zIndex = '2001'; // Higher z-index than regular notifications
             notification.style.maxWidth = '300px';
-            
+            notification.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+
             // Set color based on type
             if (type === 'error') {
-                notification.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+                notification.style.backgroundColor = 'rgba(220, 53, 69, 0.9)'; // Red
             } else if (type === 'success') {
-                notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
+                notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)'; // Green
             } else {
-                notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
+                notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)'; // Blue (info)
             }
-            
+
             // Add close button
             const closeBtn = document.createElement('button');
             closeBtn.innerHTML = '&times;';
-            closeBtn.style.float = 'right';
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.top = '5px';
+            closeBtn.style.right = '8px';
             closeBtn.style.border = 'none';
             closeBtn.style.background = 'transparent';
             closeBtn.style.color = 'white';
             closeBtn.style.fontSize = '20px';
-            closeBtn.style.marginLeft = '10px';
+            closeBtn.style.lineHeight = '1';
             closeBtn.style.cursor = 'pointer';
             closeBtn.onclick = function() {
-                document.body.removeChild(notification);
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
             };
-            
-            notification.prepend(closeBtn);
+
+            notification.appendChild(closeBtn);
             document.body.appendChild(notification);
-            
-            // Remove after 5 seconds
+
+            // Remove after 5 seconds unless manually closed
             setTimeout(() => {
                 if (document.body.contains(notification)) {
                     document.body.removeChild(notification);
                 }
             }, 5000);
         }
-        
+
         // Function to check for API errors after fetch requests
         const originalFetch = window.fetch;
         window.fetch = function() {
             return originalFetch.apply(this, arguments)
-                .then(response => {
-                    // Clone the response so we can read it twice
-                    const responseClone = response.clone();
-                    
+                .then(async response => {
+                    // Clone the response so we can read it multiple times if needed
+                    const responseClone1 = response.clone();
+                    const responseClone2 = response.clone();
+
                     // Process the response to check for errors
-                    if (!response.ok && response.headers.get('content-type')?.includes('application/json')) {
-                        responseClone.json().then(data => {
-                            if (data.error) {
-                                showApiErrorNotification(data.error);
-                            } else if (data.detail) {
-                                showApiErrorNotification(data.detail);
-                            } else if (data.message) {
-                                showApiErrorNotification(data.message);
-                            }
-                        }).catch(() => {
-                            // If we can't parse JSON, just show the status
-                            if (!response.ok) {
-                                showApiErrorNotification(`API Error: ${response.status} ${response.statusText}`);
-                            }
-                        });
-                    }
-                    
-                    // Check for specific error messages in the response
-                    if (response.url.includes('/api/proxy/towns') && response.status === 400) {
-                        responseClone.text().then(text => {
-                            if (text.includes('town with this name already exists')) {
-                                showApiErrorNotification('A town with this name already exists. Please choose a different name.');
-                            }
-                        });
-                    }
-                    
-                    return response;
-                })
-                .catch(error => {
-                    showApiErrorNotification(`Network error: ${error.message}`);
-                    throw error;
-                });
-        };
-        
-        // Override the saveTownToAPI function to handle errors better
-        const originalSaveTownToAPI = window.saveTownToAPI;
-        window.saveTownToAPI = function(townName) {
-            // Create the town data for the API
-            const townData = {
-                name: townName || 'My Town',
-                description: "Created Through Town Builder.",
-                area: 1,
-                population: 1
-            };
-            
-            // Get API details from the server
-            fetch('/api/config')
-                .then(response => response.json())
-                .then(config => {
-                    // Send to the external API with JWT token
-                    return fetch(config.apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${config.token}`
-                        },
-                        body: JSON.stringify(townData)
-                    });
-                })
-                .then(response => {
                     if (!response.ok) {
-                        return response.text().then(text => {
-                            try {
-                                const data = JSON.parse(text);
-                                throw new Error(data.detail || data.message || data.error || `HTTP error! status: ${response.status}`);
-                            } catch (e) {
-                                if (text.includes('town with this name already exists')) {
-                                    throw new Error('A town with this name already exists. Please choose a different name.');
-                                } else {
-                                    throw new Error(`HTTP error! status: ${response.status}`);
-                                }
+                        let errorMsg = `API Error: ${response.status} ${response.statusText}`;
+                        try {
+                            // Try to parse JSON error first
+                            if (response.headers.get('content-type')?.includes('application/json')) {
+                                const data = await responseClone1.json();
+                                // Look for common error fields
+                                errorMsg = data.detail || data.message || data.error || JSON.stringify(data);
+                            } else {
+                                // Otherwise, get text content
+                                const text = await responseClone1.text();
+                                errorMsg = text || errorMsg; // Use text if available
                             }
-                        });
+                        } catch (e) {
+                            // If parsing fails, stick with the status text
+                            console.warn("Could not parse error response body:", e);
+                        }
+                        // Show the extracted or default error message
+                        showApiErrorNotification(errorMsg);
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Town saved to external API:', data);
-                    showNotification('Town saved to external API', 'success');
+
+                    // Return the original response for further processing
+                    return responseClone2;
                 })
                 .catch(error => {
-                    console.error('Error saving town to external API:', error);
-                    showApiErrorNotification(error.message);
+                    // Handle network errors or errors thrown during response processing
+                    showApiErrorNotification(`Network error: ${error.message}`);
+                    throw error; // Re-throw the error for other catch blocks
                 });
         };
+
+        // Override saveTownToAPI is no longer needed as the global fetch handler covers it.
+
     </script>
 </body>
 </html>
