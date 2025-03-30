@@ -150,17 +150,32 @@ def proxy_towns_api():
         if API_TOKEN:
             headers['Authorization'] = f"Bearer {API_TOKEN}"
         
+        # Log the request for debugging
+        logger.debug(f"Proxying {request.method} request to {url}")
+        logger.debug(f"Headers: {headers}")
+        
         # Forward the request with the appropriate method
-        if request.method == 'GET':
-            resp = requests.get(url, headers=headers, params=request.args)
-        elif request.method == 'POST':
-            resp = requests.post(url, headers=headers, json=request.get_json())
-        elif request.method == 'PUT':
-            resp = requests.put(url, headers=headers, json=request.get_json())
-        elif request.method == 'DELETE':
-            resp = requests.delete(url, headers=headers)
-        else:
-            return jsonify({"error": "Method not supported"}), 405
+        try:
+            if request.method == 'GET':
+                resp = requests.get(url, headers=headers, params=request.args)
+            elif request.method == 'POST':
+                # Get the request data
+                data = request.get_json()
+                logger.debug(f"POST data: {data}")
+                resp = requests.post(url, headers=headers, json=data)
+            elif request.method == 'PUT':
+                resp = requests.put(url, headers=headers, json=request.get_json())
+            elif request.method == 'DELETE':
+                resp = requests.delete(url, headers=headers)
+            else:
+                return jsonify({"error": "Method not supported"}), 405
+                
+            logger.debug(f"Response status: {resp.status_code}")
+            logger.debug(f"Response headers: {resp.headers}")
+            logger.debug(f"Response content: {resp.text[:200]}...")  # Log first 200 chars
+        except Exception as e:
+            logger.error(f"Error proxying request: {e}")
+            return jsonify({"error": str(e)}), 500
         
         # Create response object
         response = app.response_class(
