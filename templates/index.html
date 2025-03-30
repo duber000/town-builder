@@ -509,10 +509,9 @@
                             
                             // Get the bounding box of the vehicle
                             const vehicleBox = new THREE.Box3().setFromObject(modelInstance);
-                            const vehicleHeight = vehicleBox.max.y - vehicleBox.min.y;
                             
-                            // Place the vehicle on top of the road
-                            modelInstance.position.y = roadHeight + (vehicleHeight / 2);
+                            // Place the vehicle directly on top of the road (wheels touching)
+                            modelInstance.position.y = roadHeight;
                             placedOnRoad = true;
                             console.log("Placed vehicle on road at height:", modelInstance.position.y);
                             break;
@@ -1216,10 +1215,9 @@
                                     
                                     // Get the bounding box of the vehicle
                                     const vehicleBox = new THREE.Box3().setFromObject(model);
-                                    const vehicleHeight = vehicleBox.max.y - vehicleBox.min.y;
                                     
-                                    // Place the vehicle on top of the road
-                                    model.position.y = roadHeight + (vehicleHeight / 2);
+                                    // Place the vehicle directly on top of the road (wheels touching)
+                                    model.position.y = roadHeight;
                                     placedOnRoad = true;
                                     console.log("Placed loaded vehicle on road at height:", model.position.y);
                                     break;
