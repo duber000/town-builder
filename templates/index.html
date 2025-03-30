@@ -210,12 +210,14 @@
             });
             
             // Clear scene button
-            document.getElementById('clear-scene').addEventListener('click', function() {
+            document.getElementById('clear-scene').addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 clearScene();
             });
             
             // Save scene button
-            document.getElementById('save-scene').addEventListener('click', function() {
+            document.getElementById('save-scene').addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 showSaveDialog();
             });
             
@@ -680,7 +682,10 @@
             doneButton.style.padding = '5px 15px';
             doneButton.style.display = 'block';
             doneButton.style.margin = '0 auto';
-            doneButton.addEventListener('click', removeEditUI);
+            doneButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
+                removeEditUI();
+            });
             editUI.appendChild(doneButton);
             
             // Add the edit UI to the document
@@ -779,7 +784,8 @@
             saveButton.style.border = 'none';
             saveButton.style.borderRadius = '3px';
             saveButton.style.cursor = 'pointer';
-            saveButton.addEventListener('click', function() {
+            saveButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 saveSceneToServer(filenameInput.value);
                 document.body.removeChild(saveDialog);
             });
@@ -794,7 +800,8 @@
             cancelButton.style.border = 'none';
             cancelButton.style.borderRadius = '3px';
             cancelButton.style.cursor = 'pointer';
-            cancelButton.addEventListener('click', function() {
+            cancelButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent click from propagating to canvas
                 document.body.removeChild(saveDialog);
             });
             buttonsDiv.appendChild(cancelButton);
