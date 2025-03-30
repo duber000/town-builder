@@ -154,13 +154,13 @@ class TownBuilder(ShowBase):
         # Save/Load buttons
         DirectButton(text="Save Town",
                      scale=0.06,
-                     command=self.save_town,
+                     command=self.show_save_dialog,
                      pos=(0, 0, -0.8),
                      parent=self.main_frame)
         
         DirectButton(text="Load Town",
                      scale=0.06,
-                     command=self.load_town,
+                     command=self.show_load_dialog,
                      pos=(0, 0, -0.88),
                      parent=self.main_frame)
         
@@ -414,10 +414,38 @@ class TownBuilder(ShowBase):
                 
                 print(f"Selected model for editing: {closest_model['model']}")
     
-    def save_town(self):
-        with open("town_data.json", "w") as f:
+    def save_town(self, filename=None):
+        if filename is None:
+            filename = "town_data.json"
+        
+        # Ensure the filename has .json extension
+        if not filename.endswith('.json'):
+            filename += '.json'
+            
+        with open(filename, "w") as f:
             json.dump(self.town_data, f, indent=2)
-        print("Town saved to town_data.json")
+        print(f"Town saved to {filename}")
+        
+        # Create a save confirmation message
+        if hasattr(self, 'save_message') and self.save_message:
+            self.save_message.destroy()
+            
+        self.save_message = DirectLabel(
+            text=f"Town saved to {filename}",
+            scale=0.05,
+            pos=(0, 0, 0.9),
+            text_fg=(0, 1, 0, 1),  # Green text
+            relief=None
+        )
+        
+        # Auto-hide the message after 3 seconds
+        taskMgr.doMethodLater(3, self.hide_save_message, 'hide_save_message')
+    
+    def hide_save_message(self, task):
+        if hasattr(self, 'save_message') and self.save_message:
+            self.save_message.destroy()
+            self.save_message = None
+        return task.done
     
     def create_edit_ui(self, model_data, category, index, model_np):
         """Create UI for editing a model"""
@@ -604,9 +632,16 @@ class TownBuilder(ShowBase):
         
         # Stay in edit mode - don't switch back to place mode
     
-    def load_town(self):
+    def load_town(self, filename=None):
+        if filename is None:
+            filename = "town_data.json"
+            
+        # Ensure the filename has .json extension
+        if not filename.endswith('.json'):
+            filename += '.json'
+            
         try:
-            with open("town_data.json", "r") as f:
+            with open(filename, "r") as f:
                 self.town_data = json.load(f)
             
             # Clear existing models
@@ -632,9 +667,171 @@ class TownBuilder(ShowBase):
                     model.reparentTo(self.render)
                     model.setPythonTag("data", model_data)
             
-            print("Town loaded from town_data.json")
+            # Create a load confirmation message
+            if hasattr(self, 'load_message') and self.load_message:
+                self.load_message.destroy()
+                
+            self.load_message = DirectLabel(
+                text=f"Town loaded from {filename}",
+                scale=0.05,
+                pos=(0, 0, 0.9),
+                text_fg=(0, 1, 0, 1),  # Green text
+                relief=None
+            )
+            
+            # Auto-hide the message after 3 seconds
+            taskMgr.doMethodLater(3, self.hide_load_message, 'hide_load_message')
+            
+            print(f"Town loaded from {filename}")
+        except FileNotFoundError:
+            print(f"File not found: {filename}")
+            self.show_error_message(f"File not found: {filename}")
         except Exception as e:
             print(f"Error loading town: {e}")
+            self.show_error_message(f"Error loading town: {e}")
+    
+    def hide_load_message(self, task):
+        if hasattr(self, 'load_message') and self.load_message:
+            self.load_message.destroy()
+            self.load_message = None
+        return task.done
+        
+    def show_error_message(self, message):
+        if hasattr(self, 'error_message') and self.error_message:
+            self.error_message.destroy()
+            
+        self.error_message = DirectLabel(
+            text=message,
+            scale=0.05,
+            pos=(0, 0, 0.9),
+            text_fg=(1, 0, 0, 1),  # Red text
+            relief=None
+        )
+        
+        # Auto-hide the message after 3 seconds
+        taskMgr.doMethodLater(3, self.hide_error_message, 'hide_error_message')
+    
+    def hide_error_message(self, task):
+        if hasattr(self, 'error_message') and self.error_message:
+            self.error_message.destroy()
+            self.error_message = None
+        return task.done
+
+    def show_save_dialog(self):
+        """Show dialog to save town with custom filename"""
+        if hasattr(self, 'save_dialog') and self.save_dialog:
+            self.save_dialog.destroy()
+            
+        self.save_dialog = DirectFrame(
+            frameColor=(0.2, 0.2, 0.2, 0.8),
+            frameSize=(-0.3, 0.3, -0.2, 0.2),
+            pos=(0, 0, 0)
+        )
+        
+        DirectLabel(
+            text="Save Town",
+            scale=0.05,
+            pos=(0, 0, 0.15),
+            parent=self.save_dialog
+        )
+        
+        # Default filename
+        self.save_filename = DirectEntry(
+            scale=0.05,
+            pos=(0, 0, 0.05),
+            width=10,
+            initialText="town_data.json",
+            parent=self.save_dialog,
+            numLines=1
+        )
+        
+        # Save button
+        DirectButton(
+            text="Save",
+            scale=0.05,
+            pos=(-0.1, 0, -0.1),
+            parent=self.save_dialog,
+            command=self.do_save_town
+        )
+        
+        # Cancel button
+        DirectButton(
+            text="Cancel",
+            scale=0.05,
+            pos=(0.1, 0, -0.1),
+            parent=self.save_dialog,
+            command=self.close_save_dialog
+        )
+    
+    def do_save_town(self):
+        """Actually save the town with the specified filename"""
+        filename = self.save_filename.get()
+        self.close_save_dialog()
+        self.save_town(filename)
+    
+    def close_save_dialog(self):
+        """Close the save dialog"""
+        if hasattr(self, 'save_dialog') and self.save_dialog:
+            self.save_dialog.destroy()
+            self.save_dialog = None
+    
+    def show_load_dialog(self):
+        """Show dialog to load town with custom filename"""
+        if hasattr(self, 'load_dialog') and self.load_dialog:
+            self.load_dialog.destroy()
+            
+        self.load_dialog = DirectFrame(
+            frameColor=(0.2, 0.2, 0.2, 0.8),
+            frameSize=(-0.3, 0.3, -0.2, 0.2),
+            pos=(0, 0, 0)
+        )
+        
+        DirectLabel(
+            text="Load Town",
+            scale=0.05,
+            pos=(0, 0, 0.15),
+            parent=self.load_dialog
+        )
+        
+        # Default filename
+        self.load_filename = DirectEntry(
+            scale=0.05,
+            pos=(0, 0, 0.05),
+            width=10,
+            initialText="town_data.json",
+            parent=self.load_dialog,
+            numLines=1
+        )
+        
+        # Load button
+        DirectButton(
+            text="Load",
+            scale=0.05,
+            pos=(-0.1, 0, -0.1),
+            parent=self.load_dialog,
+            command=self.do_load_town
+        )
+        
+        # Cancel button
+        DirectButton(
+            text="Cancel",
+            scale=0.05,
+            pos=(0.1, 0, -0.1),
+            parent=self.load_dialog,
+            command=self.close_load_dialog
+        )
+    
+    def do_load_town(self):
+        """Actually load the town with the specified filename"""
+        filename = self.load_filename.get()
+        self.close_load_dialog()
+        self.load_town(filename)
+    
+    def close_load_dialog(self):
+        """Close the load dialog"""
+        if hasattr(self, 'load_dialog') and self.load_dialog:
+            self.load_dialog.destroy()
+            self.load_dialog = None
 
 # Run the application
 app = TownBuilder()

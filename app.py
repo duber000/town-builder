@@ -75,6 +75,51 @@ def update_town():
     town_data = data
     return jsonify({"status": "success"})
 
+@app.route('/api/town/save', methods=['POST'])
+def save_town():
+    """Save the town layout to a file"""
+    try:
+        filename = request.json.get('filename', 'town_data.json')
+        
+        # Ensure the filename has .json extension
+        if not filename.endswith('.json'):
+            filename += '.json'
+            
+        # Save the town data to the file
+        with open(filename, 'w') as f:
+            json.dump(town_data, f, indent=2)
+            
+        logger.info(f"Town saved to {filename}")
+        return jsonify({"status": "success", "message": f"Town saved to {filename}"})
+    except Exception as e:
+        logger.error(f"Error saving town: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/town/load', methods=['POST'])
+def load_town():
+    """Load the town layout from a file"""
+    try:
+        filename = request.json.get('filename', 'town_data.json')
+        
+        # Ensure the filename has .json extension
+        if not filename.endswith('.json'):
+            filename += '.json'
+            
+        # Check if the file exists
+        if not os.path.exists(filename):
+            return jsonify({"status": "error", "message": f"File {filename} not found"}), 404
+            
+        # Load the town data from the file
+        with open(filename, 'r') as f:
+            global town_data
+            town_data = json.load(f)
+            
+        logger.info(f"Town loaded from {filename}")
+        return jsonify({"status": "success", "message": f"Town loaded from {filename}", "data": town_data})
+    except Exception as e:
+        logger.error(f"Error loading town: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/town/model', methods=['DELETE'])
 def delete_model():
     """Delete a model from the town layout"""
