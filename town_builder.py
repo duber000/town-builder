@@ -114,7 +114,7 @@ class TownBuilder(ShowBase):
         self.model_buttons = {}
         
         # Main frame
-        self.main_frame = DirectFrame(frameColor=(0, 0, 0, 0.7),
+        self.main_frame = DirectFrame(frameColor=(0, 0, 0, 0.5),
                                       frameSize=(-0.3, 0.3, -0.9, 0.9),
                                       pos=(-1.3, 0, 0))
         
@@ -125,7 +125,7 @@ class TownBuilder(ShowBase):
                     parent=self.main_frame)
         
         # Mode buttons
-        self.mode_frame = DirectFrame(frameColor=(0.1, 0.1, 0.1, 0.8),
+        self.mode_frame = DirectFrame(frameColor=(0.1, 0.1, 0.1, 0.6),
                                      frameSize=(-0.25, 0.25, -0.08, 0),
                                      pos=(0, 0, 0.75),
                                      parent=self.main_frame)
@@ -177,7 +177,7 @@ class TownBuilder(ShowBase):
             self.category_buttons[category] = category_button
             
             # Category frame (initially hidden)
-            category_frame = DirectFrame(frameColor=(0.1, 0.1, 0.1, 0.8),
+            category_frame = DirectFrame(frameColor=(0.1, 0.1, 0.1, 0.6),
                                          frameSize=(-0.25, 0.25, -0.02*len(models), 0),
                                          pos=(0, 0, y_pos-0.02),
                                          parent=self.main_frame)
@@ -449,7 +449,7 @@ class TownBuilder(ShowBase):
     
     def create_edit_ui(self, model_data, category, index, model_np):
         """Create UI for editing a model"""
-        self.edit_frame = DirectFrame(frameColor=(0.2, 0.2, 0.2, 0.8),
+        self.edit_frame = DirectFrame(frameColor=(0.2, 0.2, 0.2, 0.6),
                                      frameSize=(-0.3, 0.3, -0.4, 0.4),
                                      pos=(0, 0, 0))
         
@@ -723,7 +723,7 @@ class TownBuilder(ShowBase):
             self.save_dialog.destroy()
             
         self.save_dialog = DirectFrame(
-            frameColor=(0.2, 0.2, 0.2, 0.8),
+            frameColor=(0.2, 0.2, 0.2, 0.6),
             frameSize=(-0.3, 0.3, -0.2, 0.2),
             pos=(0, 0, 0)
         )
@@ -781,7 +781,7 @@ class TownBuilder(ShowBase):
             self.load_dialog.destroy()
             
         self.load_dialog = DirectFrame(
-            frameColor=(0.2, 0.2, 0.2, 0.8),
+            frameColor=(0.2, 0.2, 0.2, 0.6),
             frameSize=(-0.3, 0.3, -0.2, 0.2),
             pos=(0, 0, 0)
         )
