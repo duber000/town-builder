@@ -245,7 +245,11 @@
             // Clear scene button
             document.getElementById('clear-scene').addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
-                clearScene();
+                
+                // Show confirmation dialog
+                if (confirm("Are ya sure you want to clear the scene?")) {
+                    clearScene();
+                }
             });
             
             // Save scene button
