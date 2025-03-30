@@ -8,6 +8,7 @@ import logging
 import dotenv
 from os import getenv
 from flask_cors import CORS
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -126,8 +127,54 @@ def get_api_config():
     """Get API configuration including JWT token"""
     return jsonify({
         "token": API_TOKEN,
-        "apiUrl": API_URL
+        "apiUrl": "/api/proxy/towns"  # Use our proxy endpoint instead of direct API URL
     })
+
+@app.route('/api/proxy/towns', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+def proxy_towns_api():
+    """Proxy requests to the external towns API"""
+    if request.method == 'OPTIONS':
+        # Handle preflight requests
+        response = app.make_default_options_response()
+    else:
+        # Forward the request to the actual API
+        url = f"{API_URL}{request.path.replace('/api/proxy/towns', '')}"
+        
+        # Copy request headers
+        headers = {
+            key: value for key, value in request.headers
+            if key.lower() != 'host' and key.lower() != 'content-length'
+        }
+        
+        # Add authorization if we have a token
+        if API_TOKEN:
+            headers['Authorization'] = f"Bearer {API_TOKEN}"
+        
+        # Forward the request with the appropriate method
+        if request.method == 'GET':
+            resp = requests.get(url, headers=headers, params=request.args)
+        elif request.method == 'POST':
+            resp = requests.post(url, headers=headers, json=request.get_json())
+        elif request.method == 'PUT':
+            resp = requests.put(url, headers=headers, json=request.get_json())
+        elif request.method == 'DELETE':
+            resp = requests.delete(url, headers=headers)
+        else:
+            return jsonify({"error": "Method not supported"}), 405
+        
+        # Create response object
+        response = app.response_class(
+            response=resp.content,
+            status=resp.status_code,
+            mimetype=resp.headers.get('content-type')
+        )
+        
+        # Copy response headers
+        for key, value in resp.headers.items():
+            if key.lower() != 'content-length' and key.lower() != 'transfer-encoding':
+                response.headers[key] = value
+    
+    return response
 
 @app.route('/api/town/load', methods=['POST'])
 def load_town():
