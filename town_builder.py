@@ -4,6 +4,7 @@ from panda3d.core import *
 import json
 import sys
 import os
+import copy
 
 class TownBuilder(ShowBase):
     def __init__(self):
@@ -54,6 +55,14 @@ class TownBuilder(ShowBase):
         # Tasks for control
         self.taskMgr.add(self.mouse_task, "MouseTask")
         self.taskMgr.add(self.keyboard_task, "KeyboardTask")
+
+        # Clipboard for copy/paste
+        self.clipboard_model_data = None
+        self.pasting_model = False # Flag to indicate if the current placement is from a paste
+
+        # Track currently edited model
+        self.currently_editing_data = None
+        self.currently_editing_nodepath = None
         
     def setup_lighting(self):
         # Add ambient light
@@ -515,7 +524,8 @@ class TownBuilder(ShowBase):
             model_node.reparentTo(self.render)
 
             # Generate a unique ID (simple approach, consider UUID for robustness)
-            model_id = f"{self.current_category}_{position.getX():.1f}_{position.getY():.1f}_{len(self.town_data[self.current_category])}"
+            # Ensure uniqueness even after deletions/reloads might be needed for robust IDs
+            model_id = f"{self.current_category}_{position.getX():.1f}_{position.getY():.1f}_{globalClock.getFrameTime()}" # Use time for more uniqueness
 
             # Create data dictionary for this model instance
             model_data = {
@@ -523,10 +533,46 @@ class TownBuilder(ShowBase):
                 "model": self.current_model,
                 "category": self.current_category, # Store category for easier lookup
                 "position": {"x": position.getX(), "y": position.getY(), "z": position.getZ()},
-                "rotation": {"h": 0, "p": 0, "r": 0},
-                "scale": 1.0,
+                "rotation": {"h": 0, "p": 0, "r": 0}, # Default rotation
+                "scale": 1.0, # Default scale
                 "color": [1.0, 1.0, 1.0, 1.0]  # Default color tint (RGBA White)
             }
+
+            # If pasting, apply copied properties
+            if self.pasting_model and self.clipboard_model_data:
+                print("Applying pasted properties...")
+                # Apply rotation from clipboard (create copy to avoid aliasing)
+                pasted_rotation = copy.deepcopy(self.clipboard_model_data.get("rotation", {"h": 0, "p": 0, "r": 0}))
+                model_data["rotation"] = pasted_rotation
+                model_node.setHpr(pasted_rotation.get("h", 0), pasted_rotation.get("p", 0), pasted_rotation.get("r", 0))
+
+                # Apply color from clipboard (create copy)
+                pasted_color = copy.deepcopy(self.clipboard_model_data.get("color", [1.0, 1.0, 1.0, 1.0]))
+                # Ensure color is valid Vec4 format before applying
+                if isinstance(pasted_color, (list, tuple)) and len(pasted_color) == 4:
+                    model_data["color"] = pasted_color
+                    try:
+                        model_node.setColorScale(Vec4(*pasted_color))
+                    except Exception as e:
+                         print(f"Error applying pasted color scale: {e}. Color data: {pasted_color}")
+                         model_node.clearColorScale()
+                else:
+                    print(f"Warning: Invalid pasted color format {pasted_color}. Using default.")
+                    model_data["color"] = [1.0, 1.0, 1.0, 1.0] # Reset to default in data
+                    model_node.clearColorScale() # Reset on node
+
+                # Apply scale from clipboard (create copy)
+                pasted_scale = copy.deepcopy(self.clipboard_model_data.get("scale", 1.0))
+                model_data["scale"] = pasted_scale
+                if isinstance(pasted_scale, (int, float)):
+                    model_node.setScale(pasted_scale)
+                elif isinstance(pasted_scale, (list, tuple)) and len(pasted_scale) == 3:
+                    model_node.setScale(Vec3(*pasted_scale))
+                else:
+                    model_node.setScale(1.0) # Default uniform scale
+
+                # Reset the pasting flag after applying properties
+                self.pasting_model = False
 
             # Add the data to our town layout structure
             self.town_data[self.current_category].append(model_data)
@@ -663,9 +709,11 @@ class TownBuilder(ShowBase):
             # Close any existing edit UI first
             self.close_edit_ui()
 
+            # Store reference to the model being edited
+            self.currently_editing_data = model_to_edit_data
+            self.currently_editing_nodepath = nodepath_to_edit
+
             # Create the edit UI for the selected model
-            # We need the index, but our current structure doesn't easily provide it.
-            # Let's pass the data and NodePath directly, index isn't strictly needed if we modify data directly.
             self.create_edit_ui(model_to_edit_data, category_of_edited, nodepath_to_edit)
 
             print(f"Editing model: {model_to_edit_data['model']} (ID: {model_to_edit_data.get('id', 'N/A')})")
@@ -906,6 +954,10 @@ class TownBuilder(ShowBase):
         self.accept('i', self.set_mode, ['edit']) # Using 'i' for edit to avoid conflict with 'e' for up
         self.accept('k', self.set_mode, ['delete']) # Using 'k' for delete/kill
 
+        # Add copy/paste bindings
+        self.accept('control-c', self.copy_selected_model)
+        self.accept('control-v', self.paste_model)
+
         # Setup mouse clicks (moved from mouse_task)
         self.setup_mouse_clicks()
 
@@ -959,6 +1011,9 @@ class TownBuilder(ShowBase):
         if hasattr(self, 'edit_frame') and self.edit_frame:
             self.edit_frame.destroy()
             self.edit_frame = None
+            # Clear the reference to the edited model
+            self.currently_editing_data = None
+            self.currently_editing_nodepath = None
             print("Edit UI closed.")
         # Optionally, switch back to a default mode like 'place' or 'edit'
         # self.set_mode("place")
@@ -1252,6 +1307,76 @@ class TownBuilder(ShowBase):
         if hasattr(self, 'load_dialog') and self.load_dialog:
             self.load_dialog.destroy()
             self.load_dialog = None
+
+    # --- Copy/Paste Methods ---
+
+    def copy_selected_model(self):
+        """Copies the data of the currently selected model (in edit mode) to the clipboard."""
+        if self.currently_editing_data:
+            # Create a deep copy to avoid modifying the original data via the clipboard
+            self.clipboard_model_data = copy.deepcopy(self.currently_editing_data)
+            # Remove the unique ID, as the pasted model will get a new one
+            if "id" in self.clipboard_model_data:
+                del self.clipboard_model_data["id"]
+            # Position is not copied; paste places at cursor
+            if "position" in self.clipboard_model_data:
+                 del self.clipboard_model_data["position"]
+
+            model_name = self.clipboard_model_data.get('model', 'Unknown')
+            print(f"Copied properties of {model_name} to clipboard.")
+            self.show_transient_message(f"Copied {model_name}", duration=2, color=(0, 0.8, 1, 1))
+        else:
+            print("No model selected for copying. Select a model in Edit mode first.")
+            self.show_transient_message("Select a model in Edit mode first (Ctrl+C)", duration=3, color=(1, 0.5, 0, 1))
+
+    def paste_model(self):
+        """Initiates pasting of the model data stored in the clipboard."""
+        if self.clipboard_model_data:
+            category = self.clipboard_model_data.get("category")
+            model_file = self.clipboard_model_data.get("model")
+
+            if category and model_file:
+                print(f"Pasting model: {model_file} from category {category}")
+                self.show_transient_message(f"Pasting {model_file}...", duration=2, color=(0, 0.8, 1, 1))
+
+                # Use select_model to load the preview, it handles mode switching etc.
+                self.select_model(category, model_file)
+
+                # Set the pasting flag so place_model knows to apply clipboard properties
+                self.pasting_model = True
+
+                # Apply copied properties (rotation, color, scale) to the PREVIEW model immediately
+                if hasattr(self, 'preview_model') and self.preview_model:
+                    # Apply rotation
+                    pasted_rotation = self.clipboard_model_data.get("rotation", {"h": 0, "p": 0, "r": 0})
+                    self.preview_model.setHpr(pasted_rotation.get("h", 0), pasted_rotation.get("p", 0), pasted_rotation.get("r", 0))
+                    # Apply color
+                    pasted_color = self.clipboard_model_data.get("color", [1.0, 1.0, 1.0, 1.0])
+                    if isinstance(pasted_color, (list, tuple)) and len(pasted_color) == 4:
+                        try:
+                            # Apply alpha from preview settings but RGB from clipboard
+                            current_alpha = self.preview_model.getAlphaScale()
+                            self.preview_model.setColorScale(pasted_color[0], pasted_color[1], pasted_color[2], current_alpha)
+                        except Exception as e:
+                            print(f"Error applying pasted color to preview: {e}")
+                            self.preview_model.clearColorScale()
+                            self.preview_model.setAlphaScale(0.6) # Reset transparency
+                    # Apply scale
+                    pasted_scale = self.clipboard_model_data.get("scale", 1.0)
+                    if isinstance(pasted_scale, (int, float)):
+                        self.preview_model.setScale(pasted_scale)
+                    elif isinstance(pasted_scale, (list, tuple)) and len(pasted_scale) == 3:
+                        self.preview_model.setScale(Vec3(*pasted_scale))
+
+            else:
+                print("Clipboard data is invalid (missing category or model).")
+                self.show_transient_message("Clipboard error", duration=3, color=(1, 0, 0, 1))
+                self.clipboard_model_data = None # Clear invalid data
+                self.pasting_model = False
+        else:
+            print("Clipboard is empty. Copy a model first (Ctrl+C in Edit mode).")
+            self.show_transient_message("Clipboard empty (Ctrl+C first)", duration=3, color=(1, 0.5, 0, 1))
+            self.pasting_model = False
 
 
 # --- Main Application Execution ---
