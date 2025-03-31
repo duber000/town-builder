@@ -155,6 +155,18 @@
             <button id="save-scene" style="margin-left: 10px;">Save Scene</button>
             <button id="load-scene" style="margin-left: 10px;">Load Scene</button>
         </div>
+        <!-- Scene Color Controls -->
+        <div style="margin-top: 15px; border-top: 1px solid #444; padding-top: 10px;">
+            <h4>Scene Colors</h4>
+            <div style="margin-bottom: 5px;">
+                <label for="skyColorPicker" style="display: inline-block; width: 50px;">Sky:</label>
+                <input type="color" id="skyColorPicker" value="#87CEEB" style="vertical-align: middle;">
+            </div>
+            <div>
+                <label for="groundColorPicker" style="display: inline-block; width: 50px;">Ground:</label>
+                <input type="color" id="groundColorPicker" value="#2E8B57" style="vertical-align: middle;">
+            </div>
+        </div>
     </div>
 
     <div id="canvas-container"></div>
@@ -313,6 +325,19 @@
                     finishEditingTownName();
                 }
             });
+
+            // Initialize and add listeners for color pickers
+            const skyColorPicker = document.getElementById('skyColorPicker');
+            const groundColorPicker = document.getElementById('groundColorPicker');
+
+            // Set initial values from scene defaults (ensure consistency)
+            skyColorPicker.value = `#${scene.background.getHexString()}`;
+            groundColorPicker.value = `#${groundPlane.material.color.getHexString()}`;
+
+            // Add event listeners
+            skyColorPicker.addEventListener('input', (event) => updateSkyColor(event.target.value));
+            groundColorPicker.addEventListener('input', (event) => updateGroundColor(event.target.value));
+
 
             // Start animation loop
             animate();
@@ -1067,10 +1092,14 @@
 
         // Save scene to server
         function saveSceneToServer(filename, townName) {
-            // Collect data from all placed objects
+            // Collect data from all placed objects and scene settings
             const sceneData = {
                 townName: townName || 'My Town',
-                // Initialize categories based on available models to ensure all are present
+                settings: {
+                    skyColor: `#${scene.background.getHexString()}`,
+                    groundColor: `#${groundPlane.material.color.getHexString()}`
+                },
+                // Initialize model categories
                 ...Object.keys({{ models | tojson }}).reduce((acc, key) => { acc[key] = []; return acc; }, {})
             };
 
@@ -1242,6 +1271,30 @@
 
                     // Load the town data
                     const townData = data.data;
+
+                    // Apply scene settings if they exist in the loaded data
+                    if (townData.settings) {
+                        if (townData.settings.skyColor) {
+                            updateSkyColor(townData.settings.skyColor);
+                            document.getElementById('skyColorPicker').value = townData.settings.skyColor; // Update UI picker
+                        } else {
+                             updateSkyColor('#87CEEB'); // Default if missing
+                             document.getElementById('skyColorPicker').value = '#87CEEB';
+                        }
+                        if (townData.settings.groundColor) {
+                            updateGroundColor(townData.settings.groundColor);
+                            document.getElementById('groundColorPicker').value = townData.settings.groundColor; // Update UI picker
+                        } else {
+                             updateGroundColor('#2E8B57'); // Default if missing
+                             document.getElementById('groundColorPicker').value = '#2E8B57';
+                        }
+                    } else {
+                        // If no settings object exists, reset to defaults
+                        updateSkyColor('#87CEEB');
+                        updateGroundColor('#2E8B57');
+                        document.getElementById('skyColorPicker').value = '#87CEEB';
+                        document.getElementById('groundColorPicker').value = '#2E8B57';
+                    }
 
                     // Display town name if available
                     if (townData.townName) {
@@ -1831,6 +1884,19 @@
                 isPasting = false; // Ensure flag is reset
             }
         }
+
+        // --- Scene Color Update Functions ---
+
+        function updateSkyColor(hexColor) {
+            scene.background.set(hexColor);
+            console.log("Sky color updated to:", hexColor);
+        }
+
+        function updateGroundColor(hexColor) {
+            groundPlane.material.color.set(hexColor);
+            console.log("Ground color updated to:", hexColor);
+        }
+
 
     </script>
 </body>
