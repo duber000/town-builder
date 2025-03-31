@@ -169,6 +169,8 @@
         let placementIndicator = null;
         let placedObjects = []; // Keep track of placed objects
         let selectedEditModel = null; // Currently selected model for editing
+        let clipboardModelData = null; // Clipboard for copy/paste
+        let isPasting = false; // Flag to indicate pasting action
 
         // Initialize the scene
         function init() {
@@ -530,8 +532,11 @@
             // Copy position from the indicator
             modelInstance.position.copy(placementIndicator.position);
 
-            // Copy userData from the original model
-            modelInstance.userData = { ...selectedModel.userData };
+            // Copy userData from the original model (category, modelName)
+            modelInstance.userData = {
+                category: selectedModel.userData.category,
+                modelName: selectedModel.userData.modelName
+            };
             // Ensure the clone also has original color data if needed
             modelInstance.traverse(function(node) {
                 if (node.isMesh && node.material && node.material.color) {
@@ -580,6 +585,40 @@
                 // Adjust so the bottom of the model aligns with the ground (y=0) or indicator's base
                 modelInstance.position.y -= modelBottomY;
             }
+
+            // Apply properties from clipboard if pasting
+            if (isPasting && clipboardModelData) {
+                console.log("Applying pasted properties...");
+                // Apply rotation (convert degrees back to radians)
+                if (clipboardModelData.rotation) {
+                    modelInstance.rotation.set(
+                        THREE.MathUtils.degToRad(clipboardModelData.rotation.p || 0),
+                        THREE.MathUtils.degToRad(clipboardModelData.rotation.h || 0),
+                        THREE.MathUtils.degToRad(clipboardModelData.rotation.r || 0)
+                    );
+                    // Store rotation in userData as well
+                    modelInstance.userData.rotation = { ...clipboardModelData.rotation };
+                }
+                // Apply scale
+                if (clipboardModelData.scale) {
+                    const scale = clipboardModelData.scale;
+                    modelInstance.scale.set(scale, scale, scale);
+                    modelInstance.userData.scale = scale;
+                }
+                // Apply color
+                if (clipboardModelData.color) {
+                    const pastedColor = new THREE.Color(clipboardModelData.color.r, clipboardModelData.color.g, clipboardModelData.color.b);
+                    applyColorToModel(modelInstance, pastedColor); // Helper applies and stores in userData
+                }
+
+                isPasting = false; // Reset pasting flag
+            } else {
+                 // If not pasting, ensure default values are stored in userData
+                 modelInstance.userData.rotation = { h: 0, p: 0, r: 0 };
+                 modelInstance.userData.scale = 1.0;
+                 // Color is applied via applyColorToModel which stores it, or defaults if not colored
+            }
+
 
             // Add to scene and tracking array
             scene.add(modelInstance);
@@ -664,7 +703,7 @@
                     }
                 }
             });
-            // Store the applied color in userData for saving
+            // Store the applied color in userData for saving/copying
             model.userData.color = { r: color.r, g: color.g, b: color.b };
         }
 
@@ -729,8 +768,12 @@
                 slider.value = model.position[axis];
                 slider.addEventListener('input', function(event) {
                     event.stopPropagation();
-                    model.position[axis] = parseFloat(this.value);
-                    valueSpan.textContent = parseFloat(this.value).toFixed(1);
+                    const newValue = parseFloat(this.value);
+                    model.position[axis] = newValue;
+                    valueSpan.textContent = newValue.toFixed(1);
+                    // Update userData (position is usually derived on save, but good practice)
+                    if (!model.userData.position) model.userData.position = {};
+                    model.userData.position[axis] = newValue;
                 });
                 axisDiv.appendChild(slider);
 
@@ -768,8 +811,12 @@
             yRotSlider.value = THREE.MathUtils.radToDeg(model.rotation.y).toFixed(0);
             yRotSlider.addEventListener('input', function(event) {
                 event.stopPropagation();
-                model.rotation.y = THREE.MathUtils.degToRad(parseFloat(this.value));
-                yRotValue.textContent = parseFloat(this.value).toFixed(0) + '°';
+                const degrees = parseFloat(this.value);
+                model.rotation.y = THREE.MathUtils.degToRad(degrees);
+                yRotValue.textContent = degrees.toFixed(0) + '°';
+                // Update userData
+                if (!model.userData.rotation) model.userData.rotation = { h: 0, p: 0, r: 0 };
+                model.userData.rotation.h = degrees; // Store heading (Y rotation)
             });
             yRotDiv.appendChild(yRotSlider);
 
@@ -829,7 +876,7 @@
                 slider.addEventListener('input', function(event) {
                     event.stopPropagation();
                     currentColor[channel] = parseFloat(this.value);
-                    applyColorToModel(model, currentColor);
+                    applyColorToModel(model, currentColor); // This already updates userData.color
                     valueSpan.textContent = parseFloat(this.value).toFixed(2);
                     colorPreview.style.backgroundColor = `#${currentColor.getHexString()}`; // Update preview
                 });
@@ -905,6 +952,14 @@
 
             document.addEventListener('keyup', function(event) {
                 keysPressed[event.key.toLowerCase()] = false;
+
+                // Handle key combinations on keyup to avoid repeated actions
+                if (event.ctrlKey && event.key.toLowerCase() === 'c') {
+                    copySelectedModel();
+                }
+                if (event.ctrlKey && event.key.toLowerCase() === 'v') {
+                    pasteModel();
+                }
             });
         }
 
@@ -1703,6 +1758,79 @@
         };
 
         // Override saveTownToAPI is no longer needed as the global fetch handler covers it.
+
+
+        // --- Copy/Paste Functions ---
+
+        function copySelectedModel() {
+            // Only copy if in edit mode and a model is selected for editing
+            if (currentMode === 'edit' && selectedEditModel && selectedEditModel.userData) {
+                // Deep copy relevant properties from userData
+                clipboardModelData = {
+                    category: selectedEditModel.userData.category,
+                    modelName: selectedEditModel.userData.modelName,
+                    // Ensure rotation, scale, color exist before copying
+                    rotation: selectedEditModel.userData.rotation ? { ...selectedEditModel.userData.rotation } : { h: 0, p: 0, r: 0 },
+                    scale: selectedEditModel.userData.scale !== undefined ? selectedEditModel.userData.scale : 1.0,
+                    color: selectedEditModel.userData.color ? { ...selectedEditModel.userData.color } : { r: 1, g: 1, b: 1 }
+                };
+
+                console.log("Copied model properties to clipboard:", clipboardModelData);
+                showNotification(`Copied ${clipboardModelData.modelName}`, 'info');
+            } else {
+                console.log("Cannot copy: Not in edit mode or no model selected.");
+                showNotification("Select a model in Edit mode first (Ctrl+C)", 'error');
+            }
+        }
+
+        function pasteModel() {
+            if (clipboardModelData) {
+                console.log("Pasting model:", clipboardModelData.modelName);
+                showNotification(`Pasting ${clipboardModelData.modelName}...`, 'info');
+
+                // Set the pasting flag
+                isPasting = true;
+
+                // Select the model type from the clipboard to load its geometry/preview
+                // This function automatically switches to 'place' mode
+                selectModel(clipboardModelData.category, clipboardModelData.modelName);
+
+                // We need to wait briefly for selectModel to load the preview
+                // then apply properties to the placementIndicator
+                setTimeout(() => {
+                    if (placementIndicator && clipboardModelData) {
+                         // Apply rotation to indicator (visual preview)
+                         if (clipboardModelData.rotation) {
+                            // Note: Indicator doesn't rotate, but we could apply to selectedModel if needed
+                            // For now, scale and color give visual feedback
+                         }
+                         // Apply scale to indicator
+                         if (clipboardModelData.scale) {
+                             const scale = clipboardModelData.scale;
+                             // Apply scale uniformly based on clipboard data
+                             // We might need original model size here for accurate indicator scaling
+                             // For simplicity, let's assume uniform scale for the indicator for now
+                             // placementIndicator.scale.set(scale, scale, scale); // This might look weird if base scale differs
+                         }
+                         // Apply color tint to indicator (more useful feedback)
+                         if (clipboardModelData.color) {
+                             placementIndicator.material.color.setRGB(
+                                 clipboardModelData.color.r,
+                                 clipboardModelData.color.g,
+                                 clipboardModelData.color.b
+                             );
+                         } else {
+                             placementIndicator.material.color.set(0x00ff00); // Default green if no color copied
+                         }
+                    }
+                }, 100); // Small delay to allow model selection/loading
+
+            } else {
+                console.log("Clipboard is empty. Copy a model first (Ctrl+C in Edit mode).");
+                showNotification("Clipboard empty (Ctrl+C first)", 'error');
+                isPasting = false; // Ensure flag is reset
+            }
+        }
 
     </script>
 </body>
