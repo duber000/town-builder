@@ -1688,16 +1688,16 @@
                 // Assumes car model faces +Z locally. If not, adjust axis or rotation.
                 // car.translateZ(carSpeed * dt); // Option 1: Move along local Z
 
-                // Or move along a world axis (e.g., positive X)
-                car.position.x += carSpeed * dt;
+                // Or move along a world axis (e.g., positive Z)
+                car.position.z += carSpeed * dt; // Changed from x to z
 
                 // Simple wrap-around logic
-                if (car.position.x > sceneBoundary) {
-                    car.position.x = -sceneBoundary; // Reset to the other side
+                if (car.position.z > sceneBoundary) { // Changed from x to z
+                    car.position.z = -sceneBoundary; // Changed from x to z // Reset to the other side
                 }
-                // Add similar checks for other boundaries if needed (e.g., Z axis)
-                // if (car.position.z > sceneBoundary) {
-                //     car.position.z = -sceneBoundary;
+                // Add similar checks for other boundaries if needed (e.g., X axis)
+                // if (car.position.x > sceneBoundary) {
+                //     car.position.x = -sceneBoundary;
                 // } else if (car.position.z < -sceneBoundary) {
                 //     car.position.z = sceneBoundary;
                 // }
