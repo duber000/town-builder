@@ -1752,21 +1752,22 @@
 
         // Check if static files are accessible
         function checkStaticFiles() {
-            // Try to fetch a test file
-            fetch('/static/models')
+            // Try to fetch a test file - e.g., a known model file
+            const testFilePath = '/static/models/buildings/base.gltf'; // Use a specific file
+            fetch(testFilePath)
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        // Throw error including the path that failed
+                        throw new Error(`HTTP error! status: ${response.status} for path: ${testFilePath}`);
                     }
-                    console.log("Static files directory is accessible");
-                    return response.text();
+                    console.log(`Static file ${testFilePath} is accessible`);
+                    // No need to return response.text() unless debugging content
                 })
-                .then(html => {
-                    // console.log("Static directory listing received"); // Often disabled
-                })
+                // Removed the .then(html => ...) block as it's not needed
                 .catch(error => {
-                    console.error("Error accessing static files:", error);
-                    // Only log to console, no popup alert
+                    console.error("Error accessing static file:", error);
+                    // Show a notification to the user
+                    showApiErrorNotification(`Failed to load critical static file: ${testFilePath}. Models may not load. Details: ${error.message}`);
                 });
         }
 
