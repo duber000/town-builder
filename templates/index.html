@@ -185,6 +185,9 @@
         let clipboardModelData = null; // Clipboard for copy/paste
         let isPasting = false; // Flag to indicate pasting action
         const clock = new THREE.Clock(); // <<< ADD THIS LINE: For time delta in animation
+        let followingCar = null; // <<< ADD THIS LINE: Track the car being followed
+        let isFollowing = false; // <<< ADD THIS LINE: Flag for follow mode
+        let followIndicatorDiv = null; // <<< ADD THIS LINE: UI element for follow mode
 
         // Initialize the scene
         function init() {
@@ -285,6 +288,13 @@
                     } else if (currentMode === "edit") {
                         placementIndicator.material.color.set(0x0000ff); // Blue for edit
                     }
+
+                    // <<< START FOLLOW CODE >>>
+                    // Exit follow mode when changing modes
+                    if (isFollowing) {
+                        exitFollowMode();
+                    }
+                    // <<< END FOLLOW CODE >>>
                 });
             });
 
@@ -364,6 +374,14 @@
 
         // Handle mouse click for model placement, deletion, or editing
         function onMouseClick(event) {
+            // <<< START FOLLOW CODE >>>
+            // Exit follow mode on any click
+            if (isFollowing) {
+                exitFollowMode();
+                return; // Don't process the click further if we were following
+            }
+            // <<< END FOLLOW CODE >>>
+
             if (currentMode === "place" && selectedModel && placementIndicator.visible) {
                 placeModel();
             } else if (currentMode === "delete" && placementIndicator.visible) {
@@ -652,12 +670,16 @@
             placedObjects.push(modelInstance);
 
             // <<< START ADDED CODE >>>
-            // If it's a vehicle, add it to the movingCars array
+            // If it's a vehicle, add it to the movingCars array and start following
             if (modelInstance.userData && modelInstance.userData.category === 'vehicles') {
                 movingCars.push(modelInstance);
                 console.log("Added car to movingCars array:", modelInstance);
-                // Optional: Set initial rotation to face forward (e.g., along positive X)
-                // modelInstance.rotation.y = Math.PI / 2; // Adjust as needed
+                // Optional: Set initial rotation to face forward (e.g., along positive Z)
+                // modelInstance.rotation.y = 0; // Face +Z
+
+                // <<< START FOLLOW CODE >>>
+                startFollowingCar(modelInstance);
+                // <<< END FOLLOW CODE >>>
             }
             // <<< END ADDED CODE >>>
 
@@ -705,6 +727,11 @@
                 if (indexMoving > -1) {
                     movingCars.splice(indexMoving, 1);
                     console.log("Removed car from movingCars array.");
+                    // <<< START FOLLOW CODE >>>
+                    if (objectToRemove === followingCar) {
+                        exitFollowMode();
+                    }
+                    // <<< END FOLLOW CODE >>>
                 }
                 // <<< END ADDED CODE >>>
 
@@ -985,6 +1012,12 @@
             placedObjects = [];
             movingCars = []; // <<< ADD THIS LINE
 
+            // <<< START FOLLOW CODE >>>
+            if (isFollowing) {
+                exitFollowMode();
+            }
+            // <<< END FOLLOW CODE >>>
+
             console.log("Scene cleared");
         }
 
@@ -1008,6 +1041,11 @@
                 if (event.ctrlKey && event.key.toLowerCase() === 'v') {
                     pasteModel();
                 }
+                // <<< START FOLLOW CODE >>>
+                if (event.key === 'Escape' && isFollowing) {
+                    exitFollowMode();
+                }
+                // <<< END FOLLOW CODE >>>
             });
         }
 
@@ -1632,7 +1670,8 @@
                 document.activeElement.tagName === 'TEXTAREA' ||
                 document.getElementById('edit-ui') ||
                 document.getElementById('save-dialog') ||
-                document.getElementById('load-dialog')) {
+                document.getElementById('load-dialog') ||
+                isFollowing) { // <<< ADD THIS CONDITION
                 return;
             }
 
@@ -1704,9 +1743,29 @@
             });
             // <<< END ADDED CODE >>>
 
+            // <<< START FOLLOW CODE >>>
+            if (isFollowing && followingCar) {
+                // Calculate desired camera position (behind and above the car)
+                const offset = new THREE.Vector3(0, 2, -5); // Adjust Y and Z for height and distance
+                // Apply the car's rotation to the offset vector
+                const targetPosition = followingCar.localToWorld(offset.clone());
 
-            processKeyboardInput(); // Process camera movement
-            controls.update(); // OrbitControls update
+                // Smoothly interpolate camera position
+                camera.position.lerp(targetPosition, dt * 2.0); // Adjust smoothing factor (e.g., 2.0)
+
+                // Make camera look at the car's position
+                camera.lookAt(followingCar.position);
+
+                // Update controls target even while disabled
+                controls.target.copy(followingCar.position);
+                controls.update(); // Need to call update for target change to take effect later
+            } else {
+                // Only process keyboard if not following
+                processKeyboardInput();
+                controls.update(); // OrbitControls update only when not following
+            }
+            // <<< END FOLLOW CODE >>>
+
             renderer.render(scene, camera);
         }
 
@@ -1963,6 +2022,56 @@
             console.log("Ground color updated to:", hexColor);
         }
 
+        // <<< START FOLLOW CODE >>>
+        // Function to start following a car
+        function startFollowingCar(car) {
+            followingCar = car;
+            isFollowing = true;
+            controls.enabled = false; // Disable orbit controls
+            showFollowIndicator();
+            console.log("Started following car:", car);
+        }
+
+        // Function to exit follow mode
+        function exitFollowMode() {
+            if (!isFollowing) return; // Already exited
+
+            followingCar = null;
+            isFollowing = false;
+            controls.enabled = true; // Re-enable orbit controls
+            hideFollowIndicator();
+            console.log("Exited follow mode.");
+            // No need to explicitly reset camera position/target here,
+            // OrbitControls will take over from its last updated target.
+        }
+
+        // Show UI indicator for follow mode
+        function showFollowIndicator() {
+            if (!followIndicatorDiv) {
+                followIndicatorDiv = document.createElement('div');
+                followIndicatorDiv.id = 'follow-indicator';
+                followIndicatorDiv.textContent = 'Following Car (Press Esc to exit)';
+                followIndicatorDiv.style.position = 'absolute';
+                followIndicatorDiv.style.bottom = '10px';
+                followIndicatorDiv.style.left = '50%';
+                followIndicatorDiv.style.transform = 'translateX(-50%)';
+                followIndicatorDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+                followIndicatorDiv.style.color = 'white';
+                followIndicatorDiv.style.padding = '5px 15px';
+                followIndicatorDiv.style.borderRadius = '5px';
+                followIndicatorDiv.style.zIndex = '1001';
+                document.body.appendChild(followIndicatorDiv);
+            }
+            followIndicatorDiv.style.display = 'block';
+        }
+
+        // Hide UI indicator
+        function hideFollowIndicator() {
+            if (followIndicatorDiv) {
+                followIndicatorDiv.style.display = 'none';
+            }
+        }
+        // <<< END FOLLOW CODE >>>
 
     </script>
 </body>
