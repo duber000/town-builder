@@ -12,4 +12,4 @@ wheels/
 .aider*
 
 #Local Test
-town_data.json
+*.json
