@@ -1799,8 +1799,17 @@
                     if (isDriving && car === driveCar) {
                         // Stop all automatic movement of the driven car
                         // Movement handled by player input only
+                        // Do not move automatically
                         return;
-                    } else if (isPolice) {
+                    }
+
+                    if (currentMode === "drive" && car === driveCar) {
+                        // Stop all automatic movement in drive mode
+                        // Movement handled by player input only
+                        return;
+                    }
+
+                    if (isPolice) {
                         const hatchback = movingCars.find(c =>
                             c !== car &&
                             c.userData &&
