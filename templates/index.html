@@ -1795,11 +1795,11 @@
             // Prevent black screen: always have some ambient and moon/sun light
             if (normalizedSunY < 0.05) {
                 directionalLight.intensity = 0.05; // faint sun even at night
-                ambientLight.intensity = 0.15;    // faint ambient
-                moonLight.intensity = 0.4;        // bright moon at night
+                ambientLight.intensity = 0.3;     // brighter ambient to avoid black
+                moonLight.intensity = 0.6;        // brighter moon at night
             } else {
-                directionalLight.intensity = 0.2 + 0.8 * normalizedSunY;
-                ambientLight.intensity = 0.2 + 0.3 * normalizedSunY;
+                directionalLight.intensity = 0.3 + 0.7 * normalizedSunY;  // increase base sun
+                ambientLight.intensity = 0.3 + 0.3 * normalizedSunY;      // increase base ambient
                 moonLight.intensity = 0.1 + 0.3 * Math.max(0, -sunY / height);
             }
 
