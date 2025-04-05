@@ -2165,6 +2165,20 @@
             controls.enabled = false;
             showFollowIndicator('Driving Car (Esc to exit)');
             console.log("Started driving car:", car);
+
+            // Move camera to driver's perspective
+            const driverOffset = new THREE.Vector3(0, 1, 0.5); // Adjust as needed for seat height and position
+            const driverPos = car.localToWorld(driverOffset.clone());
+            camera.position.copy(driverPos);
+
+            // Look forward from car
+            const forward = new THREE.Vector3(0, 1, 2); // Point ahead of car
+            const lookAtPos = car.localToWorld(forward.clone());
+            camera.lookAt(lookAtPos);
+
+            // Update controls target to front of car
+            controls.target.copy(lookAtPos);
+            controls.update();
         }
 
         function exitFollowMode() {
