@@ -45,7 +45,7 @@ def get_available_models():
             if os.path.isdir(category_path):
                 models[category] = []
                 for model_file in os.listdir(category_path):
-                    if model_file.endswith('.gltf'):
+                    if model_file.endswith('.gltf') or model_file.endswith('.glb'):
                         models[category].append(model_file)
                         logger.debug(f"Found model: {category}/{model_file}")
         
