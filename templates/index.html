@@ -1846,21 +1846,28 @@
                             return;
                         }
 
-                        const hatchback = movingCars.find(c =>
-                            c !== car &&
-                            c.userData &&
-                            c.userData.modelName &&
-                            c.userData.modelName.includes('car_hatchback')
-                        );
+                        // Find the closest vehicle to chase (excluding itself and other police cars)
+                        let closestVehicle = null;
+                        let minDistance = Infinity;
+                        for (const target of movingCars) {
+                            if (target === car) continue;
+                            if (target.userData && target.userData.modelName && target.userData.modelName.includes('car_police')) continue;
 
-                        if (hatchback) {
+                            const dist = car.position.distanceTo(target.position);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                closestVehicle = target;
+                            }
+                        }
+
+                        if (closestVehicle) {
                             const boundary = sceneBoundary;
-                            if (Math.abs(hatchback.position.x) > boundary ||
-                                Math.abs(hatchback.position.z) > boundary) {
+                            if (Math.abs(closestVehicle.position.x) > boundary ||
+                                Math.abs(closestVehicle.position.z) > boundary) {
                                 return;
                             }
 
-                            const dir = new THREE.Vector3().subVectors(hatchback.position, car.position);
+                            const dir = new THREE.Vector3().subVectors(closestVehicle.position, car.position);
                             const distance = dir.length();
 
                             if (distance > 0.5) {
