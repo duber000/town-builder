@@ -1854,14 +1854,25 @@
                 if (isDriving && driveCar) {
                     // Driving mode: move car with WASD
                     const moveVec = new THREE.Vector3();
-                    if (keysPressed['w']) moveVec.z += 1;    // forward
-                    if (keysPressed['s']) moveVec.z -= 1;    // backward
-                    if (keysPressed['a']) moveVec.x += 1;    // left
-                    if (keysPressed['d']) moveVec.x -= 1;    // right
+                    let turning = 0;
+                    if (keysPressed['a']) turning += 1;    // turn left
+                    if (keysPressed['d']) turning -= 1;    // turn right
 
-                    if (moveVec.lengthSq() > 0) {
-                        moveVec.normalize().multiplyScalar(2.0 * dt);
-                        driveCar.position.add(moveVec);
+                    // Apply rotation
+                    if (turning !== 0) {
+                        driveCar.rotation.y += turning * 1.5 * dt;  // adjust turn speed as needed
+                    }
+
+                    // Forward/backward movement in local space
+                    let forward = 0;
+                    if (keysPressed['w']) forward += 1;
+                    if (keysPressed['s']) forward -= 1;
+
+                    if (forward !== 0) {
+                        const direction = new THREE.Vector3(0, 0, 1);
+                        direction.applyEuler(driveCar.rotation);
+                        direction.multiplyScalar(forward * 2.0 * dt);
+                        driveCar.position.add(direction);
                     }
                 }
 
