@@ -345,7 +345,7 @@ def generate_shapes():
     os.makedirs(output_dir, exist_ok=True)
 
     shapes = {
-        'torus': trimesh.creation.torus(radius=1.0, tube_radius=0.3),
+        'torus': trimesh.creation.torus(major_radius=1.0, minor_radius=0.3),
         'sphere': trimesh.creation.icosphere(subdivisions=3, radius=1.0),
         'cube': trimesh.creation.box(extents=(2, 2, 2)),
         'cylinder': trimesh.creation.cylinder(radius=1.0, height=2.0, sections=32)
