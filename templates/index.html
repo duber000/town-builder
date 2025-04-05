@@ -2148,6 +2148,13 @@
                     btn.remove();
                 };
                 document.body.appendChild(btn);
+            } else {
+                // If button already exists, update its onclick and show it
+                btn.onclick = () => {
+                    startDrivingCar(car);
+                    btn.remove();
+                };
+                btn.style.display = 'block';
             }
         }
 
