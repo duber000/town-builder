@@ -1794,6 +1794,8 @@
                             const distance = dir.length();
 
                             if (distance > 0.5) { // Stop very close
+                                // Ignore vertical difference
+                                dir.y = 0;
                                 dir.normalize();
                                 car.position.addScaledVector(dir, carSpeed * dt);
                             }
