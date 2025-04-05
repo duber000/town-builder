@@ -745,7 +745,7 @@
 
             // Find the closest model to delete
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(placedObjects, true);
+            const intersects = raycaster.intersectObjects(placedObjects.concat(movingCars), true);
 
             if (intersects.length > 0) {
                 // Find the root object (the model group)
@@ -757,25 +757,21 @@
                 // Remove from scene
                 scene.remove(objectToRemove);
 
-                // Remove from our tracking array
-                const index = placedObjects.indexOf(objectToRemove);
-                if (index > -1) {
+                // Remove from placedObjects array
+                const indexPlaced = placedObjects.indexOf(objectToRemove);
+                if (indexPlaced > -1) {
                     placedObjects.splice(indexPlaced, 1);
                 }
 
-                // <<< START ADDED CODE >>>
                 // Also remove from movingCars array if it's there
                 const indexMoving = movingCars.indexOf(objectToRemove);
                 if (indexMoving > -1) {
                     movingCars.splice(indexMoving, 1);
                     console.log("Removed car from movingCars array.");
-                    // <<< START FOLLOW CODE >>>
                     if (objectToRemove === followingCar) {
                         exitFollowMode();
                     }
-                    // <<< END FOLLOW CODE >>>
                 }
-                // <<< END ADDED CODE >>>
 
                 console.log("Model deleted at", objectToRemove.position);
             }
