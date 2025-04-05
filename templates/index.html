@@ -232,34 +232,32 @@
             scene.add(groundPlane);
 
             // Add ambient light
-            const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             scene.add(ambientLight);
 
             // Add directional light (sun)
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
-            directionalLight.position.set(50, 100, 50);
-            directionalLight.castShadow = false;  // disable shadows for debugging
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+
+            // Improve shadow quality
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 100;
+            directionalLight.shadow.camera.left = -30;
+            directionalLight.shadow.camera.right = 30;
+            directionalLight.shadow.camera.top = 30;
+            directionalLight.shadow.camera.bottom = -30;
 
             scene.add(directionalLight);
 
             // Add a visible sun sphere at the light's position
-            const sunGeometry = new THREE.SphereGeometry(2, 32, 32);
+            const sunGeometry = new THREE.SphereGeometry(0.5, 32, 32);
             const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, emissive: 0xffff00 });
             const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
             sunMesh.position.copy(directionalLight.position);
             scene.add(sunMesh);
-
-            // Disable moon light completely
-            const moonLight = new THREE.DirectionalLight(0x8888ff, 0);
-            moonLight.position.set(-50, -100, -50);
-            moonLight.castShadow = false;
-            scene.add(moonLight);
-
-            const moonGeometry = new THREE.SphereGeometry(1, 32, 32);
-            const moonMaterial = new THREE.MeshBasicMaterial({ color: 0x8888ff, emissive: 0x8888ff });
-            const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
-            moonMesh.position.copy(moonLight.position);
-            scene.add(moonMesh);
 
 
             // Setup raycaster for mouse picking
@@ -1744,24 +1742,6 @@
 
             const dt = clock.getDelta(); // Get time since last frame
 
-            // Fixed sun and moon positions, no day/night cycle
-            directionalLight.position.set(50, 100, 50);
-            sunMesh.position.copy(directionalLight.position);
-
-            moonLight.position.set(-50, -100, -50);
-            moonMesh.position.copy(moonLight.position);
-
-            directionalLight.intensity = 2.0;
-            ambientLight.intensity = 2.0;
-            moonLight.intensity = 0.0;  // moon off
-
-            directionalLight.color.set(0xffffff);
-            sunMesh.material.color.set(0xffff00);
-            sunMesh.material.emissive.set(0xffff00);
-
-            moonLight.color.set(0x8888ff);
-            moonMesh.material.color.set(0x8888ff);
-            moonMesh.material.emissive.set(0x8888ff);
 
             // <<< START ADDED CODE >>>
             // Move the cars
