@@ -1791,12 +1791,17 @@
 
             // Adjust light intensity based on sun height
             const normalizedSunY = Math.max(0, sunY / height); // 0 at/below horizon, 1 at zenith
-            directionalLight.intensity = 0.2 + 0.8 * normalizedSunY; // dimmer at dawn/dusk
-            ambientLight.intensity = 0.2 + 0.3 * normalizedSunY; // ambient light also changes
 
-            // Moon intensity is inverse of sun
-            const normalizedMoonY = Math.max(0, -sunY / height);
-            moonLight.intensity = 0.1 + 0.3 * normalizedMoonY; // dim moonlight at night
+            // Prevent both sun and moon from being zero at dawn/dusk
+            if (normalizedSunY < 0.05) {
+                directionalLight.intensity = 0;
+                ambientLight.intensity = 0.1; // minimal ambient
+                moonLight.intensity = 0.3;    // bright moon at night
+            } else {
+                directionalLight.intensity = 0.2 + 0.8 * normalizedSunY;
+                ambientLight.intensity = 0.2 + 0.3 * normalizedSunY;
+                moonLight.intensity = 0.1 + 0.3 * Math.max(0, -sunY / height);
+            }
 
             // Optionally, change sun color warmer at sunrise/sunset
             const sunColor = new THREE.Color();
