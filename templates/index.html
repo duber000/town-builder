@@ -1842,7 +1842,29 @@
                         }
 
                         if (!onRoad) {
-                            // Police car is off-road, stop moving
+                            // Police car is off-road, move toward nearest road
+                            let nearestRoad = null;
+                            let minDist = Infinity;
+                            for (const obj of placedObjects) {
+                                if (obj.userData &&
+                                    obj.userData.category === 'street' &&
+                                    obj.userData.modelName.toLowerCase().includes('road')) {
+                                    const roadBox = new THREE.Box3().setFromObject(obj);
+                                    const roadCenter = roadBox.getCenter(new THREE.Vector3());
+                                    const dist = car.position.distanceTo(roadCenter);
+                                    if (dist < minDist) {
+                                        minDist = dist;
+                                        nearestRoad = roadCenter;
+                                    }
+                                }
+                            }
+
+                            if (nearestRoad) {
+                                const dirToRoad = new THREE.Vector3().subVectors(nearestRoad, car.position);
+                                dirToRoad.y = 0;
+                                dirToRoad.normalize();
+                                car.position.addScaledVector(dirToRoad, carSpeed * dt);
+                            }
                             return;
                         }
 
