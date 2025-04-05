@@ -1789,6 +1789,14 @@
                         );
 
                         if (hatchback) {
+                            // Check if hatchback is still on the map
+                            const boundary = sceneBoundary;
+                            if (Math.abs(hatchback.position.x) > boundary ||
+                                Math.abs(hatchback.position.z) > boundary) {
+                                // Stop following if hatchback is off the map
+                                return;
+                            }
+
                             // Vector from police to hatchback
                             const dir = new THREE.Vector3().subVectors(hatchback.position, car.position);
                             const distance = dir.length();
