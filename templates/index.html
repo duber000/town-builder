@@ -709,16 +709,12 @@
             placedObjects.push(modelInstance);
 
             // <<< START ADDED CODE >>>
-            // If it's a vehicle, add it to the movingCars array and start following
+            // If it's a vehicle, add it to the movingCars array
             if (modelInstance.userData && modelInstance.userData.category === 'vehicles') {
                 movingCars.push(modelInstance);
                 console.log("Added car to movingCars array:", modelInstance);
                 // Optional: Set initial rotation to face forward (e.g., along positive Z)
                 // modelInstance.rotation.y = 0; // Face +Z
-
-                // <<< START FOLLOW CODE >>>
-                startFollowingCar(modelInstance);
-                // <<< END FOLLOW CODE >>>
             }
             // <<< END ADDED CODE >>>
 
