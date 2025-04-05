@@ -1716,10 +1716,10 @@
                 moveDirection.sub(forward);
             }
             if (keysPressed['a'] || keysPressed['arrowleft']) {
-                moveDirection.sub(right); // Use subtract for left
+                moveDirection.add(right); // Use add for left
             }
             if (keysPressed['d'] || keysPressed['arrowright']) {
-                moveDirection.add(right); // Use add for right
+                moveDirection.sub(right); // Use subtract for right
             }
 
             // Normalize diagonal movement and apply speed
