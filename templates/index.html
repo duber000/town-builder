@@ -1785,6 +1785,11 @@
                     // Skip collision with road objects
                     if (obj.userData && obj.userData.category === 'street') continue;
 
+                    // Skip collision between police cars
+                    const isPoliceCar = car.userData && car.userData.modelName && car.userData.modelName.includes('car_police');
+                    const isOtherPoliceCar = obj.userData && obj.userData.modelName && obj.userData.modelName.includes('car_police');
+                    if (isPoliceCar && isOtherPoliceCar) continue;
+
                     const objBox = new THREE.Box3().setFromObject(obj);
                     if (carBox.intersectsBox(objBox)) {
                         collision = true;
