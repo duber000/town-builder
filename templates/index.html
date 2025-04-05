@@ -1756,23 +1756,30 @@
             const sceneBoundary = 10; // Edge of the ground plane (half-width)
 
             movingCars.forEach(car => {
-                // Move car along its local Z-axis (forward direction)
-                // Assumes car model faces +Z locally. If not, adjust axis or rotation.
-                // car.translateZ(carSpeed * dt); // Option 1: Move along local Z
+                // Compute car bounding box
+                const carBox = new THREE.Box3().setFromObject(car);
 
-                // Or move along a world axis (e.g., positive Z)
-                car.position.z += carSpeed * dt; // Changed from x to z
-
-                // Simple wrap-around logic
-                if (car.position.z > sceneBoundary) { // Changed from x to z
-                    car.position.z = -sceneBoundary; // Changed from x to z // Reset to the other side
+                // Check collision with all placed objects except itself
+                let collision = false;
+                for (const obj of placedObjects) {
+                    if (obj === car) continue;
+                    const objBox = new THREE.Box3().setFromObject(obj);
+                    if (carBox.intersectsBox(objBox)) {
+                        collision = true;
+                        break;
+                    }
                 }
-                // Add similar checks for other boundaries if needed (e.g., X axis)
-                // if (car.position.x > sceneBoundary) {
-                //     car.position.x = -sceneBoundary;
-                // } else if (car.position.z < -sceneBoundary) {
-                //     car.position.z = sceneBoundary;
-                // }
+
+                if (!collision) {
+                    // Move car along world Z axis
+                    car.position.z += carSpeed * dt;
+
+                    // Wrap-around logic
+                    if (car.position.z > sceneBoundary) {
+                        car.position.z = -sceneBoundary;
+                    }
+                }
+                // else: stop moving if collision detected
             });
             // <<< END ADDED CODE >>>
 
