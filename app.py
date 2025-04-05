@@ -335,6 +335,30 @@ def render_town():
     
     return jsonify({"rendered": True})
 
+import click
+import trimesh
+
+@app.cli.command("generate-shapes")
+def generate_shapes():
+    """Generate procedural primitive shapes and save as glb files."""
+    output_dir = os.path.join(MODELS_PATH, 'props')
+    os.makedirs(output_dir, exist_ok=True)
+
+    shapes = {
+        'torus': trimesh.creation.torus(radius=1.0, tube_radius=0.3),
+        'sphere': trimesh.creation.icosphere(subdivisions=3, radius=1.0),
+        'cube': trimesh.creation.box(extents=(2, 2, 2)),
+        'cylinder': trimesh.creation.cylinder(radius=1.0, height=2.0, sections=32)
+    }
+
+    for name, mesh in shapes.items():
+        path = os.path.join(output_dir, f'{name}.glb')
+        mesh.export(path)
+        print(f"Saved {name} to {path}")
+
+    print("Procedural shapes generated successfully.")
+
+
 if __name__ == '__main__':
     # This block will only run when you execute the file directly
     # For development only
