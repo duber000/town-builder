@@ -276,9 +276,6 @@
             moonMesh.position.copy(moonLight.position);
             scene.add(moonMesh);
 
-            // Day/night cycle variables
-            let timeOfDay = 0; // 0 to 1, where 0 is midnight, 0.5 is noon
-            const dayDurationSeconds = 60; // Full day duration in seconds (adjustable)
 
             // Setup raycaster for mouse picking
             raycaster = new THREE.Raycaster();
@@ -1762,59 +1759,24 @@
 
             const dt = clock.getDelta(); // Get time since last frame
 
-            // Update time of day
-            timeOfDay += dt / dayDurationSeconds;
-            if (timeOfDay > 1) timeOfDay -= 1; // Loop back after full day
-
-            // Calculate sun angle (0 at midnight, pi at noon, 2pi at next midnight)
-            const sunAngle = timeOfDay * 2 * Math.PI;
-
-            // Sun orbit radius and height
-            const radius = 30;
-            const height = 20;
-
-            // Update sun position in sky (simple circular path)
-            const sunX = radius * Math.cos(sunAngle);
-            const sunY = height * Math.sin(sunAngle);
-            const sunZ = radius * Math.sin(sunAngle);
-
-            directionalLight.position.set(sunX, sunY, sunZ);
+            // Fixed sun and moon positions, no day/night cycle
+            directionalLight.position.set(10, 20, 10);
             sunMesh.position.copy(directionalLight.position);
 
-            // Moon opposite the sun
-            const moonX = -sunX;
-            const moonY = -sunY;
-            const moonZ = -sunZ;
-
-            moonLight.position.set(moonX, moonY, moonZ);
+            moonLight.position.set(-10, -20, -10);
             moonMesh.position.copy(moonLight.position);
 
-            // Adjust light intensity based on sun height
-            const normalizedSunY = Math.max(0, sunY / height); // 0 at/below horizon, 1 at zenith
+            directionalLight.intensity = 1.0;
+            ambientLight.intensity = 0.5;
+            moonLight.intensity = 0.0;  // moon off by default
 
-            // Prevent black screen: always have some ambient and moon/sun light
-            if (normalizedSunY < 0.05) {
-                directionalLight.intensity = 0.05; // faint sun even at night
-                ambientLight.intensity = 0.3;     // brighter ambient to avoid black
-                moonLight.intensity = 0.6;        // brighter moon at night
-            } else {
-                directionalLight.intensity = 0.3 + 0.7 * normalizedSunY;  // increase base sun
-                ambientLight.intensity = 0.3 + 0.3 * normalizedSunY;      // increase base ambient
-                moonLight.intensity = 0.1 + 0.3 * Math.max(0, -sunY / height);
-            }
+            directionalLight.color.set(0xffffff);
+            sunMesh.material.color.set(0xffff00);
+            sunMesh.material.emissive.set(0xffff00);
 
-            // Optionally, change sun color warmer at sunrise/sunset
-            const sunColor = new THREE.Color();
-            sunColor.setHSL(0.1, 1, 0.5 * normalizedSunY + 0.25); // warmer and dimmer near horizon
-            directionalLight.color.copy(sunColor);
-            sunMesh.material.color.copy(sunColor);
-            sunMesh.material.emissive.copy(sunColor);
-
-            // Moon color: cool bluish
-            const moonColor = new THREE.Color(0x8888ff);
-            moonLight.color.copy(moonColor);
-            moonMesh.material.color.copy(moonColor);
-            moonMesh.material.emissive.copy(moonColor);
+            moonLight.color.set(0x8888ff);
+            moonMesh.material.color.set(0x8888ff);
+            moonMesh.material.emissive.set(0x8888ff);
 
             // <<< START ADDED CODE >>>
             // Move the cars
