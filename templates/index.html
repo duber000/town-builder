@@ -137,6 +137,7 @@
             <button class="mode-button active" data-mode="place">Place</button>
             <button class="mode-button" data-mode="edit">Edit</button>
             <button class="mode-button" data-mode="delete">Delete</button>
+            <button class="mode-button" data-mode="drive">Drive Mode</button>
         </div>
         <div id="model-container">
             {% for category, model_list in models.items() %}
@@ -312,6 +313,8 @@
                         selectedModel = null; // Clear selected model in delete mode
                     } else if (currentMode === "edit") {
                         placementIndicator.material.color.set(0x0000ff); // Blue for edit
+                    } else if (currentMode === "drive") {
+                        placementIndicator.visible = false; // Hide indicator in drive mode
                     }
 
                     // <<< START FOLLOW CODE >>>
@@ -416,7 +419,11 @@
                     clickedObj = clickedObj.parent;
                 }
                 if (clickedObj.userData && clickedObj.userData.category === 'vehicles') {
-                    showDriveButton(clickedObj);
+                    if (currentMode === "drive") {
+                        startDrivingCar(clickedObj);
+                    } else {
+                        showDriveButton(clickedObj);
+                    }
                     return;
                 }
             }
