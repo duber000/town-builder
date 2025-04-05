@@ -1727,6 +1727,9 @@
             if (keysPressed['shift']) {
                 moveDirection.y -= 1; // Move camera down when shift is held
             }
+            if (keysPressed[' ']) {  // space key
+                moveDirection.y += 1; // Move camera up when space is held
+            }
 
             // Normalize diagonal movement and apply speed
             if (moveDirection.lengthSq() > 0) {
