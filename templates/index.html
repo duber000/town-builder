@@ -1778,6 +1778,7 @@
 
                 // Check collision with all placed objects except itself
                 let collision = false;
+                let collidedObject = null;
                 for (const obj of placedObjects) {
                     if (obj === car) continue;
 
@@ -1787,6 +1788,7 @@
                     const objBox = new THREE.Box3().setFromObject(obj);
                     if (carBox.intersectsBox(objBox)) {
                         collision = true;
+                        collidedObject = obj;
                         break;
                     }
                 }
@@ -1794,6 +1796,16 @@
                 // Identify hatchback and police cars
                 const isHatchback = car.userData && car.userData.modelName && car.userData.modelName.includes('car_hatchback');
                 const isPolice = car.userData && car.userData.modelName && car.userData.modelName.includes('car_police');
+
+                if (collision && isPolice && collidedObject) {
+                    // If police car hits a non-car, try to steer around
+                    const isOtherCar = collidedObject.userData && collidedObject.userData.category === 'vehicles';
+                    if (!isOtherCar) {
+                        // Simple avoidance: sidestep to the right
+                        car.position.x += carSpeed * dt;
+                        return;
+                    }
+                }
 
                 if (!collision) {
                     if (isDriving && car === driveCar) {
@@ -1845,7 +1857,7 @@
                         }
                     }
                 }
-                // else: stop moving if collision detected
+                // else: stop moving if collision detected (except police avoidance above)
             });
             // <<< END ADDED CODE >>>
 
