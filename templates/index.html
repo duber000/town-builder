@@ -1827,6 +1827,25 @@
                     }
 
                     if (isPolice) {
+                        // Check if police car is on a road
+                        let onRoad = false;
+                        for (const obj of placedObjects) {
+                            if (obj.userData &&
+                                obj.userData.category === 'street' &&
+                                obj.userData.modelName.toLowerCase().includes('road')) {
+                                const roadBox = new THREE.Box3().setFromObject(obj);
+                                if (roadBox.containsPoint(car.position)) {
+                                    onRoad = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!onRoad) {
+                            // Police car is off-road, stop moving
+                            return;
+                        }
+
                         const hatchback = movingCars.find(c =>
                             c !== car &&
                             c.userData &&
