@@ -197,11 +197,17 @@
 
             // Create camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(5, 5, 5);
+            camera.position.set(10, 10, 10);
             camera.lookAt(0, 0, 0);
 
             // Setup keyboard controls
             setupKeyboardControls();
+
+            // Center controls target on origin
+            if (controls) {
+                controls.target.set(0, 0, 0);
+                controls.update();
+            }
 
             // Create renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
