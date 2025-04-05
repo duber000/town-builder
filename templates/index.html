@@ -421,10 +421,29 @@
                 if (clickedObj.userData && clickedObj.userData.category === 'vehicles') {
                     if (currentMode === "drive") {
                         startDrivingCar(clickedObj);
+                        return;
+                    } else if (currentMode === "delete") {
+                        // delete vehicle model
+                        scene.remove(clickedObj);
+
+                        const indexPlaced = placedObjects.indexOf(clickedObj);
+                        if (indexPlaced > -1) {
+                            placedObjects.splice(indexPlaced, 1);
+                        }
+
+                        const indexMoving = movingCars.indexOf(clickedObj);
+                        if (indexMoving > -1) {
+                            movingCars.splice(indexMoving, 1);
+                            if (clickedObj === followingCar) {
+                                exitFollowMode();
+                            }
+                        }
+                        console.log("Deleted vehicle model");
+                        return;
                     } else {
                         showDriveButton(clickedObj);
+                        return;
                     }
-                    return;
                 }
             }
 
