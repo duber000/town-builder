@@ -1054,6 +1054,12 @@
             // Track key states
             document.addEventListener('keydown', function(event) {
                 keysPressed[event.key.toLowerCase()] = true;
+
+                // <<< START FOLLOW CODE >>>
+                if (event.key === 'Escape' && isFollowing) {
+                    exitFollowMode();
+                }
+                // <<< END FOLLOW CODE >>>
             });
 
             document.addEventListener('keyup', function(event) {
@@ -1066,11 +1072,6 @@
                 if (event.ctrlKey && event.key.toLowerCase() === 'v') {
                     pasteModel();
                 }
-                // <<< START FOLLOW CODE >>>
-                if (event.key === 'Escape' && isFollowing) {
-                    exitFollowMode();
-                }
-                // <<< END FOLLOW CODE >>>
             });
         }
 
