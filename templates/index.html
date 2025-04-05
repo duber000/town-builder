@@ -1792,11 +1792,11 @@
             // Adjust light intensity based on sun height
             const normalizedSunY = Math.max(0, sunY / height); // 0 at/below horizon, 1 at zenith
 
-            // Prevent both sun and moon from being zero at dawn/dusk
+            // Prevent black screen: always have some ambient and moon/sun light
             if (normalizedSunY < 0.05) {
-                directionalLight.intensity = 0;
-                ambientLight.intensity = 0.1; // minimal ambient
-                moonLight.intensity = 0.3;    // bright moon at night
+                directionalLight.intensity = 0.05; // faint sun even at night
+                ambientLight.intensity = 0.15;    // faint ambient
+                moonLight.intensity = 0.4;        // bright moon at night
             } else {
                 directionalLight.intensity = 0.2 + 0.8 * normalizedSunY;
                 ambientLight.intensity = 0.2 + 0.3 * normalizedSunY;
