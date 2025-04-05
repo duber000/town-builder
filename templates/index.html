@@ -403,7 +403,7 @@
             // Exit follow mode on any click
             if (isFollowing) {
                 exitFollowMode();
-                return; // Don't process the click further if we were following
+                // Do NOT return here, so clicking a car still shows the button
             }
             // <<< END FOLLOW CODE >>>
 
