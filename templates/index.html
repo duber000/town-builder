@@ -253,6 +253,10 @@
             sunMesh.position.copy(directionalLight.position);
             scene.add(sunMesh);
 
+            // Day/night cycle variables
+            let timeOfDay = 0; // 0 to 1, where 0 is midnight, 0.5 is noon
+            const dayDurationSeconds = 60; // Full day duration in seconds (adjustable)
+
             // Setup raycaster for mouse picking
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
@@ -1734,6 +1738,37 @@
             requestAnimationFrame(animate);
 
             const dt = clock.getDelta(); // Get time since last frame
+
+            // Update time of day
+            timeOfDay += dt / dayDurationSeconds;
+            if (timeOfDay > 1) timeOfDay -= 1; // Loop back after full day
+
+            // Calculate sun angle (0 at midnight, pi at noon, 2pi at next midnight)
+            const sunAngle = timeOfDay * 2 * Math.PI;
+
+            // Sun orbit radius and height
+            const radius = 30;
+            const height = 20;
+
+            // Update sun position in sky (simple circular path)
+            const sunX = radius * Math.cos(sunAngle);
+            const sunY = height * Math.sin(sunAngle);
+            const sunZ = radius * Math.sin(sunAngle);
+
+            directionalLight.position.set(sunX, sunY, sunZ);
+            sunMesh.position.copy(directionalLight.position);
+
+            // Adjust light intensity based on sun height
+            const normalizedSunY = Math.max(0, sunY / height); // 0 at/below horizon, 1 at zenith
+            directionalLight.intensity = 0.2 + 0.8 * normalizedSunY; // dimmer at dawn/dusk
+            ambientLight.intensity = 0.2 + 0.3 * normalizedSunY; // ambient light also changes
+
+            // Optionally, change sun color warmer at sunrise/sunset
+            const sunColor = new THREE.Color();
+            sunColor.setHSL(0.1, 1, 0.5 * normalizedSunY + 0.25); // warmer and dimmer near horizon
+            directionalLight.color.copy(sunColor);
+            sunMesh.material.color.copy(sunColor);
+            sunMesh.material.emissive.copy(sunColor);
 
             // <<< START ADDED CODE >>>
             // Move the cars
