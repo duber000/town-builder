@@ -1774,13 +1774,45 @@
                     }
                 }
 
-                if (!collision) {
-                    // Move car along world Z axis
-                    car.position.z += carSpeed * dt;
+                // Identify hatchback and police cars
+                const isHatchback = car.userData && car.userData.modelName && car.userData.modelName.includes('car_hatchback');
+                const isPolice = car.userData && car.userData.modelName && car.userData.modelName.includes('car_police');
 
-                    // Wrap-around logic
-                    if (car.position.z > sceneBoundary) {
-                        car.position.z = -sceneBoundary;
+                if (!collision) {
+                    if (isPolice) {
+                        // Find the hatchback car to follow
+                        const hatchback = movingCars.find(c =>
+                            c !== car &&
+                            c.userData &&
+                            c.userData.modelName &&
+                            c.userData.modelName.includes('car_hatchback')
+                        );
+
+                        if (hatchback) {
+                            // Vector from police to hatchback
+                            const dir = new THREE.Vector3().subVectors(hatchback.position, car.position);
+                            const distance = dir.length();
+
+                            if (distance > 0.5) { // Stop very close
+                                dir.normalize();
+                                car.position.addScaledVector(dir, carSpeed * dt);
+                            }
+                        }
+                    } else if (isHatchback) {
+                        // Move hatchback forward along Z axis
+                        car.position.z += carSpeed * dt;
+
+                        // Wrap-around logic
+                        if (car.position.z > sceneBoundary) {
+                            car.position.z = -sceneBoundary;
+                        }
+                    } else {
+                        // Other cars move forward
+                        car.position.z += carSpeed * dt;
+
+                        if (car.position.z > sceneBoundary) {
+                            car.position.z = -sceneBoundary;
+                        }
                     }
                 }
                 // else: stop moving if collision detected
