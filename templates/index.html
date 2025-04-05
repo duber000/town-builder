@@ -407,6 +407,20 @@
             }
             // <<< END FOLLOW CODE >>>
 
+            // Check if clicked on a car
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(placedObjects, true);
+            if (intersects.length > 0) {
+                let clickedObj = intersects[0].object;
+                while (clickedObj.parent && clickedObj.parent !== scene) {
+                    clickedObj = clickedObj.parent;
+                }
+                if (clickedObj.userData && clickedObj.userData.category === 'vehicles') {
+                    showDriveButton(clickedObj);
+                    return;
+                }
+            }
+
             if (currentMode === "place" && selectedModel && placementIndicator.visible) {
                 placeModel();
             } else if (currentMode === "delete" && placementIndicator.visible) {
@@ -1779,8 +1793,10 @@
                 const isPolice = car.userData && car.userData.modelName && car.userData.modelName.includes('car_police');
 
                 if (!collision) {
-                    if (isPolice) {
-                        // Find the hatchback car to follow
+                    if (isDriving && car === driveCar) {
+                        // Manual control disables auto movement
+                        // handled separately
+                    } else if (isPolice) {
                         const hatchback = movingCars.find(c =>
                             c !== car &&
                             c.userData &&
@@ -1789,37 +1805,28 @@
                         );
 
                         if (hatchback) {
-                            // Check if hatchback is still on the map
                             const boundary = sceneBoundary;
                             if (Math.abs(hatchback.position.x) > boundary ||
                                 Math.abs(hatchback.position.z) > boundary) {
-                                // Stop following if hatchback is off the map
                                 return;
                             }
 
-                            // Vector from police to hatchback
                             const dir = new THREE.Vector3().subVectors(hatchback.position, car.position);
                             const distance = dir.length();
 
-                            if (distance > 0.5) { // Stop very close
-                                // Ignore vertical difference
+                            if (distance > 0.5) {
                                 dir.y = 0;
                                 dir.normalize();
                                 car.position.addScaledVector(dir, carSpeed * dt);
                             }
                         }
                     } else if (isHatchback) {
-                        // Move hatchback forward along Z axis
                         car.position.z += carSpeed * dt;
-
-                        // Wrap-around logic
                         if (car.position.z > sceneBoundary) {
                             car.position.z = -sceneBoundary;
                         }
                     } else {
-                        // Other cars move forward
                         car.position.z += carSpeed * dt;
-
                         if (car.position.z > sceneBoundary) {
                             car.position.z = -sceneBoundary;
                         }
@@ -1831,24 +1838,30 @@
 
             // <<< START FOLLOW CODE >>>
             if (isFollowing && followingCar) {
-                // Calculate desired camera position (behind and above the car)
-                const offset = new THREE.Vector3(0, 2, -5); // Adjust Y and Z for height and distance
-                // Apply the car's rotation to the offset vector
-                const targetPosition = followingCar.localToWorld(offset.clone());
+                if (isDriving && driveCar) {
+                    // Driving mode: move car with WASD
+                    const moveVec = new THREE.Vector3();
+                    if (keysPressed['w']) moveVec.z -= 1;
+                    if (keysPressed['s']) moveVec.z += 1;
+                    if (keysPressed['a']) moveVec.x -= 1;
+                    if (keysPressed['d']) moveVec.x += 1;
 
-                // Smoothly interpolate camera position
-                camera.position.lerp(targetPosition, dt * 2.0); // Adjust smoothing factor (e.g., 2.0)
+                    if (moveVec.lengthSq() > 0) {
+                        moveVec.normalize().multiplyScalar(2.0 * dt);
+                        driveCar.position.add(moveVec);
+                    }
+                }
 
-                // Make camera look at the car's position
+                // Camera follows the car
+                const offset = new THREE.Vector3(0, 2, -5);
+                const targetPos = followingCar.localToWorld(offset.clone());
+                camera.position.lerp(targetPos, dt * 2.0);
                 camera.lookAt(followingCar.position);
-
-                // Update controls target even while disabled
                 controls.target.copy(followingCar.position);
-                controls.update(); // Need to call update for target change to take effect later
+                controls.update();
             } else {
-                // Only process keyboard if not following
                 processKeyboardInput();
-                controls.update(); // OrbitControls update only when not following
+                controls.update();
             }
             // <<< END FOLLOW CODE >>>
 
@@ -2109,34 +2122,65 @@
         }
 
         // <<< START FOLLOW CODE >>>
-        // Function to start following a car
-        function startFollowingCar(car) {
-            followingCar = car;
-            isFollowing = true;
-            controls.enabled = false; // Disable orbit controls
-            showFollowIndicator();
-            console.log("Started following car:", car);
+        let driveCar = null;  // car under manual control
+        let isDriving = false;
+
+        function showDriveButton(car) {
+            let btn = document.getElementById('drive-button');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.id = 'drive-button';
+                btn.textContent = 'Drive this car';
+                btn.style.position = 'absolute';
+                btn.style.bottom = '50px';
+                btn.style.left = '50%';
+                btn.style.transform = 'translateX(-50%)';
+                btn.style.padding = '10px 20px';
+                btn.style.fontSize = '16px';
+                btn.style.zIndex = '1001';
+                btn.style.backgroundColor = '#2a2';
+                btn.style.color = 'white';
+                btn.style.border = 'none';
+                btn.style.borderRadius = '5px';
+                btn.style.cursor = 'pointer';
+                btn.onclick = () => {
+                    startDrivingCar(car);
+                    btn.remove();
+                };
+                document.body.appendChild(btn);
+            }
         }
 
-        // Function to exit follow mode
+        function startDrivingCar(car) {
+            driveCar = car;
+            isDriving = true;
+            followingCar = car;
+            isFollowing = true;
+            controls.enabled = false;
+            showFollowIndicator('Driving Car (Esc to exit)');
+            console.log("Started driving car:", car);
+        }
+
         function exitFollowMode() {
-            if (!isFollowing) return; // Already exited
+            if (!isFollowing && !isDriving) return;
 
             followingCar = null;
             isFollowing = false;
-            controls.enabled = true; // Re-enable orbit controls
+            controls.enabled = true;
             hideFollowIndicator();
-            console.log("Exited follow mode.");
-            // No need to explicitly reset camera position/target here,
-            // OrbitControls will take over from its last updated target.
+
+            if (isDriving) {
+                driveCar = null;
+                isDriving = false;
+            }
+
+            console.log("Exited follow/drive mode.");
         }
 
-        // Show UI indicator for follow mode
-        function showFollowIndicator() {
+        function showFollowIndicator(text = 'Following Car (Press Esc to exit)') {
             if (!followIndicatorDiv) {
                 followIndicatorDiv = document.createElement('div');
                 followIndicatorDiv.id = 'follow-indicator';
-                followIndicatorDiv.textContent = 'Following Car (Press Esc to exit)';
                 followIndicatorDiv.style.position = 'absolute';
                 followIndicatorDiv.style.bottom = '10px';
                 followIndicatorDiv.style.left = '50%';
@@ -2148,10 +2192,10 @@
                 followIndicatorDiv.style.zIndex = '1001';
                 document.body.appendChild(followIndicatorDiv);
             }
+            followIndicatorDiv.textContent = text;
             followIndicatorDiv.style.display = 'block';
         }
 
-        // Hide UI indicator
         function hideFollowIndicator() {
             if (followIndicatorDiv) {
                 followIndicatorDiv.style.display = 'none';
