@@ -10,5 +10,7 @@ dependencies = [
     "pygltflib>=1.16.3",
     "python-dotenv>=1.1.0",
     "requests>=2.32.3",
+    "trimesh>=4.6.6",
     "uwsgi>=2.0.28",
+    "xxhash>=3.5.0",
 ]
