@@ -253,6 +253,29 @@
             sunMesh.position.copy(directionalLight.position);
             scene.add(sunMesh);
 
+            // Add directional light (moon)
+            const moonLight = new THREE.DirectionalLight(0x8888ff, 0.0);  // initially off
+            moonLight.position.set(-10, -20, -10);
+            moonLight.castShadow = true;
+
+            moonLight.shadow.mapSize.width = 1024;
+            moonLight.shadow.mapSize.height = 1024;
+            moonLight.shadow.camera.near = 0.5;
+            moonLight.shadow.camera.far = 100;
+            moonLight.shadow.camera.left = -30;
+            moonLight.shadow.camera.right = 30;
+            moonLight.shadow.camera.top = 30;
+            moonLight.shadow.camera.bottom = -30;
+
+            scene.add(moonLight);
+
+            // Add a visible moon sphere at the moon light's position
+            const moonGeometry = new THREE.SphereGeometry(0.4, 32, 32);
+            const moonMaterial = new THREE.MeshBasicMaterial({ color: 0x8888ff, emissive: 0x8888ff });
+            const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
+            moonMesh.position.copy(moonLight.position);
+            scene.add(moonMesh);
+
             // Day/night cycle variables
             let timeOfDay = 0; // 0 to 1, where 0 is midnight, 0.5 is noon
             const dayDurationSeconds = 60; // Full day duration in seconds (adjustable)
@@ -1758,10 +1781,22 @@
             directionalLight.position.set(sunX, sunY, sunZ);
             sunMesh.position.copy(directionalLight.position);
 
+            // Moon opposite the sun
+            const moonX = -sunX;
+            const moonY = -sunY;
+            const moonZ = -sunZ;
+
+            moonLight.position.set(moonX, moonY, moonZ);
+            moonMesh.position.copy(moonLight.position);
+
             // Adjust light intensity based on sun height
             const normalizedSunY = Math.max(0, sunY / height); // 0 at/below horizon, 1 at zenith
             directionalLight.intensity = 0.2 + 0.8 * normalizedSunY; // dimmer at dawn/dusk
             ambientLight.intensity = 0.2 + 0.3 * normalizedSunY; // ambient light also changes
+
+            // Moon intensity is inverse of sun
+            const normalizedMoonY = Math.max(0, -sunY / height);
+            moonLight.intensity = 0.1 + 0.3 * normalizedMoonY; // dim moonlight at night
 
             // Optionally, change sun color warmer at sunrise/sunset
             const sunColor = new THREE.Color();
@@ -1769,6 +1804,12 @@
             directionalLight.color.copy(sunColor);
             sunMesh.material.color.copy(sunColor);
             sunMesh.material.emissive.copy(sunColor);
+
+            // Moon color: cool bluish
+            const moonColor = new THREE.Color(0x8888ff);
+            moonLight.color.copy(moonColor);
+            moonMesh.material.color.copy(moonColor);
+            moonMesh.material.emissive.copy(moonColor);
 
             // <<< START ADDED CODE >>>
             // Move the cars
