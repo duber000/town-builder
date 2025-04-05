@@ -1856,8 +1856,8 @@
                     const moveVec = new THREE.Vector3();
                     if (keysPressed['w']) moveVec.z += 1;    // forward
                     if (keysPressed['s']) moveVec.z -= 1;    // backward
-                    if (keysPressed['a']) moveVec.x -= 1;    // left
-                    if (keysPressed['d']) moveVec.x += 1;    // right
+                    if (keysPressed['a']) moveVec.x += 1;    // left
+                    if (keysPressed['d']) moveVec.x -= 1;    // right
 
                     if (moveVec.lengthSq() > 0) {
                         moveVec.normalize().multiplyScalar(2.0 * dt);
