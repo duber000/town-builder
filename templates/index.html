@@ -1794,8 +1794,9 @@
 
                 if (!collision) {
                     if (isDriving && car === driveCar) {
-                        // Manual control disables auto movement
-                        // handled separately
+                        // Stop all automatic movement of the driven car
+                        // Movement handled by player input only
+                        return;
                     } else if (isPolice) {
                         const hatchback = movingCars.find(c =>
                             c !== car &&
