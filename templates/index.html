@@ -2140,6 +2140,7 @@
                 btn.style.border = 'none';
                 btn.style.borderRadius = '5px';
                 btn.style.cursor = 'pointer';
+                btn.style.pointerEvents = 'auto'; // ensure clicks are captured
                 btn.onclick = () => {
                     startDrivingCar(car);
                     btn.remove();
@@ -2151,6 +2152,7 @@
                     startDrivingCar(car);
                     btn.remove();
                 };
+                btn.style.pointerEvents = 'auto'; // ensure clicks are captured
                 btn.style.display = 'block';
             }
         }
