@@ -1724,6 +1724,9 @@
             if (keysPressed['d'] || keysPressed['arrowright']) {
                 moveDirection.sub(right); // Use subtract for right
             }
+            if (keysPressed['shift']) {
+                moveDirection.y -= 1; // Move camera down when shift is held
+            }
 
             // Normalize diagonal movement and apply speed
             if (moveDirection.lengthSq() > 0) {
