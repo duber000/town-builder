@@ -1763,6 +1763,10 @@
                 let collision = false;
                 for (const obj of placedObjects) {
                     if (obj === car) continue;
+
+                    // Skip collision with road objects
+                    if (obj.userData && obj.userData.category === 'street') continue;
+
                     const objBox = new THREE.Box3().setFromObject(obj);
                     if (carBox.intersectsBox(objBox)) {
                         collision = true;
