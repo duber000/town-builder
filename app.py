@@ -379,11 +379,30 @@ def generate_shapes():
 
 # --- SocketIO events for multiplayer sync ---
 
+# Track users: {sid: {"name": ...}}
+connected_users = {}
+
 @socketio.on('connect')
 def handle_connect():
     logger.info(f"Client connected: {request.sid}")
     # Send the current town state to the new client
     emit('town_update', {'type': 'full', 'town': town_data})
+    # Send the current user list to the new client
+    emit('user_list', connected_users, broadcast=True)
+
+@socketio.on('set_name')
+def handle_set_name(data):
+    name = data.get('name', f"User-{request.sid[:5]}")
+    connected_users[request.sid] = {"name": name}
+    logger.info(f"User set name: {request.sid} -> {name}")
+    emit('user_list', connected_users, broadcast=True)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    if request.sid in connected_users:
+        logger.info(f"Client disconnected: {request.sid} ({connected_users[request.sid]['name']})")
+        del connected_users[request.sid]
+        emit('user_list', connected_users, broadcast=True)
 
 @socketio.on('update_town')
 def handle_update_town(data):
@@ -394,7 +413,9 @@ def handle_update_town(data):
 
 @socketio.on('edit_model')
 def handle_edit_model(data):
-    # Broadcast model edit to all clients
+    # Attach driverName if driver is present and known
+    if 'driver' in data and data['driver'] in connected_users:
+        data['driverName'] = connected_users[data['driver']]['name']
     emit('town_update', {'type': 'edit', 'data': data}, broadcast=True)
 
 @socketio.on('delete_model')

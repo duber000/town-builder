@@ -133,6 +133,10 @@
         <div id="town-name-display">My Town</div>
         <input id="town-name-input" type="text" value="My Town">
     </div>
+    <div id="user-list" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; padding: 10px; border-radius: 5px; z-index: 1000; min-width: 120px;">
+        <b>Users:</b>
+        <ul id="user-list-ul" style="list-style: none; padding-left: 0; margin: 0;"></ul>
+    </div>
     <div id="toolbar">
         <h3>Town Builder</h3>
         <div class="mode-buttons">
@@ -194,8 +198,44 @@
 
         // --- Multiplayer: Socket.IO setup ---
         let socket;
+        let myName = null;
+        let mySocketId = null;
+        let users = {}; // {socketId: {name: ...}}
+
+        function promptForName() {
+            let name = localStorage.getItem('townbuilder_name');
+            while (!name || name.trim().length < 1) {
+                name = prompt("Enter your name for multiplayer:", name || "");
+                if (name === null) name = ""; // Prevent null
+            }
+            name = name.trim();
+            localStorage.setItem('townbuilder_name', name);
+            return name;
+        }
+
+        function updateUserListUI() {
+            const ul = document.getElementById('user-list-ul');
+            ul.innerHTML = '';
+            Object.entries(users).forEach(([sid, user]) => {
+                const li = document.createElement('li');
+                li.textContent = user.name + (sid === mySocketId ? " (You)" : "");
+                ul.appendChild(li);
+            });
+        }
+
         function setupSocketIO() {
+            myName = promptForName();
             socket = io();
+
+            socket.on('connect', () => {
+                mySocketId = socket.id;
+                socket.emit('set_name', { name: myName });
+            });
+
+            socket.on('user_list', (userList) => {
+                users = userList;
+                updateUserListUI();
+            });
 
             // Receive full town state
             socket.on('town_update', (msg) => {
@@ -235,6 +275,10 @@
                             // Update driver info if present
                             if (typeof msg.data.driver !== "undefined") {
                                 obj.userData.driver = msg.data.driver;
+                            }
+                            // Update driverName if present
+                            if (typeof msg.data.driverName !== "undefined") {
+                                obj.userData.driverName = msg.data.driverName;
                             }
                         }
                     });
@@ -2122,6 +2166,7 @@
                         if (socket && driveCar && driveCar.userData) {
                             // Set driver to this socket id
                             driveCar.userData.driver = socket.id;
+                            driveCar.userData.driverName = myName;
                             socket.emit('edit_model', {
                                 category: driveCar.userData.category,
                                 id: driveCar.userData.id,
@@ -2137,7 +2182,8 @@
                                 },
                                 scale: driveCar.scale.x,
                                 color: driveCar.userData.color,
-                                driver: socket.id
+                                driver: socket.id,
+                                driverName: myName
                             });
                         }
                     }
@@ -2178,9 +2224,17 @@
                 camera.lookAt(followingCar.position);
                 controls.target.copy(followingCar.position);
                 controls.update();
+
+                // --- Show driver's name above the car ---
+                if (followingCar.userData && followingCar.userData.driverName) {
+                    showDriverNameLabel(followingCar, followingCar.userData.driverName);
+                } else {
+                    hideDriverNameLabel();
+                }
             } else {
                 processKeyboardInput();
                 controls.update();
+                hideDriverNameLabel();
             }
             // <<< END FOLLOW CODE >>>
 
@@ -2545,6 +2599,34 @@
         }
         // <<< END FOLLOW CODE >>>
 
+    // --- Driver name label ---
+    let driverNameDiv = null;
+    function showDriverNameLabel(car, name) {
+        if (!driverNameDiv) {
+            driverNameDiv = document.createElement('div');
+            driverNameDiv.style.position = 'absolute';
+            driverNameDiv.style.background = 'rgba(0,0,0,0.7)';
+            driverNameDiv.style.color = 'white';
+            driverNameDiv.style.padding = '2px 8px';
+            driverNameDiv.style.borderRadius = '4px';
+            driverNameDiv.style.fontWeight = 'bold';
+            driverNameDiv.style.zIndex = 2001;
+            document.body.appendChild(driverNameDiv);
+        }
+        // Project car position to screen
+        const pos = car.position.clone();
+        pos.y += 1.5; // Raise label above car
+        const vector = pos.project(camera);
+        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+        driverNameDiv.style.left = `${x}px`;
+        driverNameDiv.style.top = `${y}px`;
+        driverNameDiv.textContent = name;
+        driverNameDiv.style.display = 'block';
+    }
+    function hideDriverNameLabel() {
+        if (driverNameDiv) driverNameDiv.style.display = 'none';
+    }
     </script>
 </body>
 </html>
