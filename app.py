@@ -10,6 +10,9 @@ from os import getenv
 from flask_cors import CORS
 import requests
 
+# --- Flask-SocketIO imports ---
+from flask_socketio import SocketIO, emit
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -19,6 +22,8 @@ dotenv.load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+# --- Initialize SocketIO ---
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Get JWT token from environment variable
 API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
@@ -84,7 +89,7 @@ def update_town():
     """Update the town layout"""
     data = request.get_json()
     global town_data
-    
+
     # If we're just updating the town name
     if 'townName' in data and len(data) == 1:
         if 'townName' not in town_data:
@@ -92,10 +97,14 @@ def update_town():
         else:
             town_data['townName'] = data['townName']
         logger.info(f"Updated town name to: {data['townName']}")
+        # --- Broadcast town name change to all clients ---
+        socketio.emit('town_update', {'type': 'name', 'townName': data['townName']}, broadcast=True)
     else:
         # Full town data update
         town_data = data
-    
+        # --- Broadcast full town update to all clients ---
+        socketio.emit('town_update', {'type': 'full', 'town': town_data}, broadcast=True)
+
     return jsonify({"status": "success"})
 
 @app.route('/api/town/save', methods=['POST'])
@@ -104,19 +113,21 @@ def save_town():
     try:
         filename = request.json.get('filename', 'town_data.json')
         data = request.json.get('data')
-        
+
         # If data is provided in the request, use it instead of global town_data
         save_data = data if data is not None else town_data
-        
+
         # Ensure the filename has .json extension
         if not filename.endswith('.json'):
             filename += '.json'
-            
+
         # Save the town data to the file
         with open(filename, 'w') as f:
             json.dump(save_data, f, indent=2)
-            
+
         logger.info(f"Town saved to {filename}")
+        # --- Broadcast full town update to all clients on save ---
+        socketio.emit('town_update', {'type': 'full', 'town': save_data}, broadcast=True)
         return jsonify({"status": "success", "message": f"Town saved to {filename}"})
     except Exception as e:
         logger.error(f"Error saving town: {e}")
@@ -223,43 +234,47 @@ def delete_model():
     model_id = data.get('id')
     category = data.get('category')
     position = data.get('position')
-    
+
     if not category or (not model_id and not position):
         return jsonify({"error": "Missing required parameters"}), 400
-    
+
     global town_data
-    
+
     # If we have an ID, use that for deletion
     if model_id is not None:
         for i, model in enumerate(town_data.get(category, [])):
             if model.get('id') == model_id:
                 town_data[category].pop(i)
+                # --- Broadcast deletion to all clients ---
+                socketio.emit('town_update', {'type': 'delete', 'category': category, 'id': model_id}, broadcast=True)
                 return jsonify({"status": "success", "message": f"Deleted model with ID {model_id}"})
-    
+
     # Otherwise use position for deletion (find closest model)
     elif position:
         closest_model_index = -1
         closest_distance = float('inf')
-        
+
         for i, model in enumerate(town_data.get(category, [])):
             model_pos = model.get('position', {})
             dx = model_pos.get('x', 0) - position.get('x', 0)
             dy = model_pos.get('y', 0) - position.get('y', 0)
             dz = model_pos.get('z', 0) - position.get('z', 0)
-            
+
             distance = (dx*dx + dy*dy + dz*dz) ** 0.5
-            
+
             if distance < closest_distance:
                 closest_distance = distance
                 closest_model_index = i
-        
+
         if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
             deleted_model = town_data[category].pop(closest_model_index)
+            # --- Broadcast deletion to all clients ---
+            socketio.emit('town_update', {'type': 'delete', 'category': category, 'position': position}, broadcast=True)
             return jsonify({
                 "status": "success", 
                 "message": f"Deleted model at position ({position.get('x')}, {position.get('y')}, {position.get('z')})"
             })
-    
+
     return jsonify({"error": "Model not found"}), 404
 
 @app.route('/api/model/<category>/<model_name>')
@@ -294,12 +309,12 @@ def edit_model():
     data = request.get_json()
     model_id = data.get('id')
     category = data.get('category')
-    
+
     if not category or not model_id:
         return jsonify({"error": "Missing required parameters"}), 400
-    
+
     global town_data
-    
+
     for i, model in enumerate(town_data.get(category, [])):
         if model.get('id') == model_id:
             # Update model properties
@@ -309,12 +324,15 @@ def edit_model():
                 town_data[category][i]['rotation'] = data['rotation']
             if 'scale' in data:
                 town_data[category][i]['scale'] = data['scale']
-                
+
+            # --- Broadcast model edit to all clients ---
+            socketio.emit('town_update', {'type': 'edit', 'category': category, 'id': model_id, 'data': data}, broadcast=True)
+
             return jsonify({
                 "status": "success", 
                 "message": f"Updated model with ID {model_id}"
             })
-    
+
     return jsonify({"error": "Model not found"}), 404
 
 @app.route('/render_town', methods=['POST'])
@@ -359,8 +377,33 @@ def generate_shapes():
     print("Procedural shapes generated successfully.")
 
 
+# --- SocketIO events for multiplayer sync ---
+
+@socketio.on('connect')
+def handle_connect():
+    logger.info(f"Client connected: {request.sid}")
+    # Send the current town state to the new client
+    emit('town_update', {'type': 'full', 'town': town_data})
+
+@socketio.on('update_town')
+def handle_update_town(data):
+    global town_data
+    # Accept a full town update from a client and broadcast to all
+    town_data = data
+    emit('town_update', {'type': 'full', 'town': town_data}, broadcast=True)
+
+@socketio.on('edit_model')
+def handle_edit_model(data):
+    # Broadcast model edit to all clients
+    emit('town_update', {'type': 'edit', 'data': data}, broadcast=True)
+
+@socketio.on('delete_model')
+def handle_delete_model(data):
+    # Broadcast model deletion to all clients
+    emit('town_update', {'type': 'delete', 'data': data}, broadcast=True)
+
 if __name__ == '__main__':
     # This block will only run when you execute the file directly
     # For development only
-    app.run(debug=True)
+    socketio.run(app, debug=True)
     # When running with uWSGI, this block is ignored
