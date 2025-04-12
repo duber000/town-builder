@@ -233,32 +233,7 @@
         }
 
         // --- Multiplayer: Socket.IO setup ---
-        let socket;
-        let myName = null;
-        let mySocketId = null;
-        let users = {}; // {socketId: {name: ...}}
-
-        function promptForName() {
-            let name = localStorage.getItem('townbuilder_name');
-            while (!name || name.trim().length < 1) {
-                name = prompt("Enter your name for multiplayer:", name || "");
-                if (name === null) name = ""; // Prevent null
-            }
-            name = name.trim();
-            localStorage.setItem('townbuilder_name', name);
-            return name;
-        }
-
-        function updateUserListUI() {
-            const ul = document.getElementById('user-list-ul');
-            ul.innerHTML = '';
-            Object.entries(users).forEach(([sid, user]) => {
-                const li = document.createElement('li');
-                li.textContent = user.name + (sid === mySocketId ? " (You)" : "");
-                ul.appendChild(li);
-            });
-        }
-
+        // NOTE: Variables and functions moved earlier, this function definition remains here.
         function setupSocketIO() {
             // Prompt for name *after* scene is initialized
             myName = promptForName();
