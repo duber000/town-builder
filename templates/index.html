@@ -195,6 +195,9 @@
         let followingCar = null; // <<< ADD THIS LINE: Track the car being followed
         let isFollowing = false; // <<< ADD THIS LINE: Flag for follow mode
         let followIndicatorDiv = null; // <<< ADD THIS LINE: UI element for follow mode
+        let driveCar = null;  // car under manual control
+        let isDriving = false;
+        let driverNameDiv = null; // Div for showing driver name
 
         // --- Multiplayer: Socket.IO setup ---
         let socket;
@@ -2513,8 +2516,7 @@
         }
 
         // <<< START FOLLOW CODE >>>
-        let driveCar = null;  // car under manual control
-        let isDriving = false;
+        // Variables moved to the top
 
         function showDriveButton(car) {
             let btn = document.getElementById('drive-button');
@@ -2618,7 +2620,7 @@
         // <<< END FOLLOW CODE >>>
 
     // --- Driver name label ---
-    let driverNameDiv = null;
+    // Variable moved to the top
     function showDriverNameLabel(car, name) {
         if (!driverNameDiv) {
             driverNameDiv = document.createElement('div');
