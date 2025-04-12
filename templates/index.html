@@ -2070,9 +2070,16 @@
                 }
 
                 if (!collision) {
+                    // Check if the car is being driven by another user
+                    if (car.userData && car.userData.driver && car.userData.driver !== mySocketId) {
+                        // Don't apply local automatic movement if someone else is driving
+                        // The car's position will be updated by 'edit_model' events from the driver
+                        return; // Skips the rest of the logic for this car in the forEach loop
+                    }
+
                     if (isDriving && car === driveCar) {
-                        // Stop all automatic movement of the driven car
-                        // Movement handled by player input only
+                        // Stop all automatic movement of the driven car (for the *local* driver)
+                        // Movement handled by player input only (in the follow code block)
                         // Do not move automatically
                         return;
                     }
