@@ -314,10 +314,14 @@
                 }
             });
         }
-                if (msg.type === 'full' && msg.town) {
-                    // Clear and reload the scene with the new town data
-                    clearScene();
-                    // Load the town data (simulate as if loaded from server)
+
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+
+            // Create camera
                     if (msg.town.settings) {
                         if (msg.town.settings.skyColor) updateSkyColor(msg.town.settings.skyColor);
                         if (msg.town.settings.groundColor) updateGroundColor(msg.town.settings.groundColor);
