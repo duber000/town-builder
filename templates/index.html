@@ -232,6 +232,10 @@
                                 THREE.MathUtils.degToRad(msg.data.rotation.r || 0)
                             );
                             if (msg.data.scale) obj.scale.set(msg.data.scale, msg.data.scale, msg.data.scale);
+                            // Update driver info if present
+                            if (typeof msg.data.driver !== "undefined") {
+                                obj.userData.driver = msg.data.driver;
+                            }
                         }
                     });
                 } else if (msg.type === 'delete' && msg.category) {
@@ -2116,6 +2120,8 @@
                         lastCarEmitTime = now;
                         window.lastCarEmitTime = lastCarEmitTime;
                         if (socket && driveCar && driveCar.userData) {
+                            // Set driver to this socket id
+                            driveCar.userData.driver = socket.id;
                             socket.emit('edit_model', {
                                 category: driveCar.userData.category,
                                 id: driveCar.userData.id,
@@ -2130,14 +2136,15 @@
                                     r: THREE.MathUtils.radToDeg(driveCar.rotation.z)
                                 },
                                 scale: driveCar.scale.x,
-                                color: driveCar.userData.color
+                                color: driveCar.userData.color,
+                                driver: socket.id
                             });
                         }
                     }
                 }
 
-                if (isDriving && driveCar) {
-                    // Driving mode: move car with WASD
+                if (isDriving && driveCar && (!driveCar.userData.driver || driveCar.userData.driver === socket.id)) {
+                    // Driving mode: move car with WASD (only if not driven by someone else)
                     const moveVec = new THREE.Vector3();
                     let turning = 0;
                     if (keysPressed['a']) turning += 1;    // turn left
