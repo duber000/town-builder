@@ -226,85 +226,83 @@
         function setupSocketIO() {
             myName = promptForName();
 
-            // Defer socket.io connection until after Three.js scene is initialized
-            // to avoid race condition where socket events try to update scene before it's ready.
-            setTimeout(() => {
-                socket = io();
+            // Connect socket.io immediately after getting name
+            socket = io();
 
-                socket.on('connect', () => {
-                    mySocketId = socket.id;
-                    socket.emit('set_name', { name: myName });
-                });
+            socket.on('connect', () => {
+                mySocketId = socket.id;
+                socket.emit('set_name', { name: myName });
+            });
 
-                socket.on('user_list', (userList) => {
-                    users = userList;
-                    updateUserListUI();
-                });
+            socket.on('user_list', (userList) => {
+                users = userList;
+                updateUserListUI();
+            });
 
-                // Receive full town state
-                socket.on('town_update', (msg) => {
-                    if (typeof scene === "undefined" || typeof placedObjects === "undefined") {
-                        // Scene not initialized yet, skip update
-                        return;
+            // Receive full town state
+            socket.on('town_update', (msg) => {
+                if (typeof scene === "undefined" || typeof placedObjects === "undefined") {
+                    // Scene not initialized yet, skip update
+                    return;
+                }
+                if (msg.type === 'full' && msg.town) {
+                    // Clear and reload the scene with the new town data
+                    clearScene();
+                    // Load the town data (simulate as if loaded from server)
+                    if (msg.town.settings) {
+                        if (msg.town.settings.skyColor) updateSkyColor(msg.town.settings.skyColor);
+                        if (msg.town.settings.groundColor) updateGroundColor(msg.town.settings.groundColor);
                     }
-                    if (msg.type === 'full' && msg.town) {
-                        // Clear and reload the scene with the new town data
-                        clearScene();
-                        // Load the town data (simulate as if loaded from server)
-                        if (msg.town.settings) {
-                            if (msg.town.settings.skyColor) updateSkyColor(msg.town.settings.skyColor);
-                            if (msg.town.settings.groundColor) updateGroundColor(msg.town.settings.groundColor);
-                        }
-                        if (msg.town.townName) {
-                            document.getElementById('town-name-display').textContent = msg.town.townName;
-                            document.getElementById('town-name-input').value = msg.town.townName;
-                        }
-                        Object.keys(msg.town).forEach(category => {
-                            if (Array.isArray(msg.town[category])) {
-                                msg.town[category].forEach(modelData => {
-                                    loadModelFromData(category, modelData);
-                                });
-                            }
-                        });
-                    } else if (msg.type === 'name' && msg.townName) {
-                        document.getElementById('town-name-display').textContent = msg.townName;
-                        document.getElementById('town-name-input').value = msg.townName;
-                    } else if (msg.type === 'edit' && msg.data && msg.data.category && msg.data.id) {
-                        // Find and update the model in the scene
-                        placedObjects.forEach(obj => {
-                            if (obj.userData && obj.userData.category === msg.data.category && obj.userData.id === msg.data.id) {
-                                if (msg.data.position) obj.position.set(msg.data.position.x, msg.data.position.y, msg.data.position.z);
-                                if (msg.data.rotation) obj.rotation.set(
-                                    THREE.MathUtils.degToRad(msg.data.rotation.p || 0),
-                                    THREE.MathUtils.degToRad(msg.data.rotation.h || 0),
-                                    THREE.MathUtils.degToRad(msg.data.rotation.r || 0)
-                                );
-                                if (msg.data.scale) obj.scale.set(msg.data.scale, msg.data.scale, msg.data.scale);
-                                // Update driver info if present
-                                if (typeof msg.data.driver !== "undefined") {
-                                    obj.userData.driver = msg.data.driver;
-                                }
-                                // Update driverName if present
-                                if (typeof msg.data.driverName !== "undefined") {
-                                    obj.userData.driverName = msg.data.driverName;
-                                }
-                            }
-                        });
-                    } else if (msg.type === 'delete' && msg.category) {
-                        // Remove the model from the scene
-                        placedObjects = placedObjects.filter(obj => {
-                            if (obj.userData && obj.userData.category === msg.category) {
-                                if ((msg.id && obj.userData.id === msg.id) ||
-                                    (msg.position && obj.position.x === msg.position.x && obj.position.y === msg.position.y && obj.position.z === msg.position.z)) {
-                                    scene.remove(obj);
-                                    return false;
-                                }
-                            }
-                            return true;
-                        });
+                    if (msg.town.townName) {
+                        document.getElementById('town-name-display').textContent = msg.town.townName;
+                        document.getElementById('town-name-input').value = msg.town.townName;
                     }
-                });
-            }, 0); // Defer to next event loop tick, after init()
+                    Object.keys(msg.town).forEach(category => {
+                        if (Array.isArray(msg.town[category])) {
+                            msg.town[category].forEach(modelData => {
+                                loadModelFromData(category, modelData);
+                            });
+                        }
+                    });
+                } else if (msg.type === 'name' && msg.townName) {
+                    document.getElementById('town-name-display').textContent = msg.townName;
+                    document.getElementById('town-name-input').value = msg.townName;
+                } else if (msg.type === 'edit' && msg.data && msg.data.category && msg.data.id) {
+                    // Find and update the model in the scene
+                    placedObjects.forEach(obj => {
+                        if (obj.userData && obj.userData.category === msg.data.category && obj.userData.id === msg.data.id) {
+                            if (msg.data.position) obj.position.set(msg.data.position.x, msg.data.position.y, msg.data.position.z);
+                            if (msg.data.rotation) obj.rotation.set(
+                                THREE.MathUtils.degToRad(msg.data.rotation.p || 0),
+                                THREE.MathUtils.degToRad(msg.data.rotation.h || 0),
+                                THREE.MathUtils.degToRad(msg.data.rotation.r || 0)
+                            );
+                            if (msg.data.scale) obj.scale.set(msg.data.scale, msg.data.scale, msg.data.scale);
+                            // Update driver info if present
+                            if (typeof msg.data.driver !== "undefined") {
+                                obj.userData.driver = msg.data.driver;
+                            }
+                            // Update driverName if present
+                            if (typeof msg.data.driverName !== "undefined") {
+                                obj.userData.driverName = msg.data.driverName;
+                            }
+                        }
+                    });
+                } else if (msg.type === 'delete' && msg.category) {
+                    // Remove the model from the scene
+                    placedObjects = placedObjects.filter(obj => {
+                        if (obj.userData && obj.userData.category === msg.category) {
+                            if ((msg.id && obj.userData.id === msg.id) ||
+                                (msg.position && obj.position.x === msg.position.x && obj.position.y === msg.position.y && obj.position.z === msg.position.z)) {
+                                scene.remove(obj);
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                }
+            });
+        }
                 if (msg.type === 'full' && msg.town) {
                     // Clear and reload the scene with the new town data
                     clearScene();
@@ -366,9 +364,6 @@
 
         // Initialize the scene
         function init() {
-            // Multiplayer: setup socket.io
-            setupSocketIO();
-
             // Create scene
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB); // Sky blue
@@ -2370,6 +2365,9 @@
 
         // Initialize everything
         init();
+
+        // Multiplayer: setup socket.io (after scene is initialized)
+        setupSocketIO();
 
         // Run diagnostics after a short delay
         setTimeout(() => {
