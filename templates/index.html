@@ -223,10 +223,46 @@
             });
         }
 
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+
+            // ... rest of your init code ...
+        }
+
+        // --- Multiplayer: Socket.IO setup ---
+        let socket;
+        let myName = null;
+        let mySocketId = null;
+        let users = {}; // {socketId: {name: ...}}
+
+        function promptForName() {
+            let name = localStorage.getItem('townbuilder_name');
+            while (!name || name.trim().length < 1) {
+                name = prompt("Enter your name for multiplayer:", name || "");
+                if (name === null) name = ""; // Prevent null
+            }
+            name = name.trim();
+            localStorage.setItem('townbuilder_name', name);
+            return name;
+        }
+
+        function updateUserListUI() {
+            const ul = document.getElementById('user-list-ul');
+            ul.innerHTML = '';
+            Object.entries(users).forEach(([sid, user]) => {
+                const li = document.createElement('li');
+                li.textContent = user.name + (sid === mySocketId ? " (You)" : "");
+                ul.appendChild(li);
+            });
+        }
+
         function setupSocketIO() {
+            // Prompt for name *after* scene is initialized
             myName = promptForName();
 
-            // Connect socket.io immediately after getting name
             socket = io();
 
             socket.on('connect', () => {
@@ -2366,14 +2402,15 @@
         // Initialize everything
         init();
 
-        // Multiplayer: setup socket.io (after scene is initialized)
-        setupSocketIO();
-
-        // Run diagnostics after a short delay
+        // Prompt for name and connect socket.io *after* scene is initialized
         setTimeout(() => {
-            checkThreeJsStatus();
-            checkStaticFiles();
-        }, 1000);
+            setupSocketIO();
+            // Run diagnostics after a short delay
+            setTimeout(() => {
+                checkThreeJsStatus();
+                checkStaticFiles();
+            }, 1000);
+        }, 0);
 
         // --- API Error Handling and Notifications ---
 
