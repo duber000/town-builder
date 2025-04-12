@@ -322,68 +322,6 @@
             scene.background = new THREE.Color(0x87CEEB); // Sky blue
 
             // Create camera
-                    if (msg.town.settings) {
-                        if (msg.town.settings.skyColor) updateSkyColor(msg.town.settings.skyColor);
-                        if (msg.town.settings.groundColor) updateGroundColor(msg.town.settings.groundColor);
-                    }
-                    if (msg.town.townName) {
-                        document.getElementById('town-name-display').textContent = msg.town.townName;
-                        document.getElementById('town-name-input').value = msg.town.townName;
-                    }
-                    Object.keys(msg.town).forEach(category => {
-                        if (Array.isArray(msg.town[category])) {
-                            msg.town[category].forEach(modelData => {
-                                loadModelFromData(category, modelData);
-                            });
-                        }
-                    });
-                } else if (msg.type === 'name' && msg.townName) {
-                    document.getElementById('town-name-display').textContent = msg.townName;
-                    document.getElementById('town-name-input').value = msg.townName;
-                } else if (msg.type === 'edit' && msg.data && msg.data.category && msg.data.id) {
-                    // Find and update the model in the scene
-                    placedObjects.forEach(obj => {
-                        if (obj.userData && obj.userData.category === msg.data.category && obj.userData.id === msg.data.id) {
-                            if (msg.data.position) obj.position.set(msg.data.position.x, msg.data.position.y, msg.data.position.z);
-                            if (msg.data.rotation) obj.rotation.set(
-                                THREE.MathUtils.degToRad(msg.data.rotation.p || 0),
-                                THREE.MathUtils.degToRad(msg.data.rotation.h || 0),
-                                THREE.MathUtils.degToRad(msg.data.rotation.r || 0)
-                            );
-                            if (msg.data.scale) obj.scale.set(msg.data.scale, msg.data.scale, msg.data.scale);
-                            // Update driver info if present
-                            if (typeof msg.data.driver !== "undefined") {
-                                obj.userData.driver = msg.data.driver;
-                            }
-                            // Update driverName if present
-                            if (typeof msg.data.driverName !== "undefined") {
-                                obj.userData.driverName = msg.data.driverName;
-                            }
-                        }
-                    });
-                } else if (msg.type === 'delete' && msg.category) {
-                    // Remove the model from the scene
-                    placedObjects = placedObjects.filter(obj => {
-                        if (obj.userData && obj.userData.category === msg.category) {
-                            if ((msg.id && obj.userData.id === msg.id) ||
-                                (msg.position && obj.position.x === msg.position.x && obj.position.y === msg.position.y && obj.position.z === msg.position.z)) {
-                                scene.remove(obj);
-                                return false;
-                            }
-                        }
-                        return true;
-                    });
-                }
-            });
-        }
-
-        // Initialize the scene
-        function init() {
-            // Create scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Sky blue
-
-            // Create camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(10, 10, 10);
             camera.lookAt(0, 0, 0);
