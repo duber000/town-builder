@@ -1,0 +1,5 @@
+# Optional: Define a dedicated namespace for the application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: town-builder # Replace with your desired namespace name

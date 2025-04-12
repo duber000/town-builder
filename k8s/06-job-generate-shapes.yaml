@@ -1,0 +1,25 @@
+# Optional: Kubernetes Job to run the generate-shapes command manually or via CI/CD
+# Use this *instead* of the initContainer in the Deployment if preferred.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generate-shapes-job
+  namespace: town-builder # Make sure this matches your namespace
+spec:
+  template:
+    spec:
+      containers:
+      - name: generate-shapes
+        image: YOUR_REGISTRY/town-builder:latest # Replace with your actual image path
+        command: ["uv", "run", "flask", "generate-shapes"]
+        # If shapes need to be persisted or shared, add volumeMounts here
+        # that correspond to a PersistentVolumeClaim or other volume type.
+        # volumeMounts:
+        # - name: static-storage
+        #   mountPath: /app/static/models/props
+      # volumes: # Define the volume if using volumeMounts
+      # - name: static-storage
+      #   persistentVolumeClaim:
+      #     claimName: your-pvc-name # Example PVC
+      restartPolicy: Never # Or OnFailure
+  backoffLimit: 2 # Number of retries before marking job as failed

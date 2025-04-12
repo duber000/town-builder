@@ -67,12 +67,20 @@ def index():
     logger.info(f"Rendering index with {sum(len(models[cat]) for cat in models)} models")
     return render_template('index.html', models=models)
 
-# Add a route to serve static files directly (as a fallback)
-@app.route('/static/<path:path>')
-def serve_static(path):
-    """Serve static files directly"""
-    logger.debug(f"Serving static file: {path}")
-    return send_from_directory('static', path)
+# --- Health Check Endpoints ---
+
+@app.route('/healthz')
+def healthz():
+    """Liveness probe endpoint."""
+    return "OK", 200
+
+@app.route('/readyz')
+def readyz():
+    """Readiness probe endpoint."""
+    # Add checks here if the app needs time to start (e.g., DB connection)
+    return "OK", 200
+
+# --- API Endpoints ---
 
 @app.route('/api/models')
 def list_models():

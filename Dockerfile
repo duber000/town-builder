@@ -19,8 +19,9 @@ RUN uv pip install --system --no-cache-dir .
 # Copy the rest of the application code to the working directory
 COPY . .
 
-# Expose the port that the Flask app runs on
+# Expose the port that uWSGI will listen on
 EXPOSE 5000
 
-# Specify the command to run the application
-CMD ["uv", "run", "uwsgi", "--http", ":5000", "--module", "app:app"]
+# Specify the command to run the application via uWSGI over HTTP
+# Using 4 processes and enabling threads for SocketIO async_mode="threading"
+CMD ["uv", "run", "uwsgi", "--http", ":5000", "--module", "app:app", "--processes", "4", "--enable-threads"]

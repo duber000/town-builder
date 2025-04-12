@@ -1,0 +1,17 @@
+# Service to provide internal networking for the Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: town-builder-service
+  namespace: town-builder # Make sure this matches your namespace
+  labels:
+    app: town-builder
+spec:
+  selector:
+    app: town-builder # Selects Pods managed by the town-builder-app Deployment
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80 # Port the Service listens on internally
+    targetPort: http # Target the 'http' port (5000) defined in the Deployment's container
+  type: ClusterIP # Default type, only reachable within the cluster
