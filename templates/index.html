@@ -221,10 +221,10 @@
                 } else if (msg.type === 'name' && msg.townName) {
                     document.getElementById('town-name-display').textContent = msg.townName;
                     document.getElementById('town-name-input').value = msg.townName;
-                } else if (msg.type === 'edit' && msg.category && msg.id && msg.data) {
+                } else if (msg.type === 'edit' && msg.data && msg.data.category && msg.data.id) {
                     // Find and update the model in the scene
                     placedObjects.forEach(obj => {
-                        if (obj.userData && obj.userData.category === msg.category && obj.userData.id === msg.id) {
+                        if (obj.userData && obj.userData.category === msg.data.category && obj.userData.id === msg.data.id) {
                             if (msg.data.position) obj.position.set(msg.data.position.x, msg.data.position.y, msg.data.position.z);
                             if (msg.data.rotation) obj.rotation.set(
                                 THREE.MathUtils.degToRad(msg.data.rotation.p || 0),
@@ -2108,6 +2108,34 @@
 
             // <<< START FOLLOW CODE >>>
             if (isFollowing && followingCar) {
+                // --- Multiplayer car movement sync (throttle) ---
+                let lastCarEmitTime = window.lastCarEmitTime || 0;
+                function maybeEmitCarUpdate() {
+                    const now = Date.now();
+                    if (now - lastCarEmitTime > 50) { // 20 times per second max
+                        lastCarEmitTime = now;
+                        window.lastCarEmitTime = lastCarEmitTime;
+                        if (socket && driveCar && driveCar.userData) {
+                            socket.emit('edit_model', {
+                                category: driveCar.userData.category,
+                                id: driveCar.userData.id,
+                                position: {
+                                    x: driveCar.position.x,
+                                    y: driveCar.position.y,
+                                    z: driveCar.position.z
+                                },
+                                rotation: {
+                                    h: THREE.MathUtils.radToDeg(driveCar.rotation.y),
+                                    p: THREE.MathUtils.radToDeg(driveCar.rotation.x),
+                                    r: THREE.MathUtils.radToDeg(driveCar.rotation.z)
+                                },
+                                scale: driveCar.scale.x,
+                                color: driveCar.userData.color
+                            });
+                        }
+                    }
+                }
+
                 if (isDriving && driveCar) {
                     // Driving mode: move car with WASD
                     const moveVec = new THREE.Vector3();
@@ -2131,6 +2159,9 @@
                         direction.multiplyScalar(forward * 2.0 * dt);
                         driveCar.position.add(direction);
                     }
+
+                    // Emit car update to server (throttled)
+                    maybeEmitCarUpdate();
                 }
 
                 // Camera follows the car
