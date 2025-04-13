@@ -13,6 +13,9 @@ import requests
 import queue
 import threading
 
+import redis
+import time
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -31,13 +34,28 @@ subscribers_lock = threading.Lock()
 API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
 API_URL = getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
 
-# Store our town layout
-town_data = {
+# --- Redis setup ---
+REDIS_URL = getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+PUBSUB_CHANNEL = "town_events"
+
+# Store our town layout in Redis
+DEFAULT_TOWN_DATA = {
     "buildings": [],
     "terrain": [],
     "roads": [],
     "props": []  # Added props category for smaller objects
 }
+
+def get_town_data():
+    data = redis_client.get("town_data")
+    if data:
+        return json.loads(data)
+    else:
+        return DEFAULT_TOWN_DATA.copy()
+
+def set_town_data(data):
+    redis_client.set("town_data", json.dumps(data))
 
 # Define paths for models
 MODELS_PATH = os.path.join(os.path.dirname(__file__), 'static', 'models')
@@ -92,22 +110,20 @@ def list_models():
 @app.route('/api/town', methods=['GET'])
 def get_town():
     """Get the current town layout"""
-    return jsonify(town_data)
+    return jsonify(get_town_data())
 
 @app.route('/api/town', methods=['POST'])
 def update_town():
     """Update the town layout"""
     data = request.get_json()
-    global town_data
+    town_data = get_town_data()
 
     # If we're just updating the town name
     if 'townName' in data and len(data) == 1:
-        if 'townName' not in town_data:
-            town_data['townName'] = data['townName']
-        else:
-            town_data['townName'] = data['townName']
+        town_data['townName'] = data['townName']
+        set_town_data(town_data)
         logger.info(f"Updated town name to: {data['townName']}")
-        # --- Broadcast town name change to all clients via SSE ---
+        # --- Broadcast town name change to all clients via Redis PubSub ---
         broadcast_sse({'type': 'name', 'townName': data['townName']})
     # If we're updating the driver of a vehicle/model
     elif 'driver' in data and 'id' in data and 'category' in data:
@@ -119,17 +135,18 @@ def update_town():
             if model.get('id') == model_id:
                 town_data[category][i]['driver'] = driver
                 updated = True
+                set_town_data(town_data)
                 logger.info(f"Updated driver for {category} id={model_id} to {driver}")
-                # --- Broadcast driver update to all clients via SSE ---
+                # --- Broadcast driver update to all clients via Redis PubSub ---
                 broadcast_sse({'type': 'driver', 'category': category, 'id': model_id, 'driver': driver})
                 break
         if not updated:
             return jsonify({"status": "error", "message": "Model not found"}), 404
     else:
         # Full town data update
-        town_data = data
-        # --- Broadcast full town update to all clients via SSE ---
-        broadcast_sse({'type': 'full', 'town': town_data})
+        set_town_data(data)
+        # --- Broadcast full town update to all clients via Redis PubSub ---
+        broadcast_sse({'type': 'full', 'town': data})
 
     return jsonify({"status": "success"})
 
@@ -140,8 +157,8 @@ def save_town():
         filename = request.json.get('filename', 'town_data.json')
         data = request.json.get('data')
 
-        # If data is provided in the request, use it instead of global town_data
-        save_data = data if data is not None else town_data
+        # If data is provided in the request, use it instead of Redis town_data
+        save_data = data if data is not None else get_town_data()
 
         # Ensure the filename has .json extension
         if not filename.endswith('.json'):
@@ -152,7 +169,7 @@ def save_town():
             json.dump(save_data, f, indent=2)
 
         logger.info(f"Town saved to {filename}")
-        # --- Broadcast full town update to all clients on save via SSE ---
+        # --- Broadcast full town update to all clients on save via Redis PubSub ---
         broadcast_sse({'type': 'full', 'town': save_data})
         return jsonify({"status": "success", "message": f"Town saved to {filename}"})
     except Exception as e:
@@ -244,8 +261,8 @@ def load_town():
             
         # Load the town data from the file
         with open(filename, 'r') as f:
-            global town_data
             town_data = json.load(f)
+            set_town_data(town_data)
             
         logger.info(f"Town loaded from {filename}")
         return jsonify({"status": "success", "message": f"Town loaded from {filename}", "data": town_data})
@@ -264,14 +281,15 @@ def delete_model():
     if not category or (not model_id and not position):
         return jsonify({"error": "Missing required parameters"}), 400
 
-    global town_data
+    town_data = get_town_data()
 
     # If we have an ID, use that for deletion
     if model_id is not None:
         for i, model in enumerate(town_data.get(category, [])):
             if model.get('id') == model_id:
                 town_data[category].pop(i)
-                # --- Broadcast deletion to all clients via SSE ---
+                set_town_data(town_data)
+                # --- Broadcast deletion to all clients via Redis PubSub ---
                 broadcast_sse({'type': 'delete', 'category': category, 'id': model_id})
                 return jsonify({"status": "success", "message": f"Deleted model with ID {model_id}"})
 
@@ -294,7 +312,8 @@ def delete_model():
 
         if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
             deleted_model = town_data[category].pop(closest_model_index)
-            # --- Broadcast deletion to all clients via SSE ---
+            set_town_data(town_data)
+            # --- Broadcast deletion to all clients via Redis PubSub ---
             broadcast_sse({'type': 'delete', 'category': category, 'position': position})
             return jsonify({
                 "status": "success", 
@@ -346,7 +365,7 @@ def edit_model():
     if not category or not model_id:
         return jsonify({"error": "Missing required parameters"}), 400
 
-    global town_data
+    town_data = get_town_data()
 
     for i, model in enumerate(town_data.get(category, [])):
         if model.get('id') == model_id:
@@ -358,7 +377,8 @@ def edit_model():
             if 'scale' in data:
                 town_data[category][i]['scale'] = data['scale']
 
-            # --- Broadcast model edit to all clients via SSE ---
+            set_town_data(town_data)
+            # --- Broadcast model edit to all clients via Redis PubSub ---
             broadcast_sse({'type': 'edit', 'category': category, 'id': model_id, 'data': data})
 
             return jsonify({
@@ -378,19 +398,29 @@ from flask import Response, stream_with_context, request
 connected_users = {}
 
 def broadcast_sse(data):
-    """Send data to all connected SSE clients."""
-    msg = f"data: {json.dumps(data)}\n\n"
-    with subscribers_lock:
-        for q in list(subscribers):
-            try:
-                q.put(msg)
-            except Exception as e:
-                logger.error(f"Error sending SSE: {e}")
+    """Send data to all connected SSE clients via Redis PubSub."""
+    msg = json.dumps(data)
+    redis_client.publish(PUBSUB_CHANNEL, msg)
 
 def event_stream():
     q = queue.Queue()
     with subscribers_lock:
         subscribers.add(q)
+
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(PUBSUB_CHANNEL)
+
+    def listen_redis():
+        for message in pubsub.listen():
+            if message['type'] == 'message':
+                try:
+                    q.put(f"data: {message['data']}\n\n")
+                except Exception as e:
+                    logger.error(f"Error putting SSE: {e}")
+
+    t = threading.Thread(target=listen_redis, daemon=True)
+    t.start()
+
     try:
         while True:
             data = q.get()
@@ -398,6 +428,7 @@ def event_stream():
     except GeneratorExit:
         with subscribers_lock:
             subscribers.discard(q)
+        pubsub.close()
 
 @app.route('/events')
 def sse_events():
