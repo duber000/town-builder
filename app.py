@@ -328,7 +328,6 @@ def get_model_info(category, model_name):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Panda3D Integration for rendering (server-side rendering option)
 @app.route('/api/town/model', methods=['PUT'])
 def edit_model():
     """Edit a model in the town layout (position, rotation, scale)"""
@@ -360,47 +359,6 @@ def edit_model():
             })
 
     return jsonify({"error": "Model not found"}), 404
-
-@app.route('/render_town', methods=['POST'])
-def render_town():
-    """Render the town from the server side using Panda3D"""
-    # This is a placeholder for server-side rendering
-    # In a real implementation, you would use Panda3D to render the scene
-    # and return an image or video stream
-    data = request.get_json()
-    
-    # Placeholder for rendering logic
-    # from direct.showbase.ShowBase import ShowBase
-    # base = ShowBase()
-    # for building in data['buildings']:
-    #     model = loader.loadModel(os.path.join(MODELS_PATH, 'buildings', building['model']))
-    #     model.setPos(building['position']['x'], building['position']['y'], building['position']['z'])
-    #     model.reparentTo(render)
-    
-    return jsonify({"rendered": True})
-
-import click
-import trimesh
-
-@app.cli.command("generate-shapes")
-def generate_shapes():
-    """Generate procedural primitive shapes and save as glb files."""
-    output_dir = os.path.join(MODELS_PATH, 'props')
-    os.makedirs(output_dir, exist_ok=True)
-
-    shapes = {
-        'torus': trimesh.creation.torus(major_radius=1.0, minor_radius=0.3),
-        'sphere': trimesh.creation.icosphere(subdivisions=3, radius=1.0),
-        'cube': trimesh.creation.box(extents=(2, 2, 2)),
-        'cylinder': trimesh.creation.cylinder(radius=1.0, height=2.0, sections=32)
-    }
-
-    for name, mesh in shapes.items():
-        path = os.path.join(output_dir, f'{name}.glb')
-        mesh.export(path)
-        print(f"Saved {name} to {path}")
-
-    print("Procedural shapes generated successfully.")
 
 
 # --- SSE event stream for multiplayer sync ---
