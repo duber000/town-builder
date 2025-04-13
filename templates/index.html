@@ -1994,9 +1994,7 @@
 
             const dt = clock.getDelta(); // Get time since last frame
 
-
-            // <<< START ADDED CODE >>>
-            // Move the cars
+            // --- Move the cars ---
             const carSpeed = 2.0; // Units per second
             const sceneBoundary = 10; // Edge of the ground plane (half-width)
 
@@ -2030,6 +2028,13 @@
                 const isHatchback = car.userData && car.userData.modelName && car.userData.modelName.includes('car_hatchback');
                 const isPolice = car.userData && car.userData.modelName && car.userData.modelName.includes('car_police');
 
+                // --- DRIVING SYNC: If this car is being driven by another user, skip local movement ---
+                if (car.userData && car.userData.driver && car.userData.driver !== myName) {
+                    // Don't apply local automatic movement if someone else is driving
+                    // The car's position will be updated by SSE events from the driver
+                    return;
+                }
+
                 if (collision && isPolice && collidedObject) {
                     // If police car hits a non-car, try to steer around
                     const isOtherCar = collidedObject.userData && collidedObject.userData.category === 'vehicles';
@@ -2041,13 +2046,6 @@
                 }
 
                 if (!collision) {
-                    // Check if the car is being driven by another user
-                    if (car.userData && car.userData.driver && car.userData.driver !== mySocketId) {
-                        // Don't apply local automatic movement if someone else is driving
-                        // The car's position will be updated by 'edit_model' events from the driver
-                        return; // Skips the rest of the logic for this car in the forEach loop
-                    }
-
                     if (isDriving && car === driveCar) {
                         // Stop all automatic movement of the driven car (for the *local* driver)
                         // Movement handled by player input only (in the follow code block)
@@ -2147,44 +2145,48 @@
                 }
                 // else: stop moving if collision detected (except police avoidance above)
             });
-            // <<< END ADDED CODE >>>
 
-            // <<< START FOLLOW CODE >>>
+            // --- DRIVING SYNC: Send car position/rotation to server when driving ---
             if (isFollowing && followingCar) {
-                // --- Multiplayer car movement sync (throttle) ---
+                // Throttle updates to 20 times per second
                 let lastCarEmitTime = window.lastCarEmitTime || 0;
                 function maybeEmitCarUpdate() {
                     const now = Date.now();
                     if (now - lastCarEmitTime > 50) { // 20 times per second max
                         lastCarEmitTime = now;
                         window.lastCarEmitTime = lastCarEmitTime;
-                        if (socket && driveCar && driveCar.userData) {
-                            // Set driver to this socket id
-                            driveCar.userData.driver = socket.id;
+                        if (driveCar && driveCar.userData) {
+                            // Set driver to this user's name
+                            driveCar.userData.driver = myName;
                             driveCar.userData.driverName = myName;
-                            socket.emit('edit_model', {
-                                category: driveCar.userData.category,
-                                id: driveCar.userData.id,
-                                position: {
-                                    x: driveCar.position.x,
-                                    y: driveCar.position.y,
-                                    z: driveCar.position.z
-                                },
-                                rotation: {
-                                    h: THREE.MathUtils.radToDeg(driveCar.rotation.y),
-                                    p: THREE.MathUtils.radToDeg(driveCar.rotation.x),
-                                    r: THREE.MathUtils.radToDeg(driveCar.rotation.z)
-                                },
-                                scale: driveCar.scale.x,
-                                color: driveCar.userData.color,
-                                driver: socket.id,
-                                driverName: myName
+                            // Send update to server
+                            fetch('/api/town/model', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    category: driveCar.userData.category,
+                                    id: driveCar.userData.id,
+                                    position: {
+                                        x: driveCar.position.x,
+                                        y: driveCar.position.y,
+                                        z: driveCar.position.z
+                                    },
+                                    rotation: {
+                                        h: THREE.MathUtils.radToDeg(driveCar.rotation.y),
+                                        p: THREE.MathUtils.radToDeg(driveCar.rotation.x),
+                                        r: THREE.MathUtils.radToDeg(driveCar.rotation.z)
+                                    },
+                                    scale: driveCar.scale.x,
+                                    color: driveCar.userData.color,
+                                    driver: myName,
+                                    driverName: myName
+                                })
                             });
                         }
                     }
                 }
 
-                if (isDriving && driveCar && (!driveCar.userData.driver || driveCar.userData.driver === socket.id)) {
+                if (isDriving && driveCar && (!driveCar.userData.driver || driveCar.userData.driver === myName)) {
                     // Driving mode: move car with WASD (only if not driven by someone else)
                     const moveVec = new THREE.Vector3();
                     let turning = 0;
@@ -2231,7 +2233,6 @@
                 controls.update();
                 hideDriverNameLabel();
             }
-            // <<< END FOLLOW CODE >>>
 
             renderer.render(scene, camera);
         }
