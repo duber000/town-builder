@@ -109,6 +109,22 @@ def update_town():
         logger.info(f"Updated town name to: {data['townName']}")
         # --- Broadcast town name change to all clients via SSE ---
         broadcast_sse({'type': 'name', 'townName': data['townName']})
+    # If we're updating the driver of a vehicle/model
+    elif 'driver' in data and 'id' in data and 'category' in data:
+        category = data['category']
+        model_id = data['id']
+        driver = data['driver']
+        updated = False
+        for i, model in enumerate(town_data.get(category, [])):
+            if model.get('id') == model_id:
+                town_data[category][i]['driver'] = driver
+                updated = True
+                logger.info(f"Updated driver for {category} id={model_id} to {driver}")
+                # --- Broadcast driver update to all clients via SSE ---
+                broadcast_sse({'type': 'driver', 'category': category, 'id': model_id, 'driver': driver})
+                break
+        if not updated:
+            return jsonify({"status": "error", "message": "Model not found"}), 404
     else:
         # Full town data update
         town_data = data
