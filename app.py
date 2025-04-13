@@ -22,8 +22,10 @@ dotenv.load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-# --- Initialize SocketIO ---
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+
+# --- SSE subscribers ---
+subscribers = set()
+subscribers_lock = threading.Lock()
 
 # Get JWT token from environment variable
 API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
