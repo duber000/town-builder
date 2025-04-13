@@ -943,8 +943,9 @@
                     objectToRemove = objectToRemove.parent;
                 }
 
-                // Remove from scene
+                // Remove from scene and dispose resources
                 scene.remove(objectToRemove);
+                disposeObject(objectToRemove);
 
                 // Remove from placedObjects array
                 const indexPlaced = placedObjects.indexOf(objectToRemove);
@@ -1269,6 +1270,43 @@
             }
         }
 
+        // Helper to dispose of all geometries, materials, and textures in an object
+        function disposeObject(obj) {
+            obj.traverse(function(node) {
+                if (node.isMesh) {
+                    if (node.geometry) {
+                        node.geometry.dispose();
+                    }
+                    if (node.material) {
+                        if (Array.isArray(node.material)) {
+                            node.material.forEach(mat => {
+                                if (mat.map) { mat.map.dispose(); }
+                                if (mat.lightMap) { mat.lightMap.dispose(); }
+                                if (mat.aoMap) { mat.aoMap.dispose(); }
+                                if (mat.emissiveMap) { mat.emissiveMap.dispose(); }
+                                if (mat.bumpMap) { mat.bumpMap.dispose(); }
+                                if (mat.normalMap) { mat.normalMap.dispose(); }
+                                if (mat.specularMap) { mat.specularMap.dispose(); }
+                                if (mat.envMap) { mat.envMap.dispose(); }
+                                mat.dispose();
+                            });
+                        } else {
+                            const mat = node.material;
+                            if (mat.map) { mat.map.dispose(); }
+                            if (mat.lightMap) { mat.lightMap.dispose(); }
+                            if (mat.aoMap) { mat.aoMap.dispose(); }
+                            if (mat.emissiveMap) { mat.emissiveMap.dispose(); }
+                            if (mat.bumpMap) { mat.bumpMap.dispose(); }
+                            if (mat.normalMap) { mat.normalMap.dispose(); }
+                            if (mat.specularMap) { mat.specularMap.dispose(); }
+                            if (mat.envMap) { mat.envMap.dispose(); }
+                            mat.dispose();
+                        }
+                    }
+                }
+            });
+        }
+
         // Clear all placed models from the scene
         function clearScene() {
             // Remove any edit UI
@@ -1277,11 +1315,12 @@
             // Remove all objects except ground, lights, and placement indicator
             placedObjects.forEach(object => {
                 scene.remove(object);
+                disposeObject(object);
             });
 
             // Clear the tracking arrays
             placedObjects = [];
-            movingCars = []; // <<< ADD THIS LINE
+            movingCars = [];
 
             // <<< START FOLLOW CODE >>>
             if (isFollowing) {
