@@ -19,9 +19,8 @@ RUN uv pip install --system --no-cache-dir .
 # Copy the rest of the application code to the working directory
 COPY . .
 
-# Expose the port that uWSGI will listen on
+# Expose the port that Gunicorn will listen on
 EXPOSE 5000
 
-# Specify the command to run the application via uWSGI over HTTP
-# Using 4 processes and enabling threads for SSE support
-CMD ["uv", "run", "uwsgi", "--http", ":5000", "--module", "app:app", "--processes", "4", "--enable-threads"]
+# Specify the command to run the application via Gunicorn with gevent workers for SSE support
+CMD ["gunicorn", "-w", "4", "-k", "gevent", "-b", "0.0.0.0:5000", "app:app"]
