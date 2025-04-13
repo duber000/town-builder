@@ -916,45 +916,8 @@
             }, 200);
 
             // --- Multiplayer: emit full town update to server ---
-            if (socket) {
-                // Gather all placed objects into town data
-                const sceneData = {
-                    townName: document.getElementById('town-name-display').textContent,
-                    settings: {
-                        skyColor: `#${scene.background.getHexString()}`,
-                        groundColor: `#${groundPlane.material.color.getHexString()}`
-                    },
-                    ...Object.keys({{ models | tojson }}).reduce((acc, key) => { acc[key] = []; return acc; }, {})
-                };
-                placedObjects.forEach(object => {
-                    if (object.userData && object.userData.category) {
-                        const category = object.userData.category;
-                        const modelName = object.userData.modelName;
-                        const modelData = {
-                            model: modelName,
-                            position: {
-                                x: object.position.x,
-                                y: object.position.y,
-                                z: object.position.z
-                            },
-                            rotation: {
-                                h: THREE.MathUtils.radToDeg(object.rotation.y),
-                                p: THREE.MathUtils.radToDeg(object.rotation.x),
-                                r: THREE.MathUtils.radToDeg(object.rotation.z)
-                            },
-                            scale: object.scale.x,
-                            id: object.userData.id,
-                            color: object.userData.color
-                        };
-                        if (sceneData[category]) {
-                            sceneData[category].push(modelData);
-                        } else {
-                            sceneData[category] = [modelData];
-                        }
-                    }
-                });
-                socket.emit('update_town', sceneData);
-            }
+            // SSE: send full town update to server (already handled above in placeModel)
+            // This block is not needed for SSE, as save is a separate operation.
         }
 
         // Delete the model at the indicator position
