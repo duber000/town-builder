@@ -1,90 +1,42 @@
-# Traefik IngressRoute to expose the Service externally
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: town-builder-ingressroute
-  namespace: town-builder # Make sure this matches your namespace
-spec:
-  entryPoints:
-    - websecure # Assumes a 'websecure' entrypoint for HTTPS (typically port 443)
-    # - web # Uncomment if you also want to listen on HTTP (typically port 80)
-  routes:
-    # --- Route for Socket.IO ---
-    # Traefik handles WebSocket upgrade automatically for HTTP routes.
-    - match: Host(`townbuilder.YOUR_DOMAIN.com`) && PathPrefix(`/socket.io`) # Replace YOUR_DOMAIN.com
-      kind: Rule
-      services:
-        - name: town-builder-service # Target the Kubernetes Service
-          port: 80 # Target the Service's port
-          # --- Optional: Sticky sessions for Socket.IO ---
-          # Uncomment if state issues arise due to multiple replicas.
-          # Ensures clients stick to the same backend pod.
-          # sticky:
-          #   cookie:
-          #     name: __trfktownaffinity
-          #     httpOnly: true
-          #     secure: true # Requires HTTPS
-          #     sameSite: "none" # Often needed for cross-site WebSocket cookies
-
-    # --- Route for Static Files ---
-    # Initially served by the application. Consider optimizing later.
-    - match: Host(`townbuilder.YOUR_DOMAIN.com`) && PathPrefix(`/static`) # Replace YOUR_DOMAIN.com
-      kind: Rule
-      services:
-        - name: town-builder-service
-          port: 80
-
-    # --- Route for the rest of the application ---
-    - match: Host(`townbuilder.YOUR_DOMAIN.com`) && PathPrefix(`/`) # Replace YOUR_DOMAIN.com
-      kind: Rule
-      services:
-        - name: town-builder-service
-          port: 80
-      # middlewares: # Optional: Add any Traefik middleware here
-      #   - name: your-middleware-name
-
-  # --- TLS Configuration ---
-  tls:
-    # Option 1: Using cert-manager (Recommended)
-    certResolver: your-cert-resolver # Replace with your cert-manager resolver name (e.g., letsencrypt)
-    domains:
-      - main: townbuilder.YOUR_DOMAIN.com # Replace YOUR_DOMAIN.com
-
-    # Option 2: Using a Kubernetes Secret containing your cert/key
-    # secretName: YOUR_TLS_SECRET_NAME # Replace with the name of your TLS secret in the same namespace
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  name: town-builder-ingress
+  namespace: town-builder
   annotations:
-    kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"traefik.ingress.kubernetes.io/router.entrypoints":"websecure"},"generation":3,"labels":{"app.kubernetes.io/instance":"iribala-django"},"name":"django-ingress","namespace":"iribala-django"},"spec":{"ingressClassName":"traefik","rules":[{"host":"issues.iribala.org","http":{"paths":[{"backend":{"service":{"name":"iribala-django","port":{"name":"granian"}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["issues.iribala.org"],"secretName":"wildcard-iribala-org-tls"}]}}
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
-  creationTimestamp: "2025-01-02T22:13:08Z"
-  generation: 6
-  labels:
-    app.kubernetes.io/instance: iribala-django
-  name: django-ingress
-  namespace: iribala-django
-  resourceVersion: "12312914"
-  uid: 0689d621-ca4b-490c-b170-afccb3e45fdd
+    # Enable Traefik to support SSE (Server-Sent Events) by disabling buffering
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   ingressClassName: traefik
   rules:
-  - host: issues.iribala.org
-    http:
-      paths:
-      - backend:
-          service:
-            name: iribala-django
-            port:
-              name: granian
-        path: /
-        pathType: Prefix
+    - host: townbuilder.YOUR_DOMAIN.com # Replace YOUR_DOMAIN.com
+      http:
+        paths:
+          - path: /events
+            pathType: Prefix
+            backend:
+              service:
+                name: town-builder-service
+                port:
+                  number: 80
+          - path: /static
+            pathType: Prefix
+            backend:
+              service:
+                name: town-builder-service
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: town-builder-service
+                port:
+                  number: 80
   tls:
-  - hosts:
-    - issues.iribala.org
-    secretName: wildcard-iribala-org-tls
-status:
-  loadBalancer:
-    ingress:
-    - ip: 162.209.115.19
+    - hosts:
+        - townbuilder.YOUR_DOMAIN.com # Replace YOUR_DOMAIN.com
+      secretName: YOUR_TLS_SECRET_NAME # Replace with your TLS secret name
