@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
     <!-- Socket.IO client for multiplayer -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script> -->
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
         #canvas-container { width: 100%; height: 100%; display: block; }
@@ -199,11 +199,10 @@
         let isDriving = false;
         let driverNameDiv = null; // Div for showing driver name
 
-        // --- Multiplayer: Socket.IO setup ---
-        let socket;
+        // --- Multiplayer: SSE setup ---
         let myName = null;
-        let mySocketId = null;
-        let users = {}; // {socketId: {name: ...}}
+        let users = {}; // {socketId: {name: ...}} (not used in SSE version)
+        let mySocketId = null; // not used in SSE version
 
         function promptForName() {
             let name = localStorage.getItem('townbuilder_name');
@@ -217,44 +216,28 @@
         }
 
         function updateUserListUI() {
+            // SSE version: no user list sync, just show your own name
             const ul = document.getElementById('user-list-ul');
             ul.innerHTML = '';
-            Object.entries(users).forEach(([sid, user]) => {
-                const li = document.createElement('li');
-                li.textContent = user.name + (sid === mySocketId ? " (You)" : "");
-                ul.appendChild(li);
-            });
+            const li = document.createElement('li');
+            li.textContent = myName + " (You)";
+            ul.appendChild(li);
         }
 
-        // Initialize the scene
-        function init() {
-            // Create scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Sky blue
-
-            // ... rest of your init code ...
-        }
-
-        // --- Multiplayer: Socket.IO setup ---
-        // NOTE: Variables and functions moved earlier, this function definition remains here.
-        function setupSocketIO() {
-            // Prompt for name *after* scene is initialized
+        // --- Multiplayer: SSE setup ---
+        function setupSSE() {
             myName = promptForName();
+            updateUserListUI();
 
-            socket = io();
-
-            socket.on('connect', () => {
-                mySocketId = socket.id;
-                socket.emit('set_name', { name: myName });
-            });
-
-            socket.on('user_list', (userList) => {
-                users = userList;
-                updateUserListUI();
-            });
-
-            // Receive full town state
-            socket.on('town_update', (msg) => {
+            const evtSource = new EventSource('/events');
+            evtSource.onmessage = function(event) {
+                let msg;
+                try {
+                    msg = JSON.parse(event.data);
+                } catch (e) {
+                    console.error("Failed to parse SSE message:", event.data);
+                    return;
+                }
                 if (typeof scene === "undefined" || typeof placedObjects === "undefined") {
                     // Scene not initialized yet, skip update
                     return;
@@ -315,7 +298,7 @@
                         return true;
                     });
                 }
-            });
+            };
         }
 
         // Initialize the scene
@@ -462,9 +445,11 @@
                 if (confirm("Are ya sure you want to clear the scene?")) {
                     clearScene();
                     // --- Multiplayer: broadcast clear to all clients ---
-                    if (socket) {
-                        socket.emit('update_town', {}); // send empty town
-                    }
+                    fetch('/api/town', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
                 }
             });
 
@@ -876,32 +861,47 @@
             // <<< END ADDED CODE >>>
 
             // --- Multiplayer: broadcast new model to all clients ---
-            if (socket) {
-                // Gather model data for sync
-                const modelData = {
-                    model: modelInstance.userData.modelName,
-                    position: {
-                        x: modelInstance.position.x,
-                        y: modelInstance.position.y,
-                        z: modelInstance.position.z
-                    },
-                    rotation: {
-                        h: THREE.MathUtils.radToDeg(modelInstance.rotation.y),
-                        p: THREE.MathUtils.radToDeg(modelInstance.rotation.x),
-                        r: THREE.MathUtils.radToDeg(modelInstance.rotation.z)
-                    },
-                    scale: modelInstance.scale.x,
-                    id: modelInstance.userData.id,
-                    color: modelInstance.userData.color
-                };
-                // Get current town state and update
-                // (In a real app, you might want to send only the new model, but here we send the full state)
-                // For now, emit a full update for simplicity
-                // You could optimize this to emit only the new model
-                // socket.emit('add_model', modelData);
-                // Instead, emit a full update
-                // (You may want to refactor this for efficiency)
-            }
+            // SSE: send full town update to server
+            const sceneData = {
+                townName: document.getElementById('town-name-display').textContent,
+                settings: {
+                    skyColor: `#${scene.background.getHexString()}`,
+                    groundColor: `#${groundPlane.material.color.getHexString()}`
+                },
+                ...Object.keys({{ models | tojson }}).reduce((acc, key) => { acc[key] = []; return acc; }, {})
+            };
+            placedObjects.forEach(object => {
+                if (object.userData && object.userData.category) {
+                    const category = object.userData.category;
+                    const modelName = object.userData.modelName;
+                    const modelData = {
+                        model: modelName,
+                        position: {
+                            x: object.position.x,
+                            y: object.position.y,
+                            z: object.position.z
+                        },
+                        rotation: {
+                            h: THREE.MathUtils.radToDeg(object.rotation.y),
+                            p: THREE.MathUtils.radToDeg(object.rotation.x),
+                            r: THREE.MathUtils.radToDeg(object.rotation.z)
+                        },
+                        scale: object.scale.x,
+                        id: object.userData.id,
+                        color: object.userData.color
+                    };
+                    if (sceneData[category]) {
+                        sceneData[category].push(modelData);
+                    } else {
+                        sceneData[category] = [modelData];
+                    }
+                }
+            });
+            fetch('/api/town', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sceneData)
+            });
 
             // Save to server (optional)
             // saveModelToServer(modelInstance);
@@ -992,15 +992,19 @@
                 }
 
                 // --- Multiplayer: emit delete to server ---
-                if (socket && objectToRemove.userData) {
-                    socket.emit('delete_model', {
-                        category: objectToRemove.userData.category,
-                        id: objectToRemove.userData.id,
-                        position: {
-                            x: objectToRemove.position.x,
-                            y: objectToRemove.position.y,
-                            z: objectToRemove.position.z
-                        }
+                if (objectToRemove.userData) {
+                    fetch('/api/town/model', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            category: objectToRemove.userData.category,
+                            id: objectToRemove.userData.id,
+                            position: {
+                                x: objectToRemove.position.x,
+                                y: objectToRemove.position.y,
+                                z: objectToRemove.position.z
+                            }
+                        })
                     });
                 }
 
@@ -1248,22 +1252,26 @@
             doneButton.addEventListener('click', function(event) {
                 event.stopPropagation();
                 // --- Multiplayer: emit edit to server ---
-                if (socket && model.userData) {
-                    socket.emit('edit_model', {
-                        category: model.userData.category,
-                        id: model.userData.id,
-                        position: {
-                            x: model.position.x,
-                            y: model.position.y,
-                            z: model.position.z
-                        },
-                        rotation: {
-                            h: THREE.MathUtils.radToDeg(model.rotation.y),
-                            p: THREE.MathUtils.radToDeg(model.rotation.x),
-                            r: THREE.MathUtils.radToDeg(model.rotation.z)
-                        },
-                        scale: model.scale.x,
-                        color: model.userData.color
+                if (model.userData) {
+                    fetch('/api/town/model', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            category: model.userData.category,
+                            id: model.userData.id,
+                            position: {
+                                x: model.position.x,
+                                y: model.position.y,
+                                z: model.position.z
+                            },
+                            rotation: {
+                                h: THREE.MathUtils.radToDeg(model.rotation.y),
+                                p: THREE.MathUtils.radToDeg(model.rotation.x),
+                                r: THREE.MathUtils.radToDeg(model.rotation.z)
+                            },
+                            scale: model.scale.x,
+                            color: model.userData.color
+                        })
                     });
                 }
                 removeEditUI();
@@ -2329,9 +2337,9 @@
         // Initialize everything
         init();
 
-        // Prompt for name and connect socket.io *after* scene is initialized
+        // Prompt for name and connect SSE *after* scene is initialized
         setTimeout(() => {
-            setupSocketIO();
+            setupSSE();
             // Run diagnostics after a short delay
             setTimeout(() => {
                 checkThreeJsStatus();

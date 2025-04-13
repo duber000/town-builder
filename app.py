@@ -10,8 +10,8 @@ from os import getenv
 from flask_cors import CORS
 import requests
 
-# --- Flask-SocketIO imports ---
-from flask_socketio import SocketIO, emit
+import queue
+import threading
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -105,13 +105,13 @@ def update_town():
         else:
             town_data['townName'] = data['townName']
         logger.info(f"Updated town name to: {data['townName']}")
-        # --- Broadcast town name change to all clients ---
-        socketio.emit('town_update', {'type': 'name', 'townName': data['townName']}, broadcast=True)
+        # --- Broadcast town name change to all clients via SSE ---
+        broadcast_sse({'type': 'name', 'townName': data['townName']})
     else:
         # Full town data update
         town_data = data
-        # --- Broadcast full town update to all clients ---
-        socketio.emit('town_update', {'type': 'full', 'town': town_data}, broadcast=True)
+        # --- Broadcast full town update to all clients via SSE ---
+        broadcast_sse({'type': 'full', 'town': town_data})
 
     return jsonify({"status": "success"})
 
@@ -134,8 +134,8 @@ def save_town():
             json.dump(save_data, f, indent=2)
 
         logger.info(f"Town saved to {filename}")
-        # --- Broadcast full town update to all clients on save ---
-        socketio.emit('town_update', {'type': 'full', 'town': save_data}, broadcast=True)
+        # --- Broadcast full town update to all clients on save via SSE ---
+        broadcast_sse({'type': 'full', 'town': save_data})
         return jsonify({"status": "success", "message": f"Town saved to {filename}"})
     except Exception as e:
         logger.error(f"Error saving town: {e}")
@@ -253,8 +253,8 @@ def delete_model():
         for i, model in enumerate(town_data.get(category, [])):
             if model.get('id') == model_id:
                 town_data[category].pop(i)
-                # --- Broadcast deletion to all clients ---
-                socketio.emit('town_update', {'type': 'delete', 'category': category, 'id': model_id}, broadcast=True)
+                # --- Broadcast deletion to all clients via SSE ---
+                broadcast_sse({'type': 'delete', 'category': category, 'id': model_id})
                 return jsonify({"status": "success", "message": f"Deleted model with ID {model_id}"})
 
     # Otherwise use position for deletion (find closest model)
@@ -276,8 +276,8 @@ def delete_model():
 
         if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
             deleted_model = town_data[category].pop(closest_model_index)
-            # --- Broadcast deletion to all clients ---
-            socketio.emit('town_update', {'type': 'delete', 'category': category, 'position': position}, broadcast=True)
+            # --- Broadcast deletion to all clients via SSE ---
+            broadcast_sse({'type': 'delete', 'category': category, 'position': position})
             return jsonify({
                 "status": "success", 
                 "message": f"Deleted model at position ({position.get('x')}, {position.get('y')}, {position.get('z')})"
@@ -333,8 +333,8 @@ def edit_model():
             if 'scale' in data:
                 town_data[category][i]['scale'] = data['scale']
 
-            # --- Broadcast model edit to all clients ---
-            socketio.emit('town_update', {'type': 'edit', 'category': category, 'id': model_id, 'data': data}, broadcast=True)
+            # --- Broadcast model edit to all clients via SSE ---
+            broadcast_sse({'type': 'edit', 'category': category, 'id': model_id, 'data': data})
 
             return jsonify({
                 "status": "success", 
@@ -385,54 +385,42 @@ def generate_shapes():
     print("Procedural shapes generated successfully.")
 
 
-# --- SocketIO events for multiplayer sync ---
+# --- SSE event stream for multiplayer sync ---
+
+import json
+from flask import Response, stream_with_context, request
 
 # Track users: {sid: {"name": ...}}
 connected_users = {}
 
-@socketio.on('connect')
-def handle_connect():
-    logger.info(f"Client connected: {request.sid}")
-    # Send the current town state to the new client
-    emit('town_update', {'type': 'full', 'town': town_data})
-    # Send the current user list to the new client
-    emit('user_list', connected_users, broadcast=True)
+def broadcast_sse(data):
+    """Send data to all connected SSE clients."""
+    msg = f"data: {json.dumps(data)}\n\n"
+    with subscribers_lock:
+        for q in list(subscribers):
+            try:
+                q.put(msg)
+            except Exception as e:
+                logger.error(f"Error sending SSE: {e}")
 
-@socketio.on('set_name')
-def handle_set_name(data):
-    name = data.get('name', f"User-{request.sid[:5]}")
-    connected_users[request.sid] = {"name": name}
-    logger.info(f"User set name: {request.sid} -> {name}")
-    emit('user_list', connected_users, broadcast=True)
+def event_stream():
+    q = queue.Queue()
+    with subscribers_lock:
+        subscribers.add(q)
+    try:
+        while True:
+            data = q.get()
+            yield data
+    except GeneratorExit:
+        with subscribers_lock:
+            subscribers.discard(q)
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    if request.sid in connected_users:
-        logger.info(f"Client disconnected: {request.sid} ({connected_users[request.sid]['name']})")
-        del connected_users[request.sid]
-        emit('user_list', connected_users, broadcast=True)
-
-@socketio.on('update_town')
-def handle_update_town(data):
-    global town_data
-    # Accept a full town update from a client and broadcast to all
-    town_data = data
-    emit('town_update', {'type': 'full', 'town': town_data}, broadcast=True)
-
-@socketio.on('edit_model')
-def handle_edit_model(data):
-    # Attach driverName if driver is present and known
-    if 'driver' in data and data['driver'] in connected_users:
-        data['driverName'] = connected_users[data['driver']]['name']
-    emit('town_update', {'type': 'edit', 'data': data}, broadcast=True)
-
-@socketio.on('delete_model')
-def handle_delete_model(data):
-    # Broadcast model deletion to all clients
-    emit('town_update', {'type': 'delete', 'data': data}, broadcast=True)
+@app.route('/events')
+def sse_events():
+    return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     # This block will only run when you execute the file directly
     # For development only
-    socketio.run(app, debug=True)
+    app.run(debug=True, threaded=True)
     # When running with uWSGI, this block is ignored
