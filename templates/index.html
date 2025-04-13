@@ -285,6 +285,14 @@
                             }
                         }
                     });
+                } else if (msg.type === 'driver' && msg.category && msg.id) {
+                    // Update driver info for the relevant car
+                    placedObjects.forEach(obj => {
+                        if (obj.userData && obj.userData.category === msg.category && obj.userData.id === msg.id) {
+                            obj.userData.driver = msg.driver;
+                            obj.userData.driverName = msg.driver;
+                        }
+                    });
                 } else if (msg.type === 'delete' && msg.category) {
                     // Remove the model from the scene
                     placedObjects = placedObjects.filter(obj => {
@@ -2231,7 +2239,18 @@
             } else {
                 processKeyboardInput();
                 controls.update();
-                hideDriverNameLabel();
+
+                // --- Show driver names above all cars with a driver ---
+                let anyDriverShown = false;
+                movingCars.forEach(car => {
+                    if (car.userData && car.userData.driver) {
+                        showDriverNameLabel(car, car.userData.driver);
+                        anyDriverShown = true;
+                    }
+                });
+                if (!anyDriverShown) {
+                    hideDriverNameLabel();
+                }
             }
 
             renderer.render(scene, camera);
