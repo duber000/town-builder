@@ -394,13 +394,24 @@ def edit_model():
 import json
 from flask import Response, stream_with_context, request
 
-# Track users: {sid: {"name": ...}}
+# Track users: {name: last_seen_timestamp}
 connected_users = {}
+connected_users_lock = threading.Lock()
 
 def broadcast_sse(data):
     """Send data to all connected SSE clients via Redis PubSub."""
     msg = json.dumps(data)
     redis_client.publish(PUBSUB_CHANNEL, msg)
+
+def get_online_users():
+    """Return a list of online user names."""
+    now = time.time()
+    with connected_users_lock:
+        # Remove users not seen in the last 30 seconds
+        to_remove = [name for name, ts in connected_users.items() if now - ts > 30]
+        for name in to_remove:
+            del connected_users[name]
+        return list(connected_users.keys())
 
 def event_stream():
     q = queue.Queue()
@@ -421,10 +432,30 @@ def event_stream():
     t = threading.Thread(target=listen_redis, daemon=True)
     t.start()
 
+    # Wait for the first message from the client to register their name
+    first_event = True
     try:
         while True:
-            data = q.get()
-            yield data
+            if first_event:
+                # Wait for the client to send their name via a custom header
+                player_name = request.headers.get('X-Player-Name')
+                if player_name:
+                    with connected_users_lock:
+                        connected_users[player_name] = time.time()
+                    # Broadcast updated user list
+                    broadcast_sse({'type': 'users', 'users': get_online_users()})
+                first_event = False
+            try:
+                data = q.get(timeout=10)
+                yield data
+            except queue.Empty:
+                # Periodically update last_seen for this user
+                player_name = request.headers.get('X-Player-Name')
+                if player_name:
+                    with connected_users_lock:
+                        connected_users[player_name] = time.time()
+                    # Broadcast updated user list
+                    broadcast_sse({'type': 'users', 'users': get_online_users()})
     except GeneratorExit:
         with subscribers_lock:
             subscribers.discard(q)

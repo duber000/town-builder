@@ -132,6 +132,9 @@
     <div id="town-name-container" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000;">
         <div id="town-name-display">My Town</div>
         <input id="town-name-input" type="text" value="My Town">
+        <div id="online-users-list" style="margin-top: 5px; color: #ccc; font-size: 14px; text-align: center;">
+            <!-- Online users will be listed here -->
+        </div>
     </div>
     <div id="user-list" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; padding: 10px; border-radius: 5px; z-index: 1000; min-width: 120px;">
         <b>Users:</b>
@@ -229,7 +232,13 @@
             myName = promptForName();
             updateUserListUI();
 
-            const evtSource = new EventSource('/events');
+            // Pass player name as a header for SSE registration
+            const evtSource = new EventSource('/events', { withCredentials: false });
+            evtSource.onopen = function() {
+                // Send player name as a header (not supported by EventSource natively)
+                // So, we use a workaround: send a fetch to /events with the name, so backend can see it
+                fetch('/events', { headers: { 'X-Player-Name': myName } });
+            };
             evtSource.onmessage = function(event) {
                 let msg;
                 try {
@@ -241,6 +250,9 @@
                 if (typeof scene === "undefined" || typeof placedObjects === "undefined") {
                     // Scene not initialized yet, skip update
                     return;
+                }
+                if (msg.type === 'users' && Array.isArray(msg.users)) {
+                    updateOnlineUsersList(msg.users);
                 }
                 if (msg.type === 'full' && msg.town) {
                     // Clear and reload the scene with the new town data
@@ -307,6 +319,19 @@
                     });
                 }
             };
+        }
+
+        // Update the online users list under the player's name
+        function updateOnlineUsersList(users) {
+            const container = document.getElementById('online-users-list');
+            if (!container) return;
+            // Remove your own name from the list
+            const others = users.filter(u => u !== myName);
+            if (others.length === 0) {
+                container.innerHTML = "<span style='color:#aaa'>(No other players online)</span>";
+            } else {
+                container.innerHTML = "<b>Online:</b> " + others.map(u => `<span>${u}</span>`).join(", ");
+            }
         }
 
         // Initialize the scene
