@@ -305,28 +305,36 @@ def delete_model():
 
 @app.route('/api/model/<category>/<model_name>')
 def get_model_info(category, model_name):
-    """Get metadata about a specific model"""
+    """
+    Serve the model file or its metadata.
+    If ?info=1 is present, return metadata as JSON.
+    Otherwise, serve the actual model file (GLTF/GLB).
+    """
     model_path = os.path.join(MODELS_PATH, category, model_name)
-    
     if not os.path.exists(model_path):
         return jsonify({"error": "Model not found"}), 404
-    
-    # Load the GLTF file to extract metadata
-    try:
-        gltf = GLTF2().load(model_path)
-        
-        # Get associated bin file if it exists
-        bin_path = model_path.replace('.gltf', '.bin')
-        has_bin = os.path.exists(bin_path)
-        
-        return jsonify({
-            "name": model_name,
-            "category": category,
-            "nodes": len(gltf.nodes),
-            "has_bin": has_bin
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+    # If ?info=1, return metadata
+    if request.args.get("info") == "1":
+        try:
+            gltf = GLTF2().load(model_path)
+            bin_path = model_path.replace('.gltf', '.bin')
+            has_bin = os.path.exists(bin_path)
+            return jsonify({
+                "name": model_name,
+                "category": category,
+                "nodes": len(gltf.nodes),
+                "has_bin": has_bin
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    # Otherwise, serve the file
+    return send_from_directory(
+        os.path.join(MODELS_PATH, category),
+        model_name,
+        as_attachment=False
+    )
 
 @app.route('/api/town/model', methods=['PUT'])
 def edit_model():
