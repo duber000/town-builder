@@ -17,16 +17,19 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.13+
 - Flask
 - pygltflib
+- Redis (for multiplayer state sharing)
+- [uv](https://github.com/astral-sh/uv) (for dependency management)
+- Gunicorn (production server, installed automatically)
 
 ## Installation
 
 1. Clone the repository
 2. Install dependencies:
    ```
-   uv add flask pygltflib
+   uv pip install --system --no-cache-dir .
    ```
 
 ## Running the Application
@@ -34,7 +37,17 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 To run the application in development mode:
 
 ```
-uv run uwsgi --http :5000 --module app:app
+uvicorn app:app --reload
+```
+or, for Flask's built-in server (not for production):
+```
+python app.py
+```
+
+To run in production (recommended, matches Docker/Kubernetes setup):
+
+```
+gunicorn -w 4 -k gevent -b 0.0.0.0:5000 app:app
 ```
 
 Then open your browser to http://127.0.0.1:5000/
@@ -49,9 +62,22 @@ Then open your browser to http://127.0.0.1:5000/
 
 ## Project Structure
 
-- `app.py` - Flask application and server-side logic
+- `app.py` - Flask application and server-side logic (uses Redis for multiplayer state)
 - `templates/` - HTML templates
 - `static/models/` - 3D model files (GLTF format)
+- `Dockerfile` - Production container setup (uses Gunicorn with gevent for SSE support)
+- `k8s/07-valkey.yaml` - Valkey (Redis-compatible) deployment for Kubernetes
+
+## Multiplayer & State Sharing
+
+- Multiplayer state and events are shared between all app instances using Redis Pub/Sub.
+- You must have a Redis or Valkey server running and accessible to the app (see `k8s/07-valkey.yaml` for Kubernetes setup).
 
 ## Development
 - Development assisted by Claude and Gemini via [aider](https://aider.chat/)
+
+## Kubernetes
+
+- The app is designed to run in Kubernetes with multiple replicas.
+- Use the provided manifests in `k8s/` to deploy the app and Valkey (Redis-compatible) for shared state.
+- Make sure to update environment variables as needed for your cluster.
