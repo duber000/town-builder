@@ -52,3 +52,39 @@ spec:
 
     # Option 2: Using a Kubernetes Secret containing your cert/key
     # secretName: YOUR_TLS_SECRET_NAME # Replace with the name of your TLS secret in the same namespace
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"traefik.ingress.kubernetes.io/router.entrypoints":"websecure"},"generation":3,"labels":{"app.kubernetes.io/instance":"iribala-django"},"name":"django-ingress","namespace":"iribala-django"},"spec":{"ingressClassName":"traefik","rules":[{"host":"issues.iribala.org","http":{"paths":[{"backend":{"service":{"name":"iribala-django","port":{"name":"granian"}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["issues.iribala.org"],"secretName":"wildcard-iribala-org-tls"}]}}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+  creationTimestamp: "2025-01-02T22:13:08Z"
+  generation: 6
+  labels:
+    app.kubernetes.io/instance: iribala-django
+  name: django-ingress
+  namespace: iribala-django
+  resourceVersion: "12312914"
+  uid: 0689d621-ca4b-490c-b170-afccb3e45fdd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: issues.iribala.org
+    http:
+      paths:
+      - backend:
+          service:
+            name: iribala-django
+            port:
+              name: granian
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - issues.iribala.org
+    secretName: wildcard-iribala-org-tls
+status:
+  loadBalancer:
+    ingress:
+    - ip: 162.209.115.19
