@@ -23,5 +23,5 @@ COPY . .
 EXPOSE 5000
 
 # Specify the command to run the application via uWSGI over HTTP
-# Using 4 processes and enabling threads for SocketIO async_mode="threading"
+# Using 4 processes and enabling threads for SSE support
 CMD ["uv", "run", "uwsgi", "--http", ":5000", "--module", "app:app", "--processes", "4", "--enable-threads"]
