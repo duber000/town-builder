@@ -180,6 +180,14 @@
     </div>
 
     <div id="canvas-container"></div>
+    <!-- Joystick for mobile driving mode -->
+    <div id="joystick-container" style="display:none; position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); z-index: 2002;">
+        <div id="joystick-base" style="width: 120px; height: 120px; background: rgba(0,0,0,0.2); border-radius: 60px; position: relative;">
+            <div id="joystick-stick" style="width: 60px; height: 60px; background: rgba(0,255,0,0.5); border-radius: 30px; position: absolute; left: 30px; top: 30px; touch-action: none;"></div>
+        </div>
+    </div>
+    <!-- Exit Driving Mode Button -->
+    <button id="exit-driving-btn" style="display:none; position: absolute; top: 20px; right: 20px; z-index: 2002; background: #c22; color: white; border: none; border-radius: 5px; padding: 10px 18px; font-size: 16px; font-weight: bold; cursor: pointer;">Exit Driving Mode</button>
 
     <script>
         // Basic Three.js setup
@@ -201,6 +209,13 @@
         let driveCar = null;  // car under manual control
         let isDriving = false;
         let driverNameDiv = null; // Div for showing driver name
+
+        // --- Joystick state ---
+        let joystickActive = false;
+        let joystickStart = { x: 0, y: 0 };
+        let joystickDelta = { x: 0, y: 0 };
+        let joystickInterval = null;
+        let isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
 
         // --- Multiplayer: SSE setup ---
         let myName = null;
@@ -1383,6 +1398,82 @@
                     pasteModel();
                 }
             });
+
+            // --- Exit driving mode button (for all devices) ---
+            document.getElementById('exit-driving-btn').addEventListener('click', function() {
+                exitFollowMode();
+            });
+        }
+
+        // --- Joystick controls for mobile driving mode ---
+        // Only activate on mobile/touch devices
+        if (isMobile) {
+            const joystickBase = document.getElementById('joystick-base');
+            const joystickStick = document.getElementById('joystick-stick');
+            let baseRect = null;
+
+            function getRelativeCoords(e) {
+                let clientX, clientY;
+                if (e.touches && e.touches.length > 0) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                return {
+                    x: clientX - baseRect.left,
+                    y: clientY - baseRect.top
+                };
+            }
+
+            function startJoystick(e) {
+                e.preventDefault();
+                baseRect = joystickBase.getBoundingClientRect();
+                joystickActive = true;
+                const coords = getRelativeCoords(e);
+                joystickStart = { x: coords.x, y: coords.y };
+                joystickDelta = { x: 0, y: 0 };
+                updateStick(0, 0);
+            }
+
+            function moveJoystick(e) {
+                if (!joystickActive) return;
+                e.preventDefault();
+                const coords = getRelativeCoords(e);
+                let dx = coords.x - 60; // center of base
+                let dy = coords.y - 60;
+                const maxDist = 50;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > maxDist) {
+                    dx = dx * maxDist / dist;
+                    dy = dy * maxDist / dist;
+                }
+                updateStick(dx, dy);
+                // Normalize to -1..1
+                joystickDelta.x = dx / maxDist;
+                joystickDelta.y = -dy / maxDist; // invert y for natural up=forward
+            }
+
+            function endJoystick(e) {
+                e.preventDefault();
+                joystickActive = false;
+                joystickDelta = { x: 0, y: 0 };
+                updateStick(0, 0);
+            }
+
+            function updateStick(dx, dy) {
+                joystickStick.style.left = (30 + dx) + 'px';
+                joystickStick.style.top = (30 + dy) + 'px';
+            }
+
+            joystickBase.addEventListener('touchstart', startJoystick, { passive: false });
+            joystickBase.addEventListener('touchmove', moveJoystick, { passive: false });
+            joystickBase.addEventListener('touchend', endJoystick, { passive: false });
+            joystickBase.addEventListener('mousedown', startJoystick);
+            joystickBase.addEventListener('mousemove', moveJoystick);
+            joystickBase.addEventListener('mouseup', endJoystick);
+            joystickBase.addEventListener('mouseleave', endJoystick);
         }
 
         // Show save dialog
@@ -2260,26 +2351,47 @@
 
                 if (isDriving && driveCar && (!driveCar.userData.driver || driveCar.userData.driver === myName)) {
                     // Driving mode: move car with WASD (only if not driven by someone else)
-                    const moveVec = new THREE.Vector3();
-                    let turning = 0;
-                    if (keysPressed['a']) turning += 1;    // turn left
-                    if (keysPressed['d']) turning -= 1;    // turn right
+                    if (isMobile) {
+                        // --- Joystick controls for mobile ---
+                        // joystickDelta.x: -1 (left) to 1 (right), joystickDelta.y: -1 (back) to 1 (forward)
+                        let turning = -joystickDelta.x; // left is positive
+                        let forward = joystickDelta.y; // up is positive
 
-                    // Apply rotation
-                    if (turning !== 0) {
-                        driveCar.rotation.y += turning * 1.5 * dt;  // adjust turn speed as needed
-                    }
+                        // Apply rotation
+                        if (Math.abs(turning) > 0.05) {
+                            driveCar.rotation.y += turning * 1.5 * dt;
+                        }
 
-                    // Forward/backward movement in local space
-                    let forward = 0;
-                    if (keysPressed['w']) forward += 1;
-                    if (keysPressed['s']) forward -= 1;
+                        // Forward/backward movement in local space
+                        if (Math.abs(forward) > 0.05) {
+                            const direction = new THREE.Vector3(0, 0, 1);
+                            direction.applyEuler(driveCar.rotation);
+                            direction.multiplyScalar(forward * 2.0 * dt);
+                            driveCar.position.add(direction);
+                        }
+                    } else {
+                        // --- Keyboard controls for desktop ---
+                        const moveVec = new THREE.Vector3();
+                        let turning = 0;
+                        if (keysPressed['a']) turning += 1;    // turn left
+                        if (keysPressed['d']) turning -= 1;    // turn right
 
-                    if (forward !== 0) {
-                        const direction = new THREE.Vector3(0, 0, 1);
-                        direction.applyEuler(driveCar.rotation);
-                        direction.multiplyScalar(forward * 2.0 * dt);
-                        driveCar.position.add(direction);
+                        // Apply rotation
+                        if (turning !== 0) {
+                            driveCar.rotation.y += turning * 1.5 * dt;  // adjust turn speed as needed
+                        }
+
+                        // Forward/backward movement in local space
+                        let forward = 0;
+                        if (keysPressed['w']) forward += 1;
+                        if (keysPressed['s']) forward -= 1;
+
+                        if (forward !== 0) {
+                            const direction = new THREE.Vector3(0, 0, 1);
+                            direction.applyEuler(driveCar.rotation);
+                            direction.multiplyScalar(forward * 2.0 * dt);
+                            driveCar.position.add(direction);
+                        }
                     }
 
                     // Emit car update to server (throttled)
@@ -2621,7 +2733,14 @@
             followingCar = car;
             isFollowing = true;
             controls.enabled = false;
-            showFollowIndicator('Driving Car (Esc to exit)');
+            showFollowIndicator('Driving Car (Tap "Exit Driving Mode" to exit)');
+            document.getElementById('exit-driving-btn').style.display = 'block';
+
+            // Show joystick on mobile
+            if (isMobile) {
+                document.getElementById('joystick-container').style.display = 'block';
+            }
+
             console.log("Started driving car:", car);
 
             // Move camera to driver's perspective
@@ -2639,6 +2758,7 @@
             controls.update();
         }
 
+        // Exit driving/follow mode (now also called by exit-driving-btn)
         function exitFollowMode() {
             if (!isFollowing && !isDriving) return;
 
@@ -2647,9 +2767,21 @@
             controls.enabled = true;
             hideFollowIndicator();
 
+            // Hide joystick and exit button
+            document.getElementById('exit-driving-btn').style.display = 'none';
+            document.getElementById('joystick-container').style.display = 'none';
+
             if (isDriving) {
                 driveCar = null;
                 isDriving = false;
+            }
+
+            // Reset joystick state
+            joystickActive = false;
+            joystickDelta = { x: 0, y: 0 };
+            if (joystickInterval) {
+                clearInterval(joystickInterval);
+                joystickInterval = null;
             }
 
             console.log("Exited follow/drive mode.");
