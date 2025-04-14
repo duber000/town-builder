@@ -247,13 +247,10 @@
             myName = promptForName();
             updateUserListUI();
 
-            // Pass player name as a header for SSE registration
-            const evtSource = new EventSource('/events', { withCredentials: false });
-            evtSource.onopen = function() {
-                // Send player name as a header (not supported by EventSource natively)
-                // So, we use a workaround: send a fetch to /events with the name, so backend can see it
-                fetch('/events', { headers: { 'X-Player-Name': myName } });
-            };
+            // Pass player name as a query parameter for SSE registration
+            const evtSource = new EventSource('/events?name=' + encodeURIComponent(myName), { withCredentials: false });
+            // No need for fetch workaround
+            evtSource.onopen = function() {};
             evtSource.onmessage = function(event) {
                 let msg;
                 try {

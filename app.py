@@ -432,25 +432,21 @@ def event_stream():
     t = threading.Thread(target=listen_redis, daemon=True)
     t.start()
 
-    # Wait for the first message from the client to register their name
-    first_event = True
+    # Get player name from query parameter (for SSE)
+    player_name = request.args.get('name')
+    if player_name:
+        with connected_users_lock:
+            connected_users[player_name] = time.time()
+        # Broadcast updated user list
+        broadcast_sse({'type': 'users', 'users': get_online_users()})
+
     try:
         while True:
-            if first_event:
-                # Wait for the client to send their name via a custom header
-                player_name = request.headers.get('X-Player-Name')
-                if player_name:
-                    with connected_users_lock:
-                        connected_users[player_name] = time.time()
-                    # Broadcast updated user list
-                    broadcast_sse({'type': 'users', 'users': get_online_users()})
-                first_event = False
             try:
                 data = q.get(timeout=10)
                 yield data
             except queue.Empty:
                 # Periodically update last_seen for this user
-                player_name = request.headers.get('X-Player-Name')
                 if player_name:
                     with connected_users_lock:
                         connected_users[player_name] = time.time()
