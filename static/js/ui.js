@@ -2,7 +2,28 @@ import { saveSceneToServer, loadSceneFromServer } from './network.js';
 import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject } from './scene.js';
 
 let currentMode = 'place';
+window.selectedObject = null; // For edit mode
+
 export function getCurrentMode() { return currentMode; }
+
+export function setCurrentMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-button').forEach(b => {
+        b.classList.remove('active');
+        if (b.dataset.mode === mode) {
+            b.classList.add('active');
+        }
+    });
+    // If switching to place mode, clear pending model details if user didn't click a model item
+    if (mode !== 'place') {
+        window.pendingPlacementModelDetails = null;
+        if (scene && scene.getObjectByName("placementIndicator")) { // Check if placementIndicator exists
+             const placementIndicator = scene.getObjectByName("placementIndicator");
+             if (placementIndicator) placementIndicator.visible = false;
+        }
+    }
+    showNotification(`Mode: ${mode}`, 'info');
+}
 
 export function showNotification(message, type = 'info') {
     const notification = document.createElement('div') || document.createElement('span');
@@ -70,22 +91,22 @@ export function showNotification(message, type = 'info') {
          btn.addEventListener('click', (e) => {
              document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
              const mode = e.target.dataset.mode;
-             e.target.classList.add('active');
-             currentMode = mode;
-             showNotification(`Mode: ${mode}`, 'info');
+             // e.target.classList.add('active'); // setCurrentMode will handle this
+             // currentMode = mode; // setCurrentMode will handle this
+             setCurrentMode(mode); // Use the new function
          })
      );
  }
 
  // Handler stubs
  function onModelItemClick(event) {
-     const category = event.target.dataset.category;
-     const modelName = event.target.dataset.model;
-     loadModel(category, modelName).then(obj => {
-         showNotification(`${modelName} placed`, 'success');
-     }).catch(err => {
-         showNotification(`Failed to load model ${modelName}: ${err.message}`, 'error');
-     });
+    const category = event.target.dataset.category;
+    const modelName = event.target.dataset.model;
+
+    window.pendingPlacementModelDetails = { category, modelName };
+    setCurrentMode('place'); // Switch to place mode
+    showNotification(`Click on the ground to place ${modelName}`, 'info');
+    // The actual model loading will now happen in scene.js's onCanvasClick when in 'place' mode
  }
 
  async function onClearScene() {
