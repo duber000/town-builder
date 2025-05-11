@@ -141,3 +141,13 @@ export function showNotification(message, type = 'info') {
  function setGroundColor(color) {
      groundPlane.material.color.set(color);
  }
+
+ export function updateOnlineUsersList(users) {
+     const ul = document.getElementById('user-list-ul');
+     ul.innerHTML = '';
+     users.forEach(u => {
+         const li = document.createElement('li');
+         li.textContent = u;
+         ul.appendChild(li);
+     });
+ }

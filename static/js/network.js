@@ -1,3 +1,5 @@
+import { showNotification, updateOnlineUsersList } from './ui.js';
+
 export function setupSSE() {
     // Setup SSE connection and event handling
     return new Promise((resolve, reject) => {
@@ -5,7 +7,16 @@ export function setupSSE() {
         evtSource.onopen = () => resolve(evtSource);
         evtSource.onerror = (err) => reject(err);
         evtSource.onmessage = function(event) {
-            // Handle incoming messages
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'onlineUsers') {
+                    updateOnlineUsersList(msg.payload);
+                } else {
+                    showNotification(`Event: ${msg.type}`, 'info');
+                }
+            } catch (err) {
+                console.error('Failed to handle SSE message', err);
+            }
         };
     });
 }
