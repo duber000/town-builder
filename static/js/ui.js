@@ -1,4 +1,5 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
+import { loadModel } from './scene.js';
 
 export function showNotification(message, type = 'info') {
     const notification = document.createElement('div') || document.createElement('span');

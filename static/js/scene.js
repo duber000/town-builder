@@ -2,6 +2,8 @@ import * as THREE from './three.module.js';
 import { GLTFLoader } from './three/examples/jsm/loaders/GLTFLoader.js'; // Correct path
 import { updateControls } from './controls.js';
 
+const MODELS_BASE_URL = '/static/models';
+
 export let scene, camera, renderer, controls, groundPlane, placementIndicator, placedObjects = [], movingCars = [];
 
 export function initScene() {
@@ -56,6 +58,20 @@ export function animate() {
     updateControls();
     // TODO: update any animations here
     renderer.render(scene, camera);
+}
+
+export async function loadModel(category, modelName) {
+    return new Promise((resolve, reject) => {
+        const loader = new GLTFLoader();
+        const url = `${MODELS_BASE_URL}/${category}/${modelName}.gltf`;
+        loader.load(url, gltf => {
+            scene.add(gltf.scene);
+            placedObjects.push(gltf.scene);
+            resolve(gltf.scene);
+        }, undefined, err => {
+            reject(err);
+        });
+    });
 }
 
 // Other scene-related functions...
