@@ -153,7 +153,7 @@ export function animate() {
                 // Smooth Turning
                 tempRotationObject.position.copy(car.position);
                 tempRotationObject.lookAt(nearestTarget.position);
-                tempRotationObject.rotateY(Math.PI); // Adjust for model's forward axis (+Z)
+                // tempRotationObject.rotateY(Math.PI); // Removed: Adjust for model's forward axis (+Z) - lookAt handles +Z to target
                 
                 const targetQuaternion = tempRotationObject.quaternion;
                 car.quaternion.slerp(targetQuaternion, car.userData.turnSpeedFactor);
@@ -212,7 +212,7 @@ export function animate() {
                 
                 tempRotationObject.position.copy(car.position);
                 tempRotationObject.lookAt(centerOfMap);
-                tempRotationObject.rotateY(Math.PI); // Adjust for model's forward axis (+Z)
+                // tempRotationObject.rotateY(Math.PI); // Removed: Adjust for model's forward axis (+Z) - lookAt handles +Z to target
                 car.quaternion.slerp(tempRotationObject.quaternion, car.userData.turnSpeedFactor * 2); // Turn faster
 
                 car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 5); // Brake
