@@ -74,9 +74,8 @@ export function setupKeyboardControls() {
 }
 
 function handleMouseWheel(event) {
-    // Assume your model selection panel has an ID like 'model-selection-panel'
-    // Adjust this selector if your panel has a different ID or class.
-    const modelPanel = document.getElementById('model-selection-panel');
+    // The model selection panel has the ID 'model-container' in index.html
+    const modelPanel = document.getElementById('model-container');
 
     if (modelPanel && modelPanel.contains(event.target)) {
         // If the mouse is over the model panel, allow default scroll behavior
