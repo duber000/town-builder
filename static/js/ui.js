@@ -1,5 +1,5 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
-import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject } from './scene.js';
+import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject, movingCars } from './scene.js'; // Added movingCars
 
 let currentMode = 'place';
 window.selectedObject = null; // For edit mode
@@ -168,6 +168,7 @@ export function showNotification(message, type = 'info') {
          scene.remove(obj);
      });
      placedObjects.length = 0;
+     movingCars.length = 0; // Also clear the movingCars array
      showNotification('Scene cleared', 'success');
  }
 

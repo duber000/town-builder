@@ -99,6 +99,26 @@ export function animate() {
     requestAnimationFrame(animate);
     updateControls(); // Handles keyboard input for car/camera
 
+    const groundBoundary = groundPlane.geometry.parameters.width / 2; // e.g., 10 for a 20x20 plane
+
+    // Animate moving cars
+    for (const car of movingCars) {
+        if (window.drivingCar === car) {
+            continue; // Skip auto-movement if this car is being driven by the player
+        }
+
+        const speed = car.userData.speed || 0.05; // Default speed if not set
+        const forward = new THREE.Vector3(0, 0, 1);
+        forward.applyQuaternion(car.quaternion); // Move in the direction the car is facing
+        car.position.add(forward.multiplyScalar(speed));
+
+        // Boundary checks and looping
+        if (car.position.x > groundBoundary) car.position.x = -groundBoundary;
+        if (car.position.x < -groundBoundary) car.position.x = groundBoundary;
+        if (car.position.z > groundBoundary) car.position.z = -groundBoundary;
+        if (car.position.z < -groundBoundary) car.position.z = groundBoundary;
+    }
+
     if (window.drivingCar) {
         const car = window.drivingCar;
         // Third-person camera: position behind and slightly above the car
@@ -134,6 +154,13 @@ export async function loadModel(category, modelName, position) {
             }
             scene.add(gltf.scene);
             placedObjects.push(gltf.scene);
+
+            // If it's a vehicle, make it a moving car
+            if (gltf.scene.userData.category === 'vehicles') {
+                gltf.scene.userData.speed = 0.05; // Assign a default speed
+                movingCars.push(gltf.scene);
+            }
+
             resolve(gltf.scene);
         }, undefined, err => {
             reject(err);
@@ -191,8 +218,12 @@ function onCanvasClick(event) {
                 }
                 disposeObject(selected);
                 scene.remove(selected);
-                const idx = placedObjects.indexOf(selected);
-                if (idx > -1) placedObjects.splice(idx, 1);
+                const placedIdx = placedObjects.indexOf(selected);
+                if (placedIdx > -1) placedObjects.splice(placedIdx, 1);
+                
+                const movingCarIdx = movingCars.indexOf(selected);
+                if (movingCarIdx > -1) movingCars.splice(movingCarIdx, 1);
+                
                 showNotification('Object deleted', 'success');
             } else if (mode === 'edit') {
                 window.selectedObject = selected;
