@@ -206,7 +206,7 @@
         function promptForName() {
             let name = localStorage.getItem('townbuilder_name');
             while (!name || name.trim().length < 1) {
-                name = prompt("Enter your name for multiplayer:", name || "Player");
+                name = window.prompt("Enter your name for multiplayer:", name || "Player");
                 if (name === null) name = ""; // Prevent null
             }
             name = name.trim();
@@ -216,7 +216,8 @@
 
         function updateUserListUI() {
             // SSE version: no user list sync, just show your own name
-            const ul = document.getElementById('user-list-ul') || document.createElement('ul');
+            const ul = document.getElementById('user-list-ul');
+            if (!ul) return;
             ul.innerHTML = '';
             const li = document.createElement('li');
             li.textContent = myName + " (You)";
@@ -229,7 +230,7 @@
             updateUserListUI();
 
             // Pass player name as a query parameter for SSE registration
-            const evtSource = new EventSource('/events?name=' + encodeURIComponent(myName), { withCredentials: false });
+            const evtSource = new EventSource('/events?name=' + encodeURIComponent(myName));
             // No need for fetch workaround
             evtSource.onopen = function() {};
             evtSource.onmessage = function(event) {
@@ -321,7 +322,7 @@
             const container = document.getElementById('online-users-list');
             if (!container) return;
             // Remove your own name from the list
-            const others = users.filter(u => u !== myName);
+            const others = Array.isArray(users) ? users.filter(u => u !== myName) : [];
             if (others.length === 0) {
                 container.innerHTML = "<span style='color:#aaa'>(No other players online)</span>";
             } else {
@@ -424,8 +425,8 @@
             document.querySelectorAll('.model-item').forEach(item => {
                 item.addEventListener('click', function(event) {
                     event.stopPropagation();
-                    const category = this.dataset.category;
-                    const model = this.dataset.model;
+                    const category = this.getAttribute('data-category');
+                    const model = this.getAttribute('data-model');
                     console.log(`${category}/${model} model selected`);
                     selectModel(category, model);
                 });
@@ -441,7 +442,7 @@
                     this.classList.add('active');
 
                     // Set current mode
-                    currentMode = this.dataset.mode;
+                    currentMode = this.getAttribute('data-mode');
                     console.log(`Mode set to: ${currentMode}`);
 
                     // Update UI based on mode
@@ -516,8 +517,12 @@
             const groundColorPicker = document.getElementById('groundColorPicker');
 
             // Set initial values from scene defaults (ensure consistency)
-            skyColorPicker.value = `#${scene.background.getHexString()}`;
-            groundColorPicker.value = `#${groundPlane.material.color.getHexString()}`;
+            if (scene && scene.background) {
+                skyColorPicker.value = `#${scene.background.getHexString()}`;
+            }
+            if (groundPlane && groundPlane.material && groundPlane.material.color) {
+                groundColorPicker.value = `#${groundPlane.material.color.getHexString()}`;
+            }
 
             // Add event listeners
             skyColorPicker.addEventListener('input', (event) => updateSkyColor(event.target.value));
@@ -596,7 +601,7 @@
                 placeModel();
             } else if (currentMode === "delete" && placementIndicator.visible) {
                 deleteModel();
-            } else if (currentMode === "edit") {
+            } else if (currentMode === "edit" && placementIndicator.visible) {
                 selectModelForEdit();
             }
         }
@@ -638,7 +643,7 @@
                 // For place mode, check intersections with ground
                 const intersects = raycaster.intersectObject(groundPlane);
 
-                if (intersects.length > 0) {
+                if (intersects && intersects.length > 0) {
                     // Round position to grid
                     const position = intersects[0].point;
                     position.x = Math.round(position.x);
@@ -1845,10 +1850,11 @@
             const modelPath = `/static/models/${category}/${modelData.model}`;
 
             const loader = new THREE.GLTFLoader();
-            loader.load(
-                modelPath,
-                function(gltf) {
-                    const model = gltf.scene;
+            return new Promise((resolve, reject) => {
+                loader.load(
+                    modelPath,
+                    function(gltf) {
+                        const model = gltf.scene;
 
                     if (modelData.position) {
                         model.position.set(
@@ -1920,18 +1926,21 @@
                     if (category === 'vehicles') {
                         movingCars.push(model);
                     }
-                },
-                undefined,
-                function(error) {
-                    console.error(`Error loading model ${modelData.model}:`, error);
-                    showNotification(`Error loading model: ${modelData.model}`, 'error');
-                }
-            );
+                        resolve(model);
+                    },
+                    undefined,
+                    function(error) {
+                        console.error(`Error loading model ${modelData.model}:`, error);
+                        showNotification(`Error loading model: ${modelData.model}`, 'error');
+                        reject(error);
+                    }
+                );
+            });
         }
 
         // Show notification
         function showNotification(message, type = 'info') {
-            const notification = document.createElement('div') || document.createElement('span');
+            const notification = document.createElement('div');
             notification.textContent = message;
             notification.style.position = 'fixed';
             notification.style.bottom = '20px'; // Position at bottom
