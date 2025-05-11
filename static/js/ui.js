@@ -163,13 +163,17 @@ export function showNotification(message, type = 'info') {
  }
 
  async function onClearScene() {
-     placedObjects.forEach(obj => {
-         disposeObject(obj);
-         scene.remove(obj);
-     });
-     placedObjects.length = 0;
-     movingCars.length = 0; // Also clear the movingCars array
-     showNotification('Scene cleared', 'success');
+    if (window.confirm("Are you sure you want to clear the entire scene? This action cannot be undone.")) {
+        placedObjects.forEach(obj => {
+            disposeObject(obj);
+            scene.remove(obj);
+        });
+        placedObjects.length = 0;
+        movingCars.length = 0; // Also clear the movingCars array
+        showNotification('Scene cleared', 'success');
+    } else {
+        showNotification('Clear scene cancelled', 'info');
+    }
  }
 
  async function onSaveScene() {
