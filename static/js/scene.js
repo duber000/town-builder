@@ -50,4 +50,10 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+export function animate() {
+    requestAnimationFrame(animate);
+    // TODO: update any controls or animations here
+    renderer.render(scene, camera);
+}
+
 // Other scene-related functions...

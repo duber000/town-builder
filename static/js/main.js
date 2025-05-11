@@ -3,7 +3,7 @@ import './controls.js';
 import './network.js';
 import './ui.js';
 import './api-error-handler.js';
-import { initScene } from './scene.js';
+import { initScene, animate } from './scene.js';
 import { setupSSE } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification } from './ui.js';
@@ -11,6 +11,7 @@ import { showNotification } from './ui.js';
 function init() {
     // Initialize the scene
     initScene();
+    animate();
     // Wire up keyboard listeners (was inline before)
     setupKeyboardControls();
 
