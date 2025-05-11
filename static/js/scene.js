@@ -101,6 +101,7 @@ function onCanvasClick(event) {
     if (intersects.length > 0) {
         const selected = findRootObject(intersects[0].object);
         if (mode === 'delete') {
+            disposeObject(selected);
             scene.remove(selected);
             const idx = placedObjects.indexOf(selected);
             if (idx > -1) placedObjects.splice(idx, 1);
