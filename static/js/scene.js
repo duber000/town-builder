@@ -273,6 +273,9 @@ export function animate() {
             // between two police cars, which is ignored by the logic that sets collisionDetected).
             // Move the car to the potentialPosition (which might have been clamped by boundary check earlier).
             car.position.copy(potentialPosition);
+        } else {
+            // If the car could not move to its potential position due to a collision, stop it.
+            car.userData.currentSpeed = 0;
         }
 
 
