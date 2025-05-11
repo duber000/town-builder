@@ -1,5 +1,6 @@
 import * as THREE from './three.module.js';
 import { GLTFLoader } from './three/examples/jsm/loaders/GLTFLoader.js'; // Correct path
+import { updateControls } from './controls.js';
 
 let scene, camera, renderer, controls, groundPlane, placementIndicator, placedObjects = [], movingCars = [];
 
@@ -52,7 +53,8 @@ function onWindowResize() {
 
 export function animate() {
     requestAnimationFrame(animate);
-    // TODO: update any controls or animations here
+    updateControls();
+    // TODO: update any animations here
     renderer.render(scene, camera);
 }
 

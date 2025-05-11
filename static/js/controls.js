@@ -10,4 +10,9 @@ export function setupKeyboardControls() {
     });
 }
 
+// Update controls on each frame based on keysPressed
+export function updateControls() {
+    // TODO: use keysPressed to move camera or objects based on user input
+}
+
 // Other control-related functions...
