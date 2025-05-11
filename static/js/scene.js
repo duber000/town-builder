@@ -102,14 +102,25 @@ export function animate() {
     const groundBoundary = groundPlane.geometry.parameters.width / 2; // e.g., 10 for a 20x20 plane
 
     // Animate moving cars
+    const tempRotationObject = new THREE.Object3D(); // Helper for quaternion calculation
+
     for (let i = 0; i < movingCars.length; i++) {
         const car = movingCars[i];
         if (window.drivingCar === car) {
             continue; // Skip auto-movement if this car is being driven by the player
         }
 
-        const speed = car.userData.speed || 0.05;
-        let moveDirection = new THREE.Vector3(); // To be determined by behavior
+        // Ensure speed and behavior properties are initialized
+        if (car.userData.defaultSpeed === undefined) car.userData.defaultSpeed = 0.05;
+        if (car.userData.currentSpeed === undefined) car.userData.currentSpeed = car.userData.defaultSpeed;
+        if (car.userData.acceleration === undefined) car.userData.acceleration = 0.0005;
+        if (car.userData.turnSpeedFactor === undefined) car.userData.turnSpeedFactor = 0.03;
+        if (car.userData.maxChaseSpeed === undefined) car.userData.maxChaseSpeed = car.userData.defaultSpeed; // Default for non-chasers
+        if (car.userData.tailingDistance === undefined) car.userData.tailingDistance = 6; // Default for chasers
+
+
+        let moveDirection = new THREE.Vector3(0, 0, 1); // Default forward
+        let actualSpeedThisFrame = car.userData.currentSpeed;
 
         if (car.userData.behavior === 'chase' && car.userData.targetType) {
             let nearestTarget = null;
@@ -118,6 +129,7 @@ export function animate() {
             // Find the nearest target
             for (const potentialTarget of placedObjects) {
                 // Check if potentialTarget is the correct model type and not the chaser itself
+                // Ensure targetType check uses .gltf
                 if (potentialTarget.userData.modelName === car.userData.targetType && potentialTarget !== car) {
                     const distanceSq = car.position.distanceToSquared(potentialTarget.position);
                     if (distanceSq < minDistanceSq) {
@@ -128,24 +140,52 @@ export function animate() {
             }
 
             if (nearestTarget) {
-                // car.lookAt() orients the object's local -Z axis towards the target.
-                car.lookAt(nearestTarget.position);
-                // If the car model's "front" is its local +Z axis (common for vehicles),
-                // we need to rotate it by 180 degrees around its local Y axis
-                // so that its +Z (front) now faces the target.
-                car.rotateY(Math.PI);
-                // Now, the car's local +Z axis (assumed to be its front) points towards the target.
+                const distanceToTarget = car.position.distanceTo(nearestTarget.position);
+
+                // Smooth Turning
+                tempRotationObject.position.copy(car.position);
+                tempRotationObject.lookAt(nearestTarget.position);
+                tempRotationObject.rotateY(Math.PI); // Adjust for model's forward axis (+Z)
+                
+                const targetQuaternion = tempRotationObject.quaternion;
+                car.quaternion.slerp(targetQuaternion, car.userData.turnSpeedFactor);
+
+                // Speed Control & Acceleration
+                if (distanceToTarget > car.userData.tailingDistance) {
+                    car.userData.currentSpeed = Math.min(
+                        car.userData.maxChaseSpeed,
+                        car.userData.currentSpeed + car.userData.acceleration
+                    );
+                } else {
+                    // Within tailing distance, try to match target speed or slow down
+                    let targetSpeed = nearestTarget.userData.currentSpeed !== undefined ? nearestTarget.userData.currentSpeed : car.userData.defaultSpeed;
+                    car.userData.currentSpeed = Math.min(car.userData.currentSpeed, targetSpeed);
+                    if (distanceToTarget < car.userData.tailingDistance * 0.5) {
+                         car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 3); // Brake harder
+                    } else {
+                         car.userData.currentSpeed = Math.max(car.userData.defaultSpeed * 0.5, car.userData.currentSpeed - car.userData.acceleration);
+                    }
+                }
+                actualSpeedThisFrame = car.userData.currentSpeed;
                 moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
+
             } else {
-                // No target found, move straight based on current orientation (local +Z)
+                // No target found, gradually slow down to default speed
+                if (car.userData.currentSpeed > car.userData.defaultSpeed) {
+                    car.userData.currentSpeed = Math.max(car.userData.defaultSpeed, car.userData.currentSpeed - car.userData.acceleration * 2);
+                } else if (car.userData.currentSpeed < car.userData.defaultSpeed) {
+                    car.userData.currentSpeed = Math.min(car.userData.defaultSpeed, car.userData.currentSpeed + car.userData.acceleration);
+                }
+                actualSpeedThisFrame = car.userData.currentSpeed;
                 moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
             }
         } else {
-            // Default straight movement for non-chasers (local +Z)
+            // Default straight movement for non-chasers
+            actualSpeedThisFrame = car.userData.currentSpeed;
             moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
         }
         
-        const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(speed));
+        const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(actualSpeedThisFrame));
         
         // Update car's bounding box for current position before checking potential
         if (!car.userData.boundingBox) {
@@ -227,12 +267,22 @@ export async function loadModel(category, modelName, position) {
 
             // If it's a vehicle, make it a moving car
             if (gltf.scene.userData.category === 'vehicles') {
-                gltf.scene.userData.speed = 0.05; // Assign a default speed
+                gltf.scene.userData.defaultSpeed = 0.05; // Default speed
+                gltf.scene.userData.currentSpeed = gltf.scene.userData.defaultSpeed;
                 
                 // Specific behavior for car_police
-                if (gltf.scene.userData.modelName === 'car_police.glb') {
+                if (gltf.scene.userData.modelName === 'car_police.gltf') {
                     gltf.scene.userData.behavior = 'chase';
-                    gltf.scene.userData.targetType = 'car_hatchback.glb'; // Target hatchback
+                    gltf.scene.userData.targetType = 'car_hatchback.gltf'; // Target hatchback
+                    gltf.scene.userData.maxChaseSpeed = 0.12;
+                    gltf.scene.userData.acceleration = 0.0005;
+                    gltf.scene.userData.turnSpeedFactor = 0.03; // Smaller is slower/smoother turn
+                    gltf.scene.userData.tailingDistance = 6;    // Units to keep behind target
+                } else { // For other vehicles, ensure these are set if not police
+                    gltf.scene.userData.maxChaseSpeed = gltf.scene.userData.defaultSpeed;
+                    gltf.scene.userData.acceleration = 0.0005; // Generic acceleration
+                    gltf.scene.userData.turnSpeedFactor = 0.05; // Generic turn speed
+                    gltf.scene.userData.tailingDistance = 0;    // Not applicable
                 }
 
                 // Ensure its bounding box is updated after potential position change
