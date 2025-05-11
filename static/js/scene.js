@@ -2,7 +2,7 @@ import * as THREE from './three.module.js';
 import { GLTFLoader } from './three/examples/jsm/loaders/GLTFLoader.js'; // Correct path
 import { updateControls } from './controls.js';
 
-let scene, camera, renderer, controls, groundPlane, placementIndicator, placedObjects = [], movingCars = [];
+export let scene, camera, renderer, controls, groundPlane, placementIndicator, placedObjects = [], movingCars = [];
 
 export function initScene() {
     if (!scene) {
