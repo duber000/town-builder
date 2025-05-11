@@ -1,14 +1,25 @@
 # Import necessary libraries
-from flask import Flask, render_template, request, jsonify, send_from_directory
-import os
-import json
-from pygltflib import GLTF2
 import base64
+import json
 import logging
-import dotenv
+import os
 from os import getenv
+
+import dotenv
+from flask import (
+    Flask,
+    jsonify,
+    render_template,
+    request,
+    Response,
+    send_from_directory,
+    stream_with_context
+)
 from flask_cors import CORS
+from pygltflib import GLTF2
 import requests
+
+
 
 import queue
 import threading
@@ -391,8 +402,7 @@ def edit_model():
 
 # --- SSE event stream for multiplayer sync ---
 
-import json
-from flask import Response, stream_with_context, request
+
 
 # Track users: {name: last_seen_timestamp}
 connected_users = {}
