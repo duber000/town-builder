@@ -85,7 +85,7 @@ function handleMouseWheel(event) {
 
     event.preventDefault(); // Prevent default page scroll for camera zoom
 
-    const zoomSpeed = 0.5;
+    const zoomSpeed = 0.1; // Reduced for more gradual zoom
     let newFov = camera.fov - event.deltaY * zoomSpeed;
 
     // Clamp FOV to a reasonable range (e.g., 10 to 120 degrees)
