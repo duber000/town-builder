@@ -67,7 +67,7 @@ export function animate() {
 export async function loadModel(category, modelName) {
     return new Promise((resolve, reject) => {
         const loader = new GLTFLoader();
-        const url = `${MODELS_BASE_URL}/${category}/${modelName}.gltf`;
+        const url = `${MODELS_BASE_URL}/${category}/${modelName}`;
         loader.load(url, gltf => {
             gltf.scene.userData = { category, modelName };
             scene.add(gltf.scene);
