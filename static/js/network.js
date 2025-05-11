@@ -1,23 +1,46 @@
 import { showNotification, updateOnlineUsersList } from './ui.js';
 
 export function setupSSE() {
-    // Setup SSE connection and event handling
+    // Setup SSE connection with automatic reconnection and backoff
+    let retryDelay = 1000;
+    const maxDelay = 30000;
     return new Promise((resolve, reject) => {
-        const evtSource = new EventSource('/events?name=' + encodeURIComponent(myName));
-        evtSource.onopen = () => resolve(evtSource);
-        evtSource.onerror = (err) => reject(err);
-        evtSource.onmessage = function(event) {
-            try {
-                const msg = JSON.parse(event.data);
-                if (msg.type === 'onlineUsers') {
-                    updateOnlineUsersList(msg.payload);
+        function connect(isInitial = false) {
+            const evtSource = new EventSource('/events?name=' + encodeURIComponent(myName));
+            evtSource.onopen = () => {
+                retryDelay = 1000;
+                if (isInitial) {
+                    resolve(evtSource);
                 } else {
-                    showNotification(`Event: ${msg.type}`, 'info');
+                    showNotification('Reconnected to multiplayer server', 'success');
                 }
-            } catch (err) {
-                console.error('Failed to handle SSE message', err);
-            }
-        };
+            };
+            evtSource.onmessage = function(event) {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'onlineUsers') {
+                        updateOnlineUsersList(msg.payload);
+                    } else {
+                        showNotification(`Event: ${msg.type}`, 'info');
+                    }
+                } catch (err) {
+                    console.error('Failed to handle SSE message', err);
+                }
+            };
+            evtSource.onerror = (err) => {
+                evtSource.close();
+                if (isInitial) {
+                    reject(err);
+                } else {
+                    showNotification(`Connection lost, retrying in ${retryDelay/1000}s`, 'error');
+                    setTimeout(() => {
+                        retryDelay = Math.min(maxDelay, retryDelay * 2);
+                        connect(false);
+                    }, retryDelay);
+                }
+            };
+        }
+        connect(true);
     });
 }
 
