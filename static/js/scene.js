@@ -9,8 +9,8 @@ const MODELS_BASE_URL = '/static/models';
 export let scene, camera, renderer, controls, groundPlane, placementIndicator, placedObjects = [], movingCars = [];
 
 // Placeholder for model details to be placed. UI should set this.
-// e.g., window.pendingPlacementModelDetails = { category: 'trees', modelName: 'pine.glb' };
 window.pendingPlacementModelDetails = null;
+// window.drivingCar is now declared and managed in ui.js
 
 export function initScene() {
     if (!scene) {
@@ -97,8 +97,29 @@ function onWindowResize() {
 
 export function animate() {
     requestAnimationFrame(animate);
-    updateControls();
-    // TODO: update any animations here
+    updateControls(); // Handles keyboard input for car/camera
+
+    if (window.drivingCar) {
+        const car = window.drivingCar;
+        // Third-person camera: position behind and slightly above the car
+        const offset = new THREE.Vector3(0, 2.5, -6); // Adjust Y for height, Z for distance
+        const cameraTargetPosition = new THREE.Vector3();
+        
+        // Apply car's world rotation and position to the offset
+        cameraTargetPosition.copy(offset);
+        cameraTargetPosition.applyMatrix4(car.matrixWorld); // Transforms offset to world space relative to car
+
+        // Smoothly interpolate camera position
+        camera.position.lerp(cameraTargetPosition, 0.1); // Adjust 0.1 for camera follow speed
+
+        // Camera looks at a point slightly in front of the car's center for better view
+        const lookAtTarget = new THREE.Vector3();
+        car.getWorldPosition(lookAtTarget); // Get car's world position
+        lookAtTarget.y += 1.0; // Look slightly above the car's origin
+
+        camera.lookAt(lookAtTarget);
+    }
+    // TODO: update any other animations here
     renderer.render(scene, camera);
 }
 
@@ -129,8 +150,6 @@ function findRootObject(obj) {
 
 function onCanvasClick(event) {
     const mode = getCurrentMode();
-    // if (mode !== 'delete' && mode !== 'edit') return; // Modified to include 'place'
-
     const rect = renderer.domElement.getBoundingClientRect();
     const mouse = new THREE.Vector2();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -139,15 +158,23 @@ function onCanvasClick(event) {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, camera);
 
-    if (mode === 'place') {
+    if (mode === 'drive' && !window.drivingCar) { // In drive mode, but no car selected yet
+        const intersects = raycaster.intersectObjects(placedObjects, true);
+        if (intersects.length > 0) {
+            const selectedObject = findRootObject(intersects[0].object);
+            // IMPORTANT: Ensure your car models have `userData.category === 'cars'`
+            if (selectedObject.userData && selectedObject.userData.category === 'cars') {
+                activateDriveModeUI(selectedObject); // activateDriveModeUI is in ui.js
+            } else {
+                showNotification('This is not a drivable car. Select a car model.', 'error');
+            }
+        }
+    } else if (mode === 'place') {
         if (placementIndicator && placementIndicator.visible && window.pendingPlacementModelDetails) {
             const { category, modelName } = window.pendingPlacementModelDetails;
             loadModel(category, modelName, placementIndicator.position)
                 .then(() => {
                     showNotification(`Placed ${modelName}`, 'success');
-                    // Optionally, reset mode or pending model details here or in UI
-                    // e.g., window.pendingPlacementModelDetails = null;
-                    // setCurrentMode('select'); // Or whatever your default mode is
                 })
                 .catch(err => {
                     console.error("Error placing model:", err);
@@ -159,19 +186,25 @@ function onCanvasClick(event) {
         if (intersects.length > 0) {
             const selected = findRootObject(intersects[0].object);
             if (mode === 'delete') {
+                if (window.drivingCar === selected) { // If deleting the car being driven
+                    deactivateDriveModeUI();
+                }
                 disposeObject(selected);
                 scene.remove(selected);
                 const idx = placedObjects.indexOf(selected);
                 if (idx > -1) placedObjects.splice(idx, 1);
                 showNotification('Object deleted', 'success');
             } else if (mode === 'edit') {
-                window.selectedObject = selected; // Ensure window.selectedObject is declared if not already
+                window.selectedObject = selected;
                 showNotification(`Selected for edit: ${selected.userData.modelName}`, 'info');
                 // TODO: display edit UI
             }
         }
     }
 }
+
+// Import UI functions for drive mode
+import { activateDriveModeUI, deactivateDriveModeUI } from './ui.js';
 
 export function disposeObject(object) {
     object.traverse(child => {

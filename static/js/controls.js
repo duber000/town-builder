@@ -32,7 +32,8 @@ export function setupKeyboardControls() {
         });
 
         renderer.domElement.addEventListener('mousemove', function(event) {
-            if (!isRightMouseDown || !camera) {
+            // Disable orbit controls if driving a car or if camera is not available
+            if (!isRightMouseDown || !camera || window.drivingCar) {
                 return;
             }
             event.preventDefault();
@@ -99,17 +100,54 @@ function handleMouseWheel(event) {
 
 // Update controls on each frame based on keysPressed
 export function updateControls() {
-    const moveSpeed = 0.2;
-    const rotateSpeed = 0.02;
-    // Move forward/back
-    if (keysPressed['w']) camera.translateZ(-moveSpeed);
-    if (keysPressed['s']) camera.translateZ(moveSpeed);
-    // Strafe left/right
-    if (keysPressed['a']) camera.translateX(-moveSpeed);
-    if (keysPressed['d']) camera.translateX(moveSpeed);
-    // Rotate view
-    if (keysPressed['arrowleft']) camera.rotation.y += rotateSpeed;
-    if (keysPressed['arrowright']) camera.rotation.y -= rotateSpeed;
+    const moveSpeed = 0.15; // Adjusted speed for car
+    const carRotateSpeed = 0.04; // Rotation speed for the car
+    const cameraRotateSpeed = 0.02; // Original camera rotation speed
+
+    if (window.drivingCar) {
+        const car = window.drivingCar;
+        let carMoved = false;
+
+        // Car controls (W,A,S,D and Arrow Keys)
+        if (keysPressed['w'] || keysPressed['arrowup']) {
+            // Move car forward along its local Z-axis
+            const forward = new THREE.Vector3(0, 0, 1); // Car's local forward
+            forward.applyQuaternion(car.quaternion); // Align with car's current world orientation
+            car.position.add(forward.multiplyScalar(moveSpeed));
+            carMoved = true;
+        }
+        if (keysPressed['s'] || keysPressed['arrowdown']) {
+            // Move car backward
+            const backward = new THREE.Vector3(0, 0, -1); // Car's local backward
+            backward.applyQuaternion(car.quaternion);
+            car.position.add(backward.multiplyScalar(moveSpeed * 0.7)); // Slower reverse
+            carMoved = true;
+        }
+        if (keysPressed['a'] || keysPressed['arrowleft']) {
+            // Rotate car left (yaw)
+            car.rotation.y += carRotateSpeed;
+            carMoved = true;
+        }
+        if (keysPressed['d'] || keysPressed['arrowright']) {
+            // Rotate car right (yaw)
+            car.rotation.y -= carRotateSpeed;
+            carMoved = true;
+        }
+        // The camera is handled by the animate loop in scene.js when drivingCar is active
+        // if (carMoved) { /* Potentially send car state update for multiplayer */ }
+
+    } else {
+        // Default camera controls when not driving a car
+        if (keysPressed['w']) camera.translateZ(-moveSpeed);
+        if (keysPressed['s']) camera.translateZ(moveSpeed);
+        if (keysPressed['a']) camera.translateX(-moveSpeed);
+        if (keysPressed['d']) camera.translateX(moveSpeed);
+        // Rotate view (only if not right-click orbiting)
+        if (!isRightMouseDown) {
+            if (keysPressed['arrowleft']) camera.rotation.y += cameraRotateSpeed;
+            if (keysPressed['arrowright']) camera.rotation.y -= cameraRotateSpeed;
+        }
+    }
 }
 
 // Other control-related functions...

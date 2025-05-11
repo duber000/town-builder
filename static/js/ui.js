@@ -3,6 +3,7 @@ import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject }
 
 let currentMode = 'place';
 window.selectedObject = null; // For edit mode
+window.drivingCar = null; // The car object currently being driven
 
 export function getCurrentMode() { return currentMode; }
 
@@ -25,23 +26,48 @@ export function setCurrentMode(mode) {
     if (modelContainer) modelContainer.style.display = 'block'; // Show model list by default
 
     if (mode === 'drive') {
-        if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex' if it's a flex container
-        if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
-        if (modelContainer) modelContainer.style.display = 'none'; // Hide model list in drive mode
+        if (window.drivingCar) { // Actively driving a car
+            if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex'
+            if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
+            if (modelContainer) modelContainer.style.display = 'none';
+            showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows.`, 'info');
+        } else { // Entered drive mode, waiting for car selection
+            if (joystickContainer) joystickContainer.style.display = 'none';
+            if (exitDrivingBtn) exitDrivingBtn.style.display = 'none'; // Keep hidden until car selected
+            if (modelContainer) modelContainer.style.display = 'block'; // Or 'none' if you prefer
+            showNotification('Drive Mode: Click on a car in the scene to drive it.', 'info');
+        }
+    } else { // Not in drive mode
+         if (modelContainer) modelContainer.style.display = 'block';
+         window.drivingCar = null; // Ensure drivingCar is cleared if mode changes from drive
     }
 
-    // If switching away from place mode (or to a mode that isn't 'place', like 'drive'),
+
+    // If switching away from place mode (or to a mode that isn't 'place'),
     // clear pending model details and hide placement indicator.
     if (mode !== 'place') {
         window.pendingPlacementModelDetails = null;
-        if (scene && scene.getObjectByName("placementIndicator")) {
-             const pi = scene.getObjectByName("placementIndicator"); // pi for placementIndicator
-             if (pi) pi.visible = false;
-        }
+        const pi = scene ? scene.getObjectByName("placementIndicator") : null;
+        if (pi) pi.visible = false;
     }
     // If mode IS 'place', handleMouseMove in scene.js will manage placementIndicator visibility.
+    
+    // Only show generic mode notification if not handled by specific drive mode logic above
+    if (!(mode === 'drive')) {
+        showNotification(`Mode: ${mode}`, 'info');
+    }
+}
 
-    showNotification(`Mode: ${mode}`, 'info');
+// Call this function when a car is selected to drive
+export function activateDriveModeUI(carObject) {
+    window.drivingCar = carObject;
+    setCurrentMode('drive'); // This will re-evaluate UI based on window.drivingCar
+}
+
+// Call this function to stop driving
+export function deactivateDriveModeUI() {
+    window.drivingCar = null;
+    setCurrentMode('place'); // Or your preferred default mode
 }
 
 export function showNotification(message, type = 'info') {
@@ -120,7 +146,7 @@ export function showNotification(message, type = 'info') {
     const exitDrivingBtn = document.getElementById('exit-driving-btn');
     if (exitDrivingBtn) {
         exitDrivingBtn.addEventListener('click', () => {
-            setCurrentMode('place'); // Switch back to place mode (or another default)
+            deactivateDriveModeUI();
         });
     }
  }
