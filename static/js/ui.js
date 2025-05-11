@@ -174,14 +174,24 @@ export function showNotification(message, type = 'info') {
 
  async function onSaveScene() {
      try {
-         const sceneData = placedObjects.map(obj => ({
+         const sceneDataArray = placedObjects.map(obj => ({
              category: obj.userData.category,
              modelName: obj.userData.modelName,
              position: obj.position.toArray(),
              rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
              scale: obj.scale.toArray()
          }));
-         await saveSceneToServer(sceneData);
+
+         const townNameDisplay = document.getElementById('town-name-display');
+         const currentTownName = townNameDisplay ? townNameDisplay.textContent : "Unnamed Town";
+
+         const payload = {
+             data: sceneDataArray,
+             townName: currentTownName
+             // filename: "my_town.json", // Optional: backend defaults to town_data.json
+             // town_id: window.currentTownId, // Optional: if you have a global town_id
+         };
+         await saveSceneToServer(payload);
          showNotification('Scene saved successfully', 'success');
      } catch (err) {
          showNotification(err.message, 'error');
