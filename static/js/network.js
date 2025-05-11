@@ -10,4 +10,26 @@ export function setupSSE() {
     });
 }
 
-// Other network-related functions...
+ // Other network-related functions...
+
+ export async function saveSceneToServer(sceneData) {
+     const response = await fetch('/api/town/save', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(sceneData)
+     });
+     if (!response.ok) {
+         throw new Error('Failed to save scene: ' + response.statusText);
+     }
+     return response.json();
+ }
+
+ export async function loadSceneFromServer() {
+     const response = await fetch('/api/town/load', {
+         method: 'POST'
+     });
+     if (!response.ok) {
+         throw new Error('Failed to load scene: ' + response.statusText);
+     }
+     return response.json();
+ }
