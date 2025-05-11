@@ -1,5 +1,5 @@
 import * as THREE from './three.module.js';
-import { GLTFLoader } from './examples/jsm/loaders/GLTFLoader.js'; // Assuming GLTFLoader is at static/js/examples/jsm/loaders/
+import { GLTFLoader } from './three/examples/jsm/loaders/GLTFLoader.js'; // Corrected path
 import { updateControls } from './controls.js';
 import { getCurrentMode } from './ui.js';
 import { showNotification } from './ui.js';
