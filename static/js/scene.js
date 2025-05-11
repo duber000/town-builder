@@ -84,6 +84,33 @@ function handleMouseMove(event) {
         placementIndicator.position.copy(intersects[0].point);
         placementIndicator.position.y += 0.01; // Slightly above ground to avoid z-fighting
         placementIndicator.visible = true;
+
+        // Check for collisions with existing objects
+        const pendingObjectGeometry = placementIndicator.geometry;
+        if (!pendingObjectGeometry.boundingBox) {
+            pendingObjectGeometry.computeBoundingBox();
+        }
+        const pendingObjectBox = pendingObjectGeometry.boundingBox.clone();
+        pendingObjectBox.applyMatrix4(placementIndicator.matrixWorld);
+
+        let collision = false;
+        for (const otherObject of placedObjects) {
+            // Skip collision check if the other object is a road segment (as they are flat and part of the ground)
+            if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
+                continue;
+            }
+            if (otherObject.userData.boundingBox && pendingObjectBox.intersectsBox(otherObject.userData.boundingBox)) {
+                collision = true;
+                break;
+            }
+        }
+
+        if (collision) {
+            placementIndicator.material.color.setHex(0xff0000); // Red for collision
+        } else {
+            placementIndicator.material.color.setHex(0xffea00); // Yellow for no collision
+        }
+
     } else {
         placementIndicator.visible = false;
     }
@@ -398,6 +425,31 @@ function onCanvasClick(event) {
         }
     } else if (mode === 'place') {
         if (placementIndicator && placementIndicator.visible && window.pendingPlacementModelDetails) {
+            // Final collision check before placing
+            const pendingObjectGeometry = placementIndicator.geometry;
+            if (!pendingObjectGeometry.boundingBox) {
+                pendingObjectGeometry.computeBoundingBox();
+            }
+            const pendingObjectBox = pendingObjectGeometry.boundingBox.clone();
+            pendingObjectBox.applyMatrix4(placementIndicator.matrixWorld);
+
+            let collision = false;
+            for (const otherObject of placedObjects) {
+                // Skip collision check if the other object is a road segment
+                if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
+                    continue;
+                }
+                if (otherObject.userData.boundingBox && pendingObjectBox.intersectsBox(otherObject.userData.boundingBox)) {
+                    collision = true;
+                    break;
+                }
+            }
+
+            if (collision) {
+                showNotification('Cannot place model here, overlaps with another object.', 'error');
+                return; // Prevent placement
+            }
+
             const { category, modelName } = window.pendingPlacementModelDetails;
             loadModel(category, modelName, placementIndicator.position)
                 .then(() => {
