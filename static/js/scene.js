@@ -110,6 +110,14 @@ export function animate() {
             continue; // Skip auto-movement if this car is being driven by the player
         }
 
+        // Decrement teleport cooldown for chasing cars
+        if (car.userData.behavior === 'chase' && car.userData.teleportCooldownFrames && car.userData.teleportCooldownFrames > 0) {
+            car.userData.teleportCooldownFrames--;
+            if (car.userData.teleportCooldownFrames === 0) {
+                car.userData.isTeleportedRecently = false;
+            }
+        }
+
         // Ensure speed and behavior properties are initialized
         if (car.userData.defaultSpeed === undefined) car.userData.defaultSpeed = 0.05;
         if (car.userData.currentSpeed === undefined) car.userData.currentSpeed = car.userData.defaultSpeed;
@@ -186,14 +194,19 @@ export function animate() {
         }
         
         const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(actualSpeedThisFrame));
-        let attemptedMoveAllowed = true;
-
         // Boundary check BEFORE object collision check for chasing cars to prevent going off map
+        // For chasing cars, if they are about to go out of bounds (and not recently teleported),
+        // clamp their potential position to the boundary, re-orient them towards the center, and apply brakes.
+        // They will still attempt to move to the clamped position.
         if (car.userData.behavior === 'chase' && !(car.userData.isTeleportedRecently && car.userData.teleportCooldownFrames > 0) ) {
-            if (potentialPosition.x > groundBoundary || potentialPosition.x < -groundBoundary ||
-                potentialPosition.z > groundBoundary || potentialPosition.z < -groundBoundary) {
-                
-                attemptedMoveAllowed = false;
+            let isClamped = false;
+            if (potentialPosition.x > groundBoundary) { potentialPosition.x = groundBoundary; isClamped = true; }
+            else if (potentialPosition.x < -groundBoundary) { potentialPosition.x = -groundBoundary; isClamped = true; }
+
+            if (potentialPosition.z > groundBoundary) { potentialPosition.z = groundBoundary; isClamped = true; }
+            else if (potentialPosition.z < -groundBoundary) { potentialPosition.z = -groundBoundary; isClamped = true; }
+
+            if (isClamped) {
                 // Re-orient towards the center of the map if about to go off-edge
                 const centerOfMap = new THREE.Vector3(0, car.position.y, 0); // Keep current Y
                 
@@ -206,41 +219,40 @@ export function animate() {
             }
         }
         
-        if (attemptedMoveAllowed) {
-            // Update car's bounding box for current position before checking potential
-            if (!car.userData.boundingBox) {
-                car.userData.boundingBox = new THREE.Box3();
-            }
-            car.userData.boundingBox.setFromObject(car); // Update to current world space
+        // Update car's bounding box for current position before checking potential
+        if (!car.userData.boundingBox) {
+            car.userData.boundingBox = new THREE.Box3();
+        }
+        car.userData.boundingBox.setFromObject(car); // Update to current world space
 
-            const potentialBoundingBox = car.userData.boundingBox.clone();
-            potentialBoundingBox.translate(potentialPosition.clone().sub(car.position));
+        const potentialBoundingBox = car.userData.boundingBox.clone();
+        potentialBoundingBox.translate(potentialPosition.clone().sub(car.position));
 
-            let collisionDetected = false;
-            for (const otherObject of placedObjects) {
-                if (otherObject === car) continue; // Don't collide with self
+        let collisionDetected = false;
+        for (const otherObject of placedObjects) {
+            if (otherObject === car) continue; // Don't collide with self
 
-                // Skip collision check if the other object is a road segment
-                if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
-                    continue;
-                }
-
-                if (!otherObject.userData.boundingBox) { // Ensure other object has a bounding box
-                    otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
-                }
-
-                if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
-                    collisionDetected = true;
-                    break;
-                }
+            // Skip collision check if the other object is a road segment
+            if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
+                continue;
             }
 
-            if (collisionDetected) {
-                // Simple collision response: reverse direction and turn slightly
-                car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI; // Turn 90-180 deg
-            } else {
-                car.position.copy(potentialPosition);
+            if (!otherObject.userData.boundingBox) { // Ensure other object has a bounding box
+                otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
             }
+
+            if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
+                collisionDetected = true;
+                break;
+            }
+        }
+
+        if (collisionDetected) {
+            // Simple collision response: reverse direction and turn slightly
+            car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI; // Turn 90-180 deg
+        } else {
+            // Move the car to the potentialPosition (which might have been clamped by the boundary check)
+            car.position.copy(potentialPosition);
         }
 
 
