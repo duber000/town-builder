@@ -4,8 +4,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 let scene, camera, renderer, controls, groundPlane, placementIndicator, placedObjects = [], movingCars = [];
 
 export function initScene() {
-    // Create scene
-    scene = new THREE.Scene();
+    if (!scene) {
+        // Create scene
+        scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); // Sky blue
 
     // Create camera

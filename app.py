@@ -129,7 +129,7 @@ def update_town():
     data = request.get_json()
     town_data = get_town_data()
 
-    # If we're just updating the town name
+    # If we're just updating the town name, ensure townName is present
     if 'townName' in data and len(data) == 1:
         town_data['townName'] = data['townName']
         set_town_data(town_data)
@@ -361,6 +361,7 @@ def delete_model():
     position = data.get('position')
 
     if not category or (not model_id and not position):
+        return jsonify({"error": "Missing required parameters"}), 400
         return jsonify({"error": "Missing required parameters"}), 400
 
     town_data = get_town_data()

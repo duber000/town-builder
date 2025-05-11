@@ -1,5 +1,5 @@
 export function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
+    const notification = document.createElement('div') || document.createElement('span');
     notification.textContent = message;
     notification.style.position = 'fixed';
     notification.style.bottom = '20px';

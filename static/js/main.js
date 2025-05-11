@@ -9,7 +9,10 @@ function init() {
 
     // Prompt for name and connect SSE after scene is initialized
     setTimeout(() => {
-        setupSSE();
+        setupSSE().catch(error => {
+            console.error("Error setting up SSE:", error);
+            showNotification("Error setting up multiplayer connection", "error");
+        });
     }, 0);
 }
 
