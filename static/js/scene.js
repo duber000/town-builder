@@ -7,7 +7,12 @@ export function initScene() {
     if (!scene) {
         // Create scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        // Create a rectangle as the background
+        const backgroundGeometry = new THREE.PlaneGeometry(20, 20);
+        const backgroundMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB }); // Sky blue
+        const backgroundMesh = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
+        backgroundMesh.rotation.x = -Math.PI / 2; // Rotate to lay flat
+        scene.add(backgroundMesh);
 
     // Create camera
     }
