@@ -1,5 +1,6 @@
 import { camera, renderer, placedObjects } from './scene.js'; // Added placedObjects
 import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
+import { showNotification } from './ui.js'; // Import showNotification
 
 let keysPressed = {};
 let isRightMouseDown = false;
