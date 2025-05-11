@@ -82,7 +82,13 @@ export function showNotification(message, type = 'info') {
 
  async function onSaveScene() {
      try {
-         const sceneData = {}; // TODO: capture scene state
+         const sceneData = placedObjects.map(obj => ({
+             category: obj.userData.category,
+             modelName: obj.userData.modelName,
+             position: obj.position.toArray(),
+             rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
+             scale: obj.scale.toArray()
+         }));
          await saveSceneToServer(sceneData);
          showNotification('Scene saved successfully', 'success');
      } catch (err) {
@@ -93,7 +99,13 @@ export function showNotification(message, type = 'info') {
  async function onLoadScene() {
      try {
          const loadedData = await loadSceneFromServer();
-         // TODO: apply loadedData to scene
+         await onClearScene();
+         for (const item of loadedData) {
+             const obj = await loadModel(item.category, item.modelName);
+             obj.position.fromArray(item.position);
+             obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
+             obj.scale.fromArray(item.scale);
+         }
          showNotification('Scene loaded successfully', 'success');
      } catch (err) {
          showNotification(err.message, 'error');

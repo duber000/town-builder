@@ -65,6 +65,7 @@ export async function loadModel(category, modelName) {
         const loader = new GLTFLoader();
         const url = `${MODELS_BASE_URL}/${category}/${modelName}.gltf`;
         loader.load(url, gltf => {
+            gltf.scene.userData = { category, modelName };
             scene.add(gltf.scene);
             placedObjects.push(gltf.scene);
             resolve(gltf.scene);
