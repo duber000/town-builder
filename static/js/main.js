@@ -1,12 +1,11 @@
-import './scene.js';
-import './controls.js';
-import './network.js';
-import './ui.js';
 import './api-error-handler.js';
 import { initScene, animate } from './scene.js';
 import { setupSSE } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
+
+const myName = prompt("Enter your name:");
+window.myName = myName;
 
 function init() {
     // Initialize the scene
