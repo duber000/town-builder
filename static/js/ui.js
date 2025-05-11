@@ -1,3 +1,5 @@
+import { saveSceneToServer, loadSceneFromServer } from './network.js';
+
 export function showNotification(message, type = 'info') {
     const notification = document.createElement('div') || document.createElement('span');
     notification.textContent = message;
@@ -30,4 +32,83 @@ export function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Other UI-related functions...
+ // Other UI-related functions...
+
+ export function initUI() {
+     // Model-item clicks
+     document.querySelectorAll('.model-item').forEach(elem => {
+         elem.addEventListener('click', onModelItemClick);
+     });
+     // Clear, save, load buttons
+     document.getElementById('clear-scene').addEventListener('click', onClearScene);
+     document.getElementById('save-scene').addEventListener('click', onSaveScene);
+     document.getElementById('load-scene').addEventListener('click', onLoadScene);
+     // Town name display/input
+     const display = document.getElementById('town-name-display');
+     const input = document.getElementById('town-name-input');
+     display.addEventListener('click', () => {
+         display.style.display = 'none';
+         input.style.display = 'block';
+         input.focus();
+     });
+     input.addEventListener('blur', onTownNameChange);
+     input.addEventListener('keydown', (e) => {
+         if (e.key === 'Enter') {
+             input.blur();
+         }
+     });
+     // Color pickers
+     document.getElementById('skyColorPicker').addEventListener('input', e => setSkyColor(e.target.value));
+     document.getElementById('groundColorPicker').addEventListener('input', e => setGroundColor(e.target.value));
+ }
+
+ // Handler stubs
+ function onModelItemClick(event) {
+     const category = event.target.dataset.category;
+     const modelName = event.target.dataset.model;
+     // TODO: load and place model
+ }
+
+ async function onClearScene() {
+     // TODO: clear scene
+ }
+
+ async function onSaveScene() {
+     try {
+         const sceneData = {}; // TODO: capture scene state
+         await saveSceneToServer(sceneData);
+         showNotification('Scene saved successfully', 'success');
+     } catch (err) {
+         showNotification(err.message, 'error');
+     }
+ }
+
+ async function onLoadScene() {
+     try {
+         const loadedData = await loadSceneFromServer();
+         // TODO: apply loadedData to scene
+         showNotification('Scene loaded successfully', 'success');
+     } catch (err) {
+         showNotification(err.message, 'error');
+     }
+ }
+
+ function onTownNameChange() {
+     const input = document.getElementById('town-name-input');
+     const display = document.getElementById('town-name-display');
+     const newName = input.value.trim();
+     if (newName) {
+         display.textContent = newName;
+         // TODO: persist town name to server
+     }
+     input.style.display = 'none';
+     display.style.display = 'block';
+ }
+
+ function setSkyColor(color) {
+     // TODO: update scene sky color
+ }
+
+ function setGroundColor(color) {
+     // TODO: update ground color
+ }

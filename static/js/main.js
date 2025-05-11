@@ -6,7 +6,7 @@ import './api-error-handler.js';
 import { initScene, animate } from './scene.js';
 import { setupSSE } from './network.js';
 import { setupKeyboardControls } from './controls.js';
-import { showNotification } from './ui.js';
+import { showNotification, initUI } from './ui.js';
 
 function init() {
     // Initialize the scene
@@ -14,6 +14,7 @@ function init() {
     animate();
     // Wire up keyboard listeners (was inline before)
     setupKeyboardControls();
+    initUI();
 
     // Prompt for name and connect SSE after scene is initialized
     setTimeout(() => {
