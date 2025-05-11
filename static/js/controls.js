@@ -107,9 +107,6 @@ export function updateControls() {
     if (window.drivingCar) {
         const car = window.drivingCar;
         let carMoved = false;
-
-        const car = window.drivingCar;
-        let carMoved = false;
         let attemptedMoveVector = new THREE.Vector3();
 
         // Update car's bounding box before movement checks
