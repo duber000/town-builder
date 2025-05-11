@@ -109,9 +109,37 @@ export function animate() {
         }
 
         const speed = car.userData.speed || 0.05;
-        const moveDirection = new THREE.Vector3(0, 0, 1);
-        moveDirection.applyQuaternion(car.quaternion); // Get current forward direction
+        let moveDirection = new THREE.Vector3(); // To be determined by behavior
 
+        if (car.userData.behavior === 'chase' && car.userData.targetType) {
+            let nearestTarget = null;
+            let minDistanceSq = Infinity;
+
+            // Find the nearest target
+            for (const potentialTarget of placedObjects) {
+                // Check if potentialTarget is the correct model type and not the chaser itself
+                if (potentialTarget.userData.modelName === car.userData.targetType && potentialTarget !== car) {
+                    const distanceSq = car.position.distanceToSquared(potentialTarget.position);
+                    if (distanceSq < minDistanceSq) {
+                        minDistanceSq = distanceSq;
+                        nearestTarget = potentialTarget;
+                    }
+                }
+            }
+
+            if (nearestTarget) {
+                // Orient towards target and set move direction accordingly
+                car.lookAt(nearestTarget.position);
+                moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion); // Move along new local Z
+            } else {
+                // No target found, move straight based on current orientation
+                moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
+            }
+        } else {
+            // Default straight movement for non-chasers or chasers without a defined target behavior
+            moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
+        }
+        
         const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(speed));
         
         // Update car's bounding box for current position before checking potential
@@ -195,6 +223,13 @@ export async function loadModel(category, modelName, position) {
             // If it's a vehicle, make it a moving car
             if (gltf.scene.userData.category === 'vehicles') {
                 gltf.scene.userData.speed = 0.05; // Assign a default speed
+                
+                // Specific behavior for car_police
+                if (gltf.scene.userData.modelName === 'car_police.glb') {
+                    gltf.scene.userData.behavior = 'chase';
+                    gltf.scene.userData.targetType = 'car_hatchback.glb'; // Target hatchback
+                }
+
                 // Ensure its bounding box is updated after potential position change
                 gltf.scene.userData.boundingBox.setFromObject(gltf.scene);
                 movingCars.push(gltf.scene);
