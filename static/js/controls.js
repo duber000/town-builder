@@ -1,9 +1,11 @@
 import { camera, renderer } from './scene.js'; // Added renderer
+import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
 
 let keysPressed = {};
 let isRightMouseDown = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
+const ORBIT_TARGET = new THREE.Vector3(0, 0, 0); // Point to orbit around
 
 export function setupKeyboardControls() {
     // Keyboard listeners
@@ -36,15 +38,27 @@ export function setupKeyboardControls() {
             event.preventDefault();
 
             const deltaX = event.clientX - lastMouseX;
+            const deltaX = event.clientX - lastMouseX;
             const deltaY = event.clientY - lastMouseY;
 
             lastMouseX = event.clientX;
             lastMouseY = event.clientY;
 
-            const panSpeed = 0.01; // Adjust this value for sensitivity
-            // Note: We use camera.translateX and camera.translateY to move relative to camera's orientation
-            camera.translateX(-deltaX * panSpeed);
-            camera.translateY(deltaY * panSpeed);
+            const orbitSpeed = 0.005; // Adjust for sensitivity
+
+            // Orbiting logic using Spherical Coordinates
+            const offset = new THREE.Vector3().subVectors(camera.position, ORBIT_TARGET);
+            const spherical = new THREE.Spherical().setFromVector3(offset);
+
+            spherical.theta -= deltaX * orbitSpeed; // Azimuthal angle (horizontal)
+            spherical.phi -= deltaY * orbitSpeed;   // Polar angle (vertical)
+
+            // Clamp polar angle to prevent flipping over
+            spherical.phi = Math.max(0.01, Math.min(Math.PI - 0.01, spherical.phi));
+
+            offset.setFromSpherical(spherical);
+            camera.position.copy(ORBIT_TARGET).add(offset);
+            camera.lookAt(ORBIT_TARGET);
         });
 
         renderer.domElement.addEventListener('contextmenu', function(event) {
