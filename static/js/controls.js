@@ -140,6 +140,11 @@ export function updateControls() {
             for (const otherObject of placedObjects) {
                 if (otherObject === car) continue;
 
+                // Skip collision check if the other object is a road segment
+                if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
+                    continue;
+                }
+
                 if (!otherObject.userData.boundingBox) {
                     otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
                 }

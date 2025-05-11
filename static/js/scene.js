@@ -200,6 +200,11 @@ export function animate() {
         for (const otherObject of placedObjects) {
             if (otherObject === car) continue; // Don't collide with self
 
+            // Skip collision check if the other object is a road segment
+            if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
+                continue;
+            }
+
             if (!otherObject.userData.boundingBox) { // Ensure other object has a bounding box
                 otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
             }
