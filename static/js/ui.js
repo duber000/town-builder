@@ -14,14 +14,33 @@ export function setCurrentMode(mode) {
             b.classList.add('active');
         }
     });
-    // If switching to place mode, clear pending model details if user didn't click a model item
+
+    const joystickContainer = document.getElementById('joystick-container');
+    const exitDrivingBtn = document.getElementById('exit-driving-btn');
+    const modelContainer = document.getElementById('model-container');
+
+    // Default UI states
+    if (joystickContainer) joystickContainer.style.display = 'none';
+    if (exitDrivingBtn) exitDrivingBtn.style.display = 'none';
+    if (modelContainer) modelContainer.style.display = 'block'; // Show model list by default
+
+    if (mode === 'drive') {
+        if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex' if it's a flex container
+        if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
+        if (modelContainer) modelContainer.style.display = 'none'; // Hide model list in drive mode
+    }
+
+    // If switching away from place mode (or to a mode that isn't 'place', like 'drive'),
+    // clear pending model details and hide placement indicator.
     if (mode !== 'place') {
         window.pendingPlacementModelDetails = null;
-        if (scene && scene.getObjectByName("placementIndicator")) { // Check if placementIndicator exists
-             const placementIndicator = scene.getObjectByName("placementIndicator");
-             if (placementIndicator) placementIndicator.visible = false;
+        if (scene && scene.getObjectByName("placementIndicator")) {
+             const pi = scene.getObjectByName("placementIndicator"); // pi for placementIndicator
+             if (pi) pi.visible = false;
         }
     }
+    // If mode IS 'place', handleMouseMove in scene.js will manage placementIndicator visibility.
+
     showNotification(`Mode: ${mode}`, 'info');
 }
 
@@ -96,6 +115,14 @@ export function showNotification(message, type = 'info') {
              setCurrentMode(mode); // Use the new function
          })
      );
+
+    // Listener for Exit Driving Mode button
+    const exitDrivingBtn = document.getElementById('exit-driving-btn');
+    if (exitDrivingBtn) {
+        exitDrivingBtn.addEventListener('click', () => {
+            setCurrentMode('place'); // Switch back to place mode (or another default)
+        });
+    }
  }
 
  // Handler stubs
