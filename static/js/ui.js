@@ -67,7 +67,11 @@ export function showNotification(message, type = 'info') {
  function onModelItemClick(event) {
      const category = event.target.dataset.category;
      const modelName = event.target.dataset.model;
-     // TODO: load and place model
+     loadModel(category, modelName).then(obj => {
+         showNotification(`${modelName} placed`, 'success');
+     }).catch(err => {
+         showNotification(`Failed to load model ${modelName}: ${err.message}`, 'error');
+     });
  }
 
  async function onClearScene() {
