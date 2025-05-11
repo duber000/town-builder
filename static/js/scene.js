@@ -102,15 +102,48 @@ export function animate() {
     const groundBoundary = groundPlane.geometry.parameters.width / 2; // e.g., 10 for a 20x20 plane
 
     // Animate moving cars
-    for (const car of movingCars) {
+    for (let i = 0; i < movingCars.length; i++) {
+        const car = movingCars[i];
         if (window.drivingCar === car) {
             continue; // Skip auto-movement if this car is being driven by the player
         }
 
-        const speed = car.userData.speed || 0.05; // Default speed if not set
-        const forward = new THREE.Vector3(0, 0, 1);
-        forward.applyQuaternion(car.quaternion); // Move in the direction the car is facing
-        car.position.add(forward.multiplyScalar(speed));
+        const speed = car.userData.speed || 0.05;
+        const moveDirection = new THREE.Vector3(0, 0, 1);
+        moveDirection.applyQuaternion(car.quaternion); // Get current forward direction
+
+        const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(speed));
+        
+        // Update car's bounding box for current position before checking potential
+        if (!car.userData.boundingBox) {
+            car.userData.boundingBox = new THREE.Box3();
+        }
+        car.userData.boundingBox.setFromObject(car); // Update to current world space
+
+        const potentialBoundingBox = car.userData.boundingBox.clone();
+        potentialBoundingBox.translate(potentialPosition.clone().sub(car.position));
+
+        let collisionDetected = false;
+        for (const otherObject of placedObjects) {
+            if (otherObject === car) continue; // Don't collide with self
+
+            if (!otherObject.userData.boundingBox) { // Ensure other object has a bounding box
+                otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
+            }
+
+            if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
+                collisionDetected = true;
+                break;
+            }
+        }
+
+        if (collisionDetected) {
+            // Simple collision response: reverse direction and turn slightly
+            car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI; // Turn 90-180 deg
+            // No actual movement this frame, will try new direction next frame
+        } else {
+            car.position.copy(potentialPosition);
+        }
 
         // Boundary checks and looping
         if (car.position.x > groundBoundary) car.position.x = -groundBoundary;
@@ -152,12 +185,18 @@ export async function loadModel(category, modelName, position) {
             if (position) {
                 gltf.scene.position.copy(position);
             }
+            
+            // Initialize bounding box for the object
+            gltf.scene.userData.boundingBox = new THREE.Box3().setFromObject(gltf.scene);
+            
             scene.add(gltf.scene);
             placedObjects.push(gltf.scene);
 
             // If it's a vehicle, make it a moving car
             if (gltf.scene.userData.category === 'vehicles') {
                 gltf.scene.userData.speed = 0.05; // Assign a default speed
+                // Ensure its bounding box is updated after potential position change
+                gltf.scene.userData.boundingBox.setFromObject(gltf.scene);
                 movingCars.push(gltf.scene);
             }
 

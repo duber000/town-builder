@@ -1,4 +1,4 @@
-import { camera, renderer } from './scene.js'; // Added renderer
+import { camera, renderer, placedObjects } from './scene.js'; // Added placedObjects
 import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
 
 let keysPressed = {};
@@ -108,33 +108,64 @@ export function updateControls() {
         const car = window.drivingCar;
         let carMoved = false;
 
+        const car = window.drivingCar;
+        let carMoved = false;
+        let attemptedMoveVector = new THREE.Vector3();
+
+        // Update car's bounding box before movement checks
+        if (!car.userData.boundingBox) {
+            car.userData.boundingBox = new THREE.Box3();
+        }
+        car.userData.boundingBox.setFromObject(car);
+
+
         // Car controls (W,A,S,D and Arrow Keys)
         if (keysPressed['w'] || keysPressed['arrowup']) {
-            // Move car forward along its local Z-axis
-            const forward = new THREE.Vector3(0, 0, 1); // Car's local forward
-            forward.applyQuaternion(car.quaternion); // Align with car's current world orientation
-            car.position.add(forward.multiplyScalar(moveSpeed));
+            const forward = new THREE.Vector3(0, 0, 1);
+            forward.applyQuaternion(car.quaternion);
+            attemptedMoveVector.add(forward.multiplyScalar(moveSpeed));
             carMoved = true;
         }
         if (keysPressed['s'] || keysPressed['arrowdown']) {
-            // Move car backward
-            const backward = new THREE.Vector3(0, 0, -1); // Car's local backward
+            const backward = new THREE.Vector3(0, 0, -1);
             backward.applyQuaternion(car.quaternion);
-            car.position.add(backward.multiplyScalar(moveSpeed * 0.7)); // Slower reverse
+            attemptedMoveVector.add(backward.multiplyScalar(moveSpeed * 0.7));
             carMoved = true;
         }
+
+        if (carMoved) {
+            const potentialPosition = car.position.clone().add(attemptedMoveVector);
+            const potentialBoundingBox = car.userData.boundingBox.clone();
+            potentialBoundingBox.translate(attemptedMoveVector); // Translate by the movement vector
+
+            let collisionDetected = false;
+            for (const otherObject of placedObjects) {
+                if (otherObject === car) continue;
+
+                if (!otherObject.userData.boundingBox) {
+                    otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
+                }
+
+                if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
+                    collisionDetected = true;
+                    showNotification("Bonk!", "error"); // Optional: notify player
+                    break;
+                }
+            }
+
+            if (!collisionDetected) {
+                car.position.copy(potentialPosition);
+            }
+        }
+
+        // Rotation is allowed even if movement is blocked
         if (keysPressed['a'] || keysPressed['arrowleft']) {
-            // Rotate car left (yaw)
             car.rotation.y += carRotateSpeed;
-            carMoved = true;
         }
         if (keysPressed['d'] || keysPressed['arrowright']) {
-            // Rotate car right (yaw)
             car.rotation.y -= carRotateSpeed;
-            carMoved = true;
         }
         // The camera is handled by the animate loop in scene.js when drivingCar is active
-        // if (carMoved) { /* Potentially send car state update for multiplayer */ }
 
     } else {
         // Default camera controls when not driving a car
