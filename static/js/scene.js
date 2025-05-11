@@ -262,9 +262,11 @@ export function animate() {
                 // However, the tailingDistance logic already handles braking when close to the target.
             } else {
                 // Original collision response for non-chasing cars.
-                // This is a large random turn.
-                car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI;
-                attemptedMoveSuccessful = false; // Don't move after this drastic turn.
+                if (car.userData.currentSpeed > 0) { // Only apply random turn if car was trying to move
+                    // This is a large random turn.
+                    car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI;
+                }
+                attemptedMoveSuccessful = false; // Don't move, whether it turned or was already stopped.
             }
         }
 
