@@ -162,11 +162,11 @@ function onCanvasClick(event) {
         const intersects = raycaster.intersectObjects(placedObjects, true);
         if (intersects.length > 0) {
             const selectedObject = findRootObject(intersects[0].object);
-            // IMPORTANT: Ensure your car models have `userData.category === 'cars'`
-            if (selectedObject.userData && selectedObject.userData.category === 'cars') {
+            // IMPORTANT: Ensure your vehicle models have `userData.category === 'vehicles'`
+            if (selectedObject.userData && selectedObject.userData.category === 'vehicles') {
                 activateDriveModeUI(selectedObject); // activateDriveModeUI is in ui.js
             } else {
-                showNotification('This is not a drivable car. Select a car model.', 'error');
+                showNotification('This is not a drivable vehicle. Select a vehicle model.', 'error');
             }
         }
     } else if (mode === 'place') {
