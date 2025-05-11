@@ -186,48 +186,75 @@ export function animate() {
         }
         
         const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(actualSpeedThisFrame));
+        let attemptedMoveAllowed = true;
+
+        // Boundary check BEFORE object collision check for chasing cars to prevent going off map
+        if (car.userData.behavior === 'chase' && !(car.userData.isTeleportedRecently && car.userData.teleportCooldownFrames > 0) ) {
+            if (potentialPosition.x > groundBoundary || potentialPosition.x < -groundBoundary ||
+                potentialPosition.z > groundBoundary || potentialPosition.z < -groundBoundary) {
+                
+                attemptedMoveAllowed = false;
+                // Re-orient towards the center of the map if about to go off-edge
+                const centerOfMap = new THREE.Vector3(0, car.position.y, 0); // Keep current Y
+                
+                tempRotationObject.position.copy(car.position);
+                tempRotationObject.lookAt(centerOfMap);
+                tempRotationObject.rotateY(Math.PI); // Adjust for model's forward axis (+Z)
+                car.quaternion.slerp(tempRotationObject.quaternion, car.userData.turnSpeedFactor * 2); // Turn faster
+
+                car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 5); // Brake
+            }
+        }
         
-        // Update car's bounding box for current position before checking potential
-        if (!car.userData.boundingBox) {
-            car.userData.boundingBox = new THREE.Box3();
-        }
-        car.userData.boundingBox.setFromObject(car); // Update to current world space
+        if (attemptedMoveAllowed) {
+            // Update car's bounding box for current position before checking potential
+            if (!car.userData.boundingBox) {
+                car.userData.boundingBox = new THREE.Box3();
+            }
+            car.userData.boundingBox.setFromObject(car); // Update to current world space
 
-        const potentialBoundingBox = car.userData.boundingBox.clone();
-        potentialBoundingBox.translate(potentialPosition.clone().sub(car.position));
+            const potentialBoundingBox = car.userData.boundingBox.clone();
+            potentialBoundingBox.translate(potentialPosition.clone().sub(car.position));
 
-        let collisionDetected = false;
-        for (const otherObject of placedObjects) {
-            if (otherObject === car) continue; // Don't collide with self
+            let collisionDetected = false;
+            for (const otherObject of placedObjects) {
+                if (otherObject === car) continue; // Don't collide with self
 
-            // Skip collision check if the other object is a road segment
-            if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
-                continue;
+                // Skip collision check if the other object is a road segment
+                if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
+                    continue;
+                }
+
+                if (!otherObject.userData.boundingBox) { // Ensure other object has a bounding box
+                    otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
+                }
+
+                if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
+                    collisionDetected = true;
+                    break;
+                }
             }
 
-            if (!otherObject.userData.boundingBox) { // Ensure other object has a bounding box
-                otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
-            }
-
-            if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
-                collisionDetected = true;
-                break;
+            if (collisionDetected) {
+                // Simple collision response: reverse direction and turn slightly
+                car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI; // Turn 90-180 deg
+            } else {
+                car.position.copy(potentialPosition);
             }
         }
 
-        if (collisionDetected) {
-            // Simple collision response: reverse direction and turn slightly
-            car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI; // Turn 90-180 deg
-            // No actual movement this frame, will try new direction next frame
-        } else {
-            car.position.copy(potentialPosition);
-        }
 
-        // Boundary checks and looping
-        if (car.position.x > groundBoundary) car.position.x = -groundBoundary;
-        if (car.position.x < -groundBoundary) car.position.x = groundBoundary;
-        if (car.position.z > groundBoundary) car.position.z = -groundBoundary;
-        if (car.position.z < -groundBoundary) car.position.z = groundBoundary;
+        // Boundary checks and looping (fallback teleportation)
+        let wasTeleportedThisFrame = false;
+        if (car.position.x > groundBoundary) { car.position.x = -groundBoundary; wasTeleportedThisFrame = true; }
+        if (car.position.x < -groundBoundary) { car.position.x = groundBoundary; wasTeleportedThisFrame = true; }
+        if (car.position.z > groundBoundary) { car.position.z = -groundBoundary; wasTeleportedThisFrame = true; }
+        if (car.position.z < -groundBoundary) { car.position.z = groundBoundary; wasTeleportedThisFrame = true; }
+
+        if (wasTeleportedThisFrame && car.userData.behavior === 'chase') {
+            car.userData.isTeleportedRecently = true;
+            car.userData.teleportCooldownFrames = 30; // Cooldown for 30 frames (approx 0.5s at 60fps)
+        }
     }
 
     if (window.drivingCar) {
