@@ -74,7 +74,17 @@ export function setupKeyboardControls() {
 }
 
 function handleMouseWheel(event) {
-    event.preventDefault(); // Prevent default page scroll
+    // Assume your model selection panel has an ID like 'model-selection-panel'
+    // Adjust this selector if your panel has a different ID or class.
+    const modelPanel = document.getElementById('model-selection-panel');
+
+    if (modelPanel && modelPanel.contains(event.target)) {
+        // If the mouse is over the model panel, allow default scroll behavior
+        // Do not preventDefault and do not zoom.
+        return;
+    }
+
+    event.preventDefault(); // Prevent default page scroll for camera zoom
 
     const zoomSpeed = 0.5;
     let newFov = camera.fov - event.deltaY * zoomSpeed;
