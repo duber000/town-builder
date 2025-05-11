@@ -1,5 +1,5 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
-import { loadModel, scene, placedObjects, renderer, groundPlane } from './scene.js';
+import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject } from './scene.js';
 
 let currentMode = 'place';
 export function getCurrentMode() { return currentMode; }
@@ -89,7 +89,10 @@ export function showNotification(message, type = 'info') {
  }
 
  async function onClearScene() {
-     placedObjects.forEach(obj => scene.remove(obj));
+     placedObjects.forEach(obj => {
+         disposeObject(obj);
+         scene.remove(obj);
+     });
      placedObjects.length = 0;
      showNotification('Scene cleared', 'success');
  }
