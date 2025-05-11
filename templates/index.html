@@ -191,33 +191,6 @@
 
     <script type="module" src="/static/js/main.js"></script>
 
-        // Handle window resize
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // Handle mouse move for model placement preview
-        function onMouseMove(event) {
-            // Calculate mouse position in normalized device coordinates
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            // Update placement indicator
-            updatePlacementIndicator();
-        }
-
-        // Handle mouse click for model placement, deletion, or editing
-        function onMouseClick(event) {
-            // <<< START FOLLOW CODE >>>
-            // Exit follow mode on any click
-            if (isFollowing) {
-                exitFollowMode();
-                // Do NOT return here, so clicking a car still shows the button
-            }
-            // <<< END FOLLOW CODE >>>
-
             // Check if clicked on a car
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(placedObjects, true);
