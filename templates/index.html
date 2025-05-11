@@ -1517,7 +1517,7 @@
 
             // Filename input
             const filenameLabel = document.createElement('label');
-            filenameLabel.textContent = 'Filename: ';
+            filenameLabel.textContent = 'Local Filename (optional): ';
             filenameLabel.style.display = 'block';
             filenameLabel.style.marginBottom = '5px';
             saveDialog.appendChild(filenameLabel);
@@ -1549,9 +1549,13 @@
             saveButton.addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
                 const townName = townNameInput.value;
-                saveSceneToServer(filenameInput.value, townName);
-                // Update the town name display
+                const localFilename = filenameInput.value.trim() || null; // Pass null if empty for optional local save
+
+                // Update the town name display immediately
                 document.getElementById('town-name-display').textContent = townName;
+                document.getElementById('town-name-input').value = townName; // Sync input field too
+
+                saveSceneToServer(localFilename, townName); // This now handles Django save too
                 document.body.removeChild(saveDialog);
             });
             buttonsDiv.appendChild(saveButton);
@@ -1681,9 +1685,9 @@
             title.style.marginBottom = '15px';
             loadDialog.appendChild(title);
 
-            // Filename input
+            // Filename input (for local load)
             const filenameLabel = document.createElement('label');
-            filenameLabel.textContent = 'Filename: ';
+            filenameLabel.textContent = 'Local Filename: ';
             filenameLabel.style.display = 'block';
             filenameLabel.style.marginBottom = '5px';
             loadDialog.appendChild(filenameLabel);
@@ -1696,14 +1700,54 @@
             filenameInput.style.padding = '5px';
             loadDialog.appendChild(filenameInput);
 
-            // Buttons container
-            const buttonsDiv = document.createElement('div');
-            buttonsDiv.style.display = 'flex';
-            buttonsDiv.style.justifyContent = 'space-around'; // Space out buttons
+            // --- Django Town Loader ---
+            const djangoLoadLabel = document.createElement('label');
+            djangoLoadLabel.textContent = 'Or Load from Server by Town ID:';
+            djangoLoadLabel.style.display = 'block';
+            djangoLoadLabel.style.marginTop = '10px';
+            djangoLoadLabel.style.marginBottom = '5px';
+            loadDialog.appendChild(djangoLoadLabel);
 
-            // Load button
+            const townIdInput = document.createElement('input');
+            townIdInput.type = 'number';
+            townIdInput.placeholder = 'Enter Town ID from Django';
+            townIdInput.style.width = 'calc(100% - 12px)';
+            townIdInput.style.marginBottom = '10px';
+            townIdInput.style.padding = '5px';
+            loadDialog.appendChild(townIdInput);
+
+            const loadFromDjangoButton = document.createElement('button');
+            loadFromDjangoButton.textContent = 'Load from Server';
+            loadFromDjangoButton.style.padding = '8px 15px';
+            loadFromDjangoButton.style.backgroundColor = '#17a2b8'; // Info color
+            loadFromDjangoButton.style.color = 'white';
+            loadFromDjangoButton.style.border = 'none';
+            loadFromDjangoButton.style.borderRadius = '3px';
+            loadFromDjangoButton.style.cursor = 'pointer';
+            loadFromDjangoButton.style.display = 'block';
+            loadFromDjangoButton.style.width = '100%';
+            loadFromDjangoButton.style.marginBottom = '15px';
+            loadFromDjangoButton.addEventListener('click', function(event) {
+                event.stopPropagation();
+                const townIdToLoad = townIdInput.value;
+                if (townIdToLoad) {
+                    loadTownFromDjangoAPI(townIdToLoad); // New function to load from Django
+                    document.body.removeChild(loadDialog);
+                } else {
+                    showNotification("Please enter a Town ID.", "error");
+                }
+            });
+            loadDialog.appendChild(loadFromDjangoButton);
+
+
+            // Buttons container for local load
+            const localLoadButtonsDiv = document.createElement('div');
+            localLoadButtonsDiv.style.display = 'flex';
+            localLoadButtonsDiv.style.justifyContent = 'space-around'; // Space out buttons
+
+            // Load button (for local file)
             const loadButton = document.createElement('button');
-            loadButton.textContent = 'Load';
+            loadButton.textContent = 'Load Local File';
             loadButton.style.padding = '8px 20px';
             loadButton.style.backgroundColor = '#2a2';
             loadButton.style.color = 'white';
@@ -1712,10 +1756,10 @@
             loadButton.style.cursor = 'pointer';
             loadButton.addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent click from propagating to canvas
-                loadSceneFromServer(filenameInput.value);
+                loadSceneFromServer(filenameInput.value); // Existing local load
                 document.body.removeChild(loadDialog);
             });
-            buttonsDiv.appendChild(loadButton);
+            localLoadButtonsDiv.appendChild(loadButton);
 
             // Cancel button
             const cancelButton = document.createElement('button');
@@ -1730,13 +1774,13 @@
                 event.stopPropagation(); // Prevent click from propagating to canvas
                 document.body.removeChild(loadDialog);
             });
-            buttonsDiv.appendChild(cancelButton);
+            localLoadButtonsDiv.appendChild(cancelButton);
 
-            loadDialog.appendChild(buttonsDiv);
+            loadDialog.appendChild(localLoadButtonsDiv);
             document.body.appendChild(loadDialog);
         }
 
-        // Load scene from server
+        // Load scene from local server file
         function loadSceneFromServer(filename) {
             // Send request to server
             fetch('/api/town/load', {
@@ -1756,6 +1800,7 @@
 
                     // Load the town data
                     const townData = data.data;
+                    currentTownId = null; // Reset Django town ID when loading local file
 
                     // Apply scene settings if they exist in the loaded data
                     if (townData.settings) {
@@ -1794,8 +1839,9 @@
                         // Skip non-array properties like townName
                         if (Array.isArray(townData[category])) {
                             townData[category].forEach(modelData => {
-                                // Load each model
-                                loadModelFromData(category, modelData);
+                                if (modelData.model && modelData.id) { // Ensure essential data exists
+                                    loadModelFromData(category, modelData);
+                                }
                             });
                         }
                     });
@@ -1806,23 +1852,21 @@
                 }
             })
             .catch(error => {
-                console.error('Error loading scene:', error);
-                showNotification('Error loading scene', 'error');
+                console.error('Error loading scene from local file:', error);
+                showNotification('Error loading scene from local file', 'error');
             });
         }
 
-        // Load a model from data
+        // Load a model from data (used by both local and Django load)
         function loadModelFromData(category, modelData) {
             const modelPath = `/static/models/${category}/${modelData.model}`;
 
-            // Load the model
             const loader = new THREE.GLTFLoader();
             loader.load(
                 modelPath,
                 function(gltf) {
                     const model = gltf.scene;
 
-                    // Set position
                     if (modelData.position) {
                         model.position.set(
                             modelData.position.x,
@@ -1831,8 +1875,7 @@
                         );
                     }
 
-                    // Set rotation (convert degrees from JSON back to radians)
-                    if (modelData.rotation) {
+                    if (modelData.rotation) { // Expecting degrees (h, p, r)
                         model.rotation.set(
                             THREE.MathUtils.degToRad(modelData.rotation.p || 0),
                             THREE.MathUtils.degToRad(modelData.rotation.h || 0),
@@ -1840,97 +1883,64 @@
                         );
                     }
 
-                    // Set scale if available
                     if (modelData.scale) {
-                        const scale = typeof modelData.scale === 'number' ?
-                            modelData.scale : 1.0;
+                        const scale = typeof modelData.scale === 'number' ? modelData.scale : 1.0;
                         model.scale.set(scale, scale, scale);
                     }
 
-                    // Store metadata
                     model.userData = {
                         category: category,
                         modelName: modelData.model,
-                        id: modelData.id // Keep ID if present
+                        id: modelData.id, // Use ID from data
+                        rotation: modelData.rotation || { h: 0, p: 0, r: 0 }, // Store rotation in userData
+                        scale: modelData.scale || 1.0 // Store scale
                     };
 
-                    // Apply color if available in data
                     if (modelData.color) {
                         const loadedColor = new THREE.Color(modelData.color.r, modelData.color.g, modelData.color.b);
-                        applyColorToModel(model, loadedColor); // Use helper to apply and store in userData
+                        applyColorToModel(model, loadedColor);
+                    }
+                    if (modelData.driver) {
+                        model.userData.driver = modelData.driver;
+                        model.userData.driverName = modelData.driver;
                     }
 
-                    // Make model cast and receive shadows
+
                     model.traverse(function(node) {
                         if (node.isMesh) {
                             node.castShadow = true;
                             node.receiveShadow = true;
-                            // Store original color if not already colored by loaded data
                             if (!modelData.color && node.material && node.material.color) {
                                 node.userData.originalColor = node.material.color.clone();
                             }
                         }
                     });
 
-                    // Check if this is a vehicle that should be placed on a road
                     const isVehicle = category === 'vehicles';
-                    let placedOnRoad = false;
-
-                    // If it's a vehicle, check if there's a road underneath
                     if (isVehicle) {
-                        // Find if there's a road model at this position
                         for (const object of placedObjects) {
-                            if (object.userData &&
-                                object.userData.category === 'street' &&
-                                object.userData.modelName.toLowerCase().includes('road')) {
-
-                                // Check if the vehicle is close to the road (horizontally)
-                                const vehiclePos = new THREE.Vector3(
-                                    modelData.position.x,
-                                    0,
-                                    modelData.position.z
-                                );
-                                const roadPos = new THREE.Vector3(
-                                    object.position.x,
-                                    0,
-                                    object.position.z
-                                );
-                                const distance = vehiclePos.distanceTo(roadPos);
-
-                                if (distance < 2) { // Within 2 units of the road
-                                    // Get the bounding box of the road
+                            if (object.userData && object.userData.category === 'street' && object.userData.modelName.toLowerCase().includes('road')) {
+                                const vehiclePos = new THREE.Vector3(modelData.position.x, 0, modelData.position.z);
+                                const roadPos = new THREE.Vector3(object.position.x, 0, object.position.z);
+                                if (vehiclePos.distanceTo(roadPos) < 2) {
                                     const roadBox = new THREE.Box3().setFromObject(object);
-                                    const roadHeight = roadBox.max.y;
-
-                                    // Place the vehicle directly on top of the road (wheels touching)
-                                    model.position.y = roadHeight;
-                                    placedOnRoad = true;
-                                    console.log("Placed loaded vehicle on road at height:", model.position.y);
+                                    model.position.y = roadBox.max.y;
                                     break;
                                 }
                             }
                         }
                     }
 
-                    // Add to scene and tracking array
                     scene.add(model);
                     placedObjects.push(model);
 
-                    // <<< START ADDED CODE >>>
-                    // If it's a vehicle, add it to the movingCars array
                     if (category === 'vehicles') {
                         movingCars.push(model);
-                        console.log("Added loaded car to movingCars array:", model);
-                        // Optional: Ensure loaded rotation is correct or set initial rotation
-                        // if (!modelData.rotation || modelData.rotation.h === undefined) {
-                        //     model.rotation.y = Math.PI / 2; // Example: face positive X if no rotation saved
-                        // }
                     }
-                    // <<< END ADDED CODE >>>
                 },
                 undefined,
                 function(error) {
-                    console.error('Error loading model:', error);
+                    console.error(`Error loading model ${modelData.model}:`, error);
                     showNotification(`Error loading model: ${modelData.model}`, 'error');
                 }
             );
@@ -1955,7 +1965,10 @@
                 notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
             } else if (type === 'error') {
                 notification.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
-            } else {
+            }  else if (type === 'warning') {
+                notification.style.backgroundColor = 'rgba(255, 193, 7, 0.9)'; // Bootstrap warning yellow
+                notification.style.color = 'black';
+            } else { // info
                 notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
             }
 
