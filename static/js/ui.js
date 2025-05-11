@@ -1,5 +1,5 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
-import { loadModel } from './scene.js';
+import { loadModel, scene, placedObjects, renderer, groundPlane } from './scene.js';
 
 export function showNotification(message, type = 'info') {
     const notification = document.createElement('div') || document.createElement('span');
@@ -75,7 +75,9 @@ export function showNotification(message, type = 'info') {
  }
 
  async function onClearScene() {
-     // TODO: clear scene
+     placedObjects.forEach(obj => scene.remove(obj));
+     placedObjects.length = 0;
+     showNotification('Scene cleared', 'success');
  }
 
  async function onSaveScene() {
@@ -98,22 +100,32 @@ export function showNotification(message, type = 'info') {
      }
  }
 
- function onTownNameChange() {
+ async function onTownNameChange() {
      const input = document.getElementById('town-name-input');
      const display = document.getElementById('town-name-display');
      const newName = input.value.trim();
      if (newName) {
          display.textContent = newName;
-         // TODO: persist town name to server
+         try {
+             const response = await fetch('/api/town', {
+                 method: 'POST',
+                 headers: {'Content-Type': 'application/json'},
+                 body: JSON.stringify({ name: newName })
+             });
+             if (!response.ok) throw new Error(`Failed to update town name: ${response.statusText}`);
+             showNotification('Town name updated', 'success');
+         } catch (err) {
+             showNotification(err.message, 'error');
+         }
      }
      input.style.display = 'none';
      display.style.display = 'block';
  }
 
  function setSkyColor(color) {
-     // TODO: update scene sky color
+     renderer.setClearColor(color);
  }
 
  function setGroundColor(color) {
-     // TODO: update ground color
+     groundPlane.material.color.set(color);
  }
