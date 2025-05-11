@@ -38,7 +38,6 @@ export function setupKeyboardControls() {
             event.preventDefault();
 
             const deltaX = event.clientX - lastMouseX;
-            const deltaX = event.clientX - lastMouseX;
             const deltaY = event.clientY - lastMouseY;
 
             lastMouseX = event.clientX;
