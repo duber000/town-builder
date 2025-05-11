@@ -128,15 +128,20 @@ export function animate() {
             }
 
             if (nearestTarget) {
-                // Orient towards target and set move direction accordingly
+                // car.lookAt() orients the object's local -Z axis towards the target.
                 car.lookAt(nearestTarget.position);
-                moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion); // Move along new local Z
+                // If the car model's "front" is its local +Z axis (common for vehicles),
+                // we need to rotate it by 180 degrees around its local Y axis
+                // so that its +Z (front) now faces the target.
+                car.rotateY(Math.PI);
+                // Now, the car's local +Z axis (assumed to be its front) points towards the target.
+                moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
             } else {
-                // No target found, move straight based on current orientation
+                // No target found, move straight based on current orientation (local +Z)
                 moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
             }
         } else {
-            // Default straight movement for non-chasers or chasers without a defined target behavior
+            // Default straight movement for non-chasers (local +Z)
             moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
         }
         
