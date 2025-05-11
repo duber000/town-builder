@@ -247,11 +247,31 @@ export function animate() {
             }
         }
 
+        let attemptedMoveSuccessful = true;
         if (collisionDetected) {
-            // Simple collision response: reverse direction and turn slightly
-            car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI; // Turn 90-180 deg
-        } else {
-            // Move the car to the potentialPosition (which might have been clamped by the boundary check)
+            // Collision detected with a non-police, non-road object.
+            if (car.userData.behavior === 'chase') {
+                // For a chasing car, if it collides with something (e.g., its target, a building),
+                // prevent it from moving into the object this frame.
+                // The existing chase logic (slerp towards target) will continue to adjust its orientation.
+                // This allows it to "slide" along or turn away from an obstacle if its target is offset,
+                // rather than making a large random turn that could disrupt other nearby chasers.
+                attemptedMoveSuccessful = false;
+                // Optional: Consider adding a more pronounced braking effect here if simple stopping isn't enough,
+                // e.g., car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 5);
+                // However, the tailingDistance logic already handles braking when close to the target.
+            } else {
+                // Original collision response for non-chasing cars.
+                // This is a large random turn.
+                car.rotation.y += Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1) + Math.PI;
+                attemptedMoveSuccessful = false; // Don't move after this drastic turn.
+            }
+        }
+
+        if (attemptedMoveSuccessful) {
+            // No collision was detected that should stop movement (or the collision was
+            // between two police cars, which is ignored by the logic that sets collisionDetected).
+            // Move the car to the potentialPosition (which might have been clamped by boundary check earlier).
             car.position.copy(potentialPosition);
         }
 
