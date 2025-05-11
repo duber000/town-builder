@@ -1,6 +1,8 @@
 import * as THREE from './three.module.js';
 import { GLTFLoader } from './three/examples/jsm/loaders/GLTFLoader.js'; // Correct path
 import { updateControls } from './controls.js';
+import { getCurrentMode } from './ui.js';
+import { showNotification } from './ui.js';
 
 const MODELS_BASE_URL = '/static/models';
 
@@ -44,6 +46,8 @@ export function initScene() {
 
     // Event listeners
     window.addEventListener('resize', onWindowResize);
+    // Handle clicks for edit/delete modes
+    renderer.domElement.addEventListener('click', onCanvasClick);
     // Initialize other components...
 }
 
@@ -73,6 +77,40 @@ export async function loadModel(category, modelName) {
             reject(err);
         });
     });
+}
+
+function findRootObject(obj) {
+    while (obj.parent && !placedObjects.includes(obj)) {
+        obj = obj.parent;
+    }
+    return obj;
+}
+
+function onCanvasClick(event) {
+    const mode = getCurrentMode();
+    if (mode !== 'delete' && mode !== 'edit') return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(placedObjects, true);
+    if (intersects.length > 0) {
+        const selected = findRootObject(intersects[0].object);
+        if (mode === 'delete') {
+            scene.remove(selected);
+            const idx = placedObjects.indexOf(selected);
+            if (idx > -1) placedObjects.splice(idx, 1);
+            showNotification('Object deleted', 'success');
+        } else if (mode === 'edit') {
+            window.selectedObject = selected;
+            showNotification(`Selected for edit: ${selected.userData.modelName}`, 'info');
+            // TODO: display edit UI
+        }
+    }
 }
 
 // Other scene-related functions...

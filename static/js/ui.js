@@ -1,6 +1,9 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
 import { loadModel, scene, placedObjects, renderer, groundPlane } from './scene.js';
 
+let currentMode = 'place';
+export function getCurrentMode() { return currentMode; }
+
 export function showNotification(message, type = 'info') {
     const notification = document.createElement('div') || document.createElement('span');
     notification.textContent = message;
@@ -61,6 +64,17 @@ export function showNotification(message, type = 'info') {
      // Color pickers
      document.getElementById('skyColorPicker').addEventListener('input', e => setSkyColor(e.target.value));
      document.getElementById('groundColorPicker').addEventListener('input', e => setGroundColor(e.target.value));
+
+     // Mode button handling
+     document.querySelectorAll('.mode-button').forEach(btn =>
+         btn.addEventListener('click', (e) => {
+             document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+             const mode = e.target.dataset.mode;
+             e.target.classList.add('active');
+             currentMode = mode;
+             showNotification(`Mode: ${mode}`, 'info');
+         })
+     );
  }
 
  // Handler stubs
