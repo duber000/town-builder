@@ -136,9 +136,11 @@ export function animate() {
 
             // Find the nearest target
             for (const potentialTarget of placedObjects) {
-                // Check if potentialTarget is the correct model type and not the chaser itself
+                // Check if potentialTarget is the correct model type, not the chaser itself, and is moving
                 // Ensure targetType check uses .gltf
-                if (potentialTarget.userData.modelName === car.userData.targetType && potentialTarget !== car) {
+                if (potentialTarget.userData.modelName === car.userData.targetType && 
+                    potentialTarget !== car &&
+                    potentialTarget.userData.currentSpeed > 0) { // Added check for target moving
                     const distanceSq = car.position.distanceToSquared(potentialTarget.position);
                     if (distanceSq < minDistanceSq) {
                         minDistanceSq = distanceSq;
