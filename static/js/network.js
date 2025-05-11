@@ -18,9 +18,12 @@ export function setupSSE() {
             evtSource.onmessage = function(event) {
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === 'onlineUsers') {
-                        updateOnlineUsersList(msg.payload);
+                    if (msg.type === 'users') { // Changed 'onlineUsers' to 'users'
+                        updateOnlineUsersList(msg.users); // Changed msg.payload to msg.users
                     } else {
+                        // Pass the whole message to showNotification for more context if needed
+                        // For now, keeping it simple as before, but logging the full message might be useful for debugging other events
+                        // console.log("Received SSE message:", msg); 
                         showNotification(`Event: ${msg.type}`, 'info');
                     }
                 } catch (err) {
