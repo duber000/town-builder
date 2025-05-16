@@ -161,6 +161,37 @@ def update_town():
 
     return jsonify({"status": "success"})
 
+# --- Helper function to prepare payload for Django ---
+def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload):
+    """Prepares the payload dictionary for Django API requests."""
+    current_layout_data = town_data_to_save if town_data_to_save is not None else {}
+    django_payload = {"layout_data": current_layout_data}
+
+    # Name (Django key: "name")
+    # town_name_from_payload is request_payload.get('townName') from the root of the request
+    effective_name = town_name_from_payload
+    if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
+        effective_name = current_layout_data.get('townName') # Prefer 'townName' key from within 'data'
+        if not effective_name: # if still None or empty, try 'name' key from within 'data'
+            effective_name = current_layout_data.get('name') 
+    if effective_name is not None: # Send if not None
+        django_payload['name'] = effective_name
+
+    # Required: latitude, longitude
+    # Optional: description, population, area, established_date, place_type, full_address, town_image
+    fields_to_propagate = [
+        "latitude", "longitude", "description", "population", 
+        "area", "established_date", "place_type", "full_address", "town_image"
+    ]
+    for key in fields_to_propagate:
+        value = request_payload.get(key) # Check root of request payload first
+        # Fallback to current_layout_data (data from 'data' key) if value is None at root
+        if value is None and isinstance(current_layout_data, dict):
+            value = current_layout_data.get(key)
+        if value is not None:
+            django_payload[key] = value
+    return django_payload
+
 @app.route('/api/town/save', methods=['POST'])
 def save_town():
     """Save the town layout.
@@ -197,45 +228,18 @@ def save_town():
         # An ID of 0 is treated as a valid ID for update.
         # An empty string ID or None is treated as not provided (triggers creation).
         if town_id is not None and town_id != "":
-            # Ensure API_URL ends with a slash if it doesn't already
+            # --- Update existing town (PUT) ---
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
             django_api_url = f"{django_api_base_url}{town_id}/"
-
-            # Prepare Django payload
-            current_layout_data = town_data_to_save if town_data_to_save is not None else {}
-            django_payload = {"layout_data": current_layout_data}
-
-            # Name (Django key: "name")
-            # town_name_from_payload is request_payload.get('townName')
-            effective_name = town_name_from_payload
-            if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
-                effective_name = current_layout_data.get('townName') # Prefer 'townName' key
-                if not effective_name: # if still None or empty, try 'name' key
-                    effective_name = current_layout_data.get('name') 
-            if effective_name is not None: # Send if not None (allows empty string if Django permits)
-                django_payload['name'] = effective_name
-
-            # Required: latitude, longitude
-            # Optional: description, population, area, established_date, place_type, full_address
-            # These keys are assumed to be consistent for Django, request_payload, and current_layout_data
-            fields_to_propagate = [
-                "latitude", "longitude", "description", "population", 
-                "area", "established_date", "place_type", "full_address", "town_image"
-            ]
-            for key in fields_to_propagate:
-                value = request_payload.get(key)
-                # Fallback to current_layout_data if value is None (0, 0.0, False, "" from payload are kept)
-                if value is None and isinstance(current_layout_data, dict):
-                    value = current_layout_data.get(key)
-                if value is not None:
-                    django_payload[key] = value
+            
+            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload)
             
             headers = {'Content-Type': 'application/json'}
             if API_TOKEN:
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
 
             try:
-                logger.debug(f"Attempting to save town layout to Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
+                logger.debug(f"Attempting to update town (PUT) via Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
                 resp = requests.put(django_api_url, headers=headers, json=django_payload, timeout=10)
                 resp.raise_for_status()
 
@@ -244,11 +248,12 @@ def save_town():
 
                 return jsonify({
                     "status": "success",
-                    "message": f"{local_save_message} Town updated in Django backend (ID: {town_id})."
+                    "message": f"{local_save_message} Town updated in Django backend (ID: {town_id}).",
+                    "town_id": town_id # Ensure town_id is returned
                 })
 
             except requests.exceptions.RequestException as e:
-                logger.error(f"Error saving town layout to Django backend for town_id {town_id}: {e}")
+                logger.error(f"Error updating town layout in Django backend for town_id {town_id}: {e}")
                 error_detail = str(e)
                 if e.response is not None:
                     try:
@@ -260,55 +265,67 @@ def save_town():
                     "message": f"{local_save_message} Failed to update in Django backend: {error_detail}"
                 }), 500
         else:
-            # Create new town in Django backend
+            # --- Create new town (POST) or update by name if found (PUT) ---
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
-            django_api_url = django_api_base_url  # POST to base URL for creation
-            # Prepare Django payload
-            current_layout_data = town_data_to_save if town_data_to_save is not None else {}
-            django_payload = {"layout_data": current_layout_data}
-
-            # Name (Django key: "name")
-            # town_name_from_payload is request_payload.get('townName')
-            effective_name = town_name_from_payload
-            if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
-                effective_name = current_layout_data.get('townName') # Prefer 'townName' key
-                if not effective_name: # if still None or empty, try 'name' key
-                    effective_name = current_layout_data.get('name')
-            if effective_name is not None: # Send if not None (allows empty string if Django permits)
-                django_payload['name'] = effective_name
-
-            # Required: latitude, longitude
-            # Optional: description, population, area, established_date, place_type, full_address
-            # These keys are assumed to be consistent for Django, request_payload, and current_layout_data
-            fields_to_propagate = [
-                "latitude", "longitude", "description", "population", 
-                "area", "established_date", "place_type", "full_address", "town_image"
-            ]
-            for key in fields_to_propagate:
-                value = request_payload.get(key)
-                # Fallback to current_layout_data if value is None (0, 0.0, False, "" from payload are kept)
-                if value is None and isinstance(current_layout_data, dict):
-                    value = current_layout_data.get(key)
-                if value is not None:
-                    django_payload[key] = value
-            
             headers = {'Content-Type': 'application/json'}
             if API_TOKEN:
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
+
+            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload)
+            town_name_in_payload = django_payload.get("name")
+            
+            existing_town_id_found_by_name = None
+            action_verb = "create" # Default action
+            http_method = requests.post
+            django_api_url = django_api_base_url # Default for POST
+
+            if town_name_in_payload:
+                try:
+                    search_url = f"{django_api_base_url}?name={town_name_in_payload}"
+                    logger.debug(f"No town_id provided. Checking if town exists by name: {search_url}")
+                    search_resp = requests.get(search_url, headers=headers, timeout=5)
+                    
+                    if search_resp.status_code == 200:
+                        search_data = search_resp.json()
+                        results = []
+                        if isinstance(search_data, list): # Non-paginated list
+                            results = search_data
+                        elif isinstance(search_data, dict) and 'results' in search_data: # Paginated list
+                            results = search_data['results']
+                        
+                        if len(results) == 1 and 'id' in results[0]:
+                            existing_town_id_found_by_name = results[0]['id']
+                            logger.info(f"Found existing town by name '{town_name_in_payload}' with ID: {existing_town_id_found_by_name}. Will attempt PUT.")
+                            action_verb = "update by name"
+                            http_method = requests.put
+                            django_api_url = f"{django_api_base_url}{existing_town_id_found_by_name}/"
+                        else:
+                            logger.info(f"Search for town name '{town_name_in_payload}' returned {len(results)} results. Proceeding with POST.")
+                    else:
+                        logger.warning(f"Failed to search for town by name (status {search_resp.status_code}). Proceeding with POST.")
+                except requests.exceptions.RequestException as e_search:
+                    logger.error(f"Error searching for town by name: {e_search}. Proceeding with POST.")
+                except ValueError: # JSONDecodeError
+                    logger.error(f"Error decoding JSON response when searching for town by name. Proceeding with POST.")
+            
             try:
-                logger.debug(f"Creating new town via Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
-                resp = requests.post(django_api_url, headers=headers, json=django_payload, timeout=10)
+                logger.debug(f"Attempting to {action_verb} town via Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
+                resp = http_method(django_api_url, headers=headers, json=django_payload, timeout=10)
                 resp.raise_for_status()
-                new_id = resp.json().get("id")
-                logger.info(f"Town created in Django backend with new id: {new_id}")
+                
+                response_data = resp.json()
+                # If updated by name, existing_town_id_found_by_name is the ID. If created, ID is in response_data.
+                returned_id = response_data.get("id") if http_method == requests.post else existing_town_id_found_by_name
+                
+                logger.info(f"Town {action_verb}d in Django backend. ID: {returned_id}")
                 broadcast_sse({'type': 'full', 'town': town_data_to_save})
                 return jsonify({
                     "status": "success",
-                    "message": f"{local_save_message} Town created in Django backend (ID: {new_id}).",
-                    "town_id": new_id
+                    "message": f"{local_save_message} Town {action_verb}d in Django backend (ID: {returned_id}).",
+                    "town_id": returned_id
                 })
             except requests.exceptions.RequestException as e:
-                logger.error(f"Error creating town layout in Django backend: {e}")
+                logger.error(f"Error {action_verb}ing town layout in Django backend: {e}")
                 error_detail = str(e)
                 if getattr(e, 'response', None) is not None:
                     try:
