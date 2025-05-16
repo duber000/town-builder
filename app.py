@@ -293,14 +293,17 @@ def save_town():
                         elif isinstance(search_data, dict) and 'results' in search_data: # Paginated list
                             results = search_data['results']
                         
-                        if len(results) == 1 and 'id' in results[0]:
-                            existing_town_id_found_by_name = results[0]['id']
-                            logger.info(f"Found existing town by name '{town_name_in_payload}' with ID: {existing_town_id_found_by_name}. Will attempt PUT.")
+                        if len(results) > 0 and 'id' in results[0]: # If one or more towns found by name
+                            existing_town_id_found_by_name = results[0]['id'] # Pick the first one
+                            if len(results) > 1:
+                                logger.warning(f"Found {len(results)} towns named '{town_name_in_payload}'. Updating the first one found (ID: {existing_town_id_found_by_name}).")
+                            else: # len(results) == 1
+                                logger.info(f"Found existing town by name '{town_name_in_payload}' with ID: {existing_town_id_found_by_name}. Will attempt PUT.")
                             action_verb = "update by name"
                             http_method = requests.put
                             django_api_url = f"{django_api_base_url}{existing_town_id_found_by_name}/"
-                        else:
-                            logger.info(f"Search for town name '{town_name_in_payload}' returned {len(results)} results. Proceeding with POST.")
+                        else: # No town found by that name, or result format unexpected
+                            logger.info(f"Search for town name '{town_name_in_payload}' returned {len(results)} results or no valid ID. Proceeding with POST.")
                     else:
                         logger.warning(f"Failed to search for town by name (status {search_resp.status_code}). Proceeding with POST.")
                 except requests.exceptions.RequestException as e_search:
