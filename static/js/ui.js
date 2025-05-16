@@ -38,8 +38,8 @@ export function setCurrentMode(mode) {
             showNotification('Drive Mode: Click on a car in the scene to drive it.', 'info');
         }
     } else { // Not in drive mode
-         if (modelContainer) modelContainer.style.display = 'block';
-         window.drivingCar = null; // Ensure drivingCar is cleared if mode changes from drive
+        if (modelContainer) modelContainer.style.display = 'block';
+        window.drivingCar = null; // Ensure drivingCar is cleared if mode changes from drive
     }
 
 
@@ -51,7 +51,7 @@ export function setCurrentMode(mode) {
         if (pi) pi.visible = false;
     }
     // If mode IS 'place', handleMouseMove in scene.js will manage placementIndicator visibility.
-    
+
     // Only show generic mode notification if not handled by specific drive mode logic above
     if (!(mode === 'drive')) {
         showNotification(`Mode: ${mode}`, 'info');
@@ -102,45 +102,45 @@ export function showNotification(message, type = 'info') {
     }, 3000);
 }
 
- // Other UI-related functions...
+// Other UI-related functions...
 
- export function initUI() {
-     // Model-item clicks
-     document.querySelectorAll('.model-item').forEach(elem => {
-         elem.addEventListener('click', onModelItemClick);
-     });
-     // Clear, save, load buttons
-     document.getElementById('clear-scene').addEventListener('click', onClearScene);
-     document.getElementById('save-scene').addEventListener('click', onSaveScene);
-     document.getElementById('load-scene').addEventListener('click', onLoadScene);
-     // Town name display/input
-     const display = document.getElementById('town-name-display');
-     const input = document.getElementById('town-name-input');
-     display.addEventListener('click', () => {
-         display.style.display = 'none';
-         input.style.display = 'block';
-         input.focus();
-     });
-     input.addEventListener('blur', onTownNameChange);
-     input.addEventListener('keydown', (e) => {
-         if (e.key === 'Enter') {
-             input.blur();
-         }
-     });
-     // Color pickers
-     document.getElementById('skyColorPicker').addEventListener('input', e => setSkyColor(e.target.value));
-     document.getElementById('groundColorPicker').addEventListener('input', e => setGroundColor(e.target.value));
+export function initUI() {
+    // Model-item clicks
+    document.querySelectorAll('.model-item').forEach(elem => {
+        elem.addEventListener('click', onModelItemClick);
+    });
+    // Clear, save, load buttons
+    document.getElementById('clear-scene').addEventListener('click', onClearScene);
+    document.getElementById('save-scene').addEventListener('click', onSaveScene);
+    document.getElementById('load-scene').addEventListener('click', onLoadScene);
+    // Town name display/input
+    const display = document.getElementById('town-name-display');
+    const input = document.getElementById('town-name-input');
+    display.addEventListener('click', () => {
+        display.style.display = 'none';
+        input.style.display = 'block';
+        input.focus();
+    });
+    input.addEventListener('blur', onTownNameChange);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            input.blur();
+        }
+    });
+    // Color pickers
+    document.getElementById('skyColorPicker').addEventListener('input', e => setSkyColor(e.target.value));
+    document.getElementById('groundColorPicker').addEventListener('input', e => setGroundColor(e.target.value));
 
-     // Mode button handling
-     document.querySelectorAll('.mode-button').forEach(btn =>
-         btn.addEventListener('click', (e) => {
-             document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
-             const mode = e.target.dataset.mode;
-             // e.target.classList.add('active'); // setCurrentMode will handle this
-             // currentMode = mode; // setCurrentMode will handle this
-             setCurrentMode(mode); // Use the new function
-         })
-     );
+    // Mode button handling
+    document.querySelectorAll('.mode-button').forEach(btn =>
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+            const mode = e.target.dataset.mode;
+            // e.target.classList.add('active'); // setCurrentMode will handle this
+            // currentMode = mode; // setCurrentMode will handle this
+            setCurrentMode(mode); // Use the new function
+        })
+    );
 
     // Listener for Exit Driving Mode button
     const exitDrivingBtn = document.getElementById('exit-driving-btn');
@@ -149,10 +149,10 @@ export function showNotification(message, type = 'info') {
             deactivateDriveModeUI();
         });
     }
- }
+}
 
- // Handler stubs
- function onModelItemClick(event) {
+// Handler stubs
+function onModelItemClick(event) {
     const category = event.target.dataset.category;
     const modelName = event.target.dataset.model;
 
@@ -160,9 +160,9 @@ export function showNotification(message, type = 'info') {
     setCurrentMode('place'); // Switch to place mode
     showNotification(`Click on the ground to place ${modelName}`, 'info');
     // The actual model loading will now happen in scene.js's onCanvasClick when in 'place' mode
- }
+}
 
- async function onClearScene() {
+async function onClearScene() {
     if (window.confirm("Are you sure you want to clear the entire scene? This action cannot be undone.")) {
         placedObjects.forEach(obj => {
             disposeObject(obj);
@@ -174,86 +174,77 @@ export function showNotification(message, type = 'info') {
     } else {
         showNotification('Clear scene cancelled', 'info');
     }
- }
+}
 
- async function onSaveScene() {
-     try {
-         const sceneDataArray = placedObjects.map(obj => ({
-             category: obj.userData.category,
-             modelName: obj.userData.modelName,
-             position: obj.position.toArray(),
-             rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
-             scale: obj.scale.toArray()
-         }));
+async function onSaveScene() {
+    try {
+        const sceneDataArray = placedObjects.map(obj => ({
+            category: obj.userData.category,
+            modelName: obj.userData.modelName,
+            position: obj.position.toArray(),
+            rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
+            scale: obj.scale.toArray()
+        }));
 
-         const townNameDisplay = document.getElementById('town-name-display');
-         const currentTownName = townNameDisplay ? townNameDisplay.textContent : "Unnamed Town";
+        const townNameDisplay = document.getElementById('town-name-display');
+        const currentTownName = townNameDisplay ? townNameDisplay.textContent : "Unnamed Town";
 
-         const payload = {
-             data: sceneDataArray,
-             townName: currentTownName
-             // filename: "my_town.json", // Optional: backend defaults to town_data.json
-             // town_id: window.currentTownId, // Optional: if you have a global town_id
-         };
-         await saveSceneToServer(payload);
-         showNotification('Scene saved successfully', 'success');
-     } catch (err) {
-         showNotification(err.message, 'error');
-     }
- }
+        const payload = {
+            data: sceneDataArray,
+            townName: currentTownName
+            // filename: "my_town.json", // Optional: backend defaults to town_data.json
+            // town_id: window.currentTownId, // Optional: if you have a global town_id
+        };
+        await saveSceneToServer(payload);
+        showNotification('Scene saved successfully', 'success');
+    } catch (err) {
+        showNotification(err.message, 'error');
+    }
+}
 
- async function onLoadScene() {
-     try {
-         const loadedData = await loadSceneFromServer();
-         await onClearScene();
-         for (const item of loadedData) {
-             const obj = await loadModel(item.category, item.modelName);
-             obj.position.fromArray(item.position);
-             obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
-             obj.scale.fromArray(item.scale);
-         }
-         showNotification('Scene loaded successfully', 'success');
-     } catch (err) {
-         showNotification(err.message, 'error');
-     }
- }
+async function onLoadScene() {
+    try {
+        const loadedData = await loadSceneFromServer();
+        await onClearScene();
+        for (const item of loadedData) {
+            const obj = await loadModel(item.category, item.modelName);
+            obj.position.fromArray(item.position);
+            obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
+            obj.scale.fromArray(item.scale);
+        }
+        showNotification('Scene loaded successfully', 'success');
+    } catch (err) {
+        showNotification(err.message, 'error');
+    }
+}
 
- async function onTownNameChange() {
-     const input = document.getElementById('town-name-input');
-     const display = document.getElementById('town-name-display');
-     const newName = input.value.trim();
-     if (newName) {
-         display.textContent = newName;
-         try {
-             const response = await fetch('/api/town', {
-                 method: 'POST',
-                 headers: {'Content-Type': 'application/json'},
-                 body: JSON.stringify({ name: newName })
-             });
-             if (!response.ok) throw new Error(`Failed to update town name: ${response.statusText}`);
-             showNotification('Town name updated', 'success');
-         } catch (err) {
-             showNotification(err.message, 'error');
-         }
-     }
-     input.style.display = 'none';
-     display.style.display = 'block';
- }
+async function onTownNameChange() {
+    const input = document.getElementById('town-name-input');
+    const newName = input.value.trim() || 'Unnamed Town';
+    window.currentTownName = newName;
+    // Update display
+    const display = document.getElementById('town-name-display');
+    if (display) {
+        display.textContent = newName;
+        display.style.display = 'block';
+        input.style.display = 'none';
+    }
+}
 
- function setSkyColor(color) {
-     renderer.setClearColor(color);
- }
+function setSkyColor(color) {
+    renderer.setClearColor(color);
+}
 
- function setGroundColor(color) {
-     groundPlane.material.color.set(color);
- }
+function setGroundColor(color) {
+    groundPlane.material.color.set(color);
+}
 
- export function updateOnlineUsersList(users) {
-     const ul = document.getElementById('user-list-ul');
-     ul.innerHTML = '';
-     users.forEach(u => {
-         const li = document.createElement('li');
-         li.textContent = u;
-         ul.appendChild(li);
-     });
- }
+export function updateOnlineUsersList(users) {
+    const ul = document.getElementById('user-list-ul');
+    ul.innerHTML = '';
+    users.forEach(u => {
+        const li = document.createElement('li');
+        li.textContent = u;
+        ul.appendChild(li);
+    });
+}

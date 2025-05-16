@@ -15,7 +15,7 @@ export function setupSSE() {
                     showNotification('Reconnected to multiplayer server', 'success');
                 }
             };
-            evtSource.onmessage = function(event) {
+            evtSource.onmessage = function (event) {
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'users') { // Changed 'onlineUsers' to 'users'
@@ -35,7 +35,7 @@ export function setupSSE() {
                 if (isInitial) {
                     reject(err);
                 } else {
-                    showNotification(`Connection lost, retrying in ${retryDelay/1000}s`, 'error');
+                    showNotification(`Connection lost, retrying in ${retryDelay / 1000}s`, 'error');
                     setTimeout(() => {
                         retryDelay = Math.min(maxDelay, retryDelay * 2);
                         connect(false);
@@ -47,26 +47,37 @@ export function setupSSE() {
     });
 }
 
- // Other network-related functions...
+// Other network-related functions...
 
- export async function saveSceneToServer(sceneData) {
-     const response = await fetch('/api/town/save', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(sceneData)
-     });
-     if (!response.ok) {
-         throw new Error('Failed to save scene: ' + response.statusText);
-     }
-     return response.json();
- }
+export async function saveSceneToServer(sceneData) {
+    // Include town_id and townName for upsert behavior
+    const payload = {
+        data: sceneData,
+        town_id: window.currentTownId || null,
+        townName: window.currentTownName || null
+    };
+    const response = await fetch('/api/town/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to save scene: ' + response.statusText);
+    }
+    const result = await response.json();
+    // Persist returned town_id for future updates
+    if (result.town_id) {
+        window.currentTownId = result.town_id;
+    }
+    return result;
+}
 
- export async function loadSceneFromServer() {
-     const response = await fetch('/api/town/load', {
-         method: 'POST'
-     });
-     if (!response.ok) {
-         throw new Error('Failed to load scene: ' + response.statusText);
-     }
-     return response.json();
- }
+export async function loadSceneFromServer() {
+    const response = await fetch('/api/town/load', {
+        method: 'POST'
+    });
+    if (!response.ok) {
+        throw new Error('Failed to load scene: ' + response.statusText);
+    }
+    return response.json();
+}

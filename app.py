@@ -237,9 +237,39 @@ def save_town():
                     "message": f"{local_save_message} Failed to update in Django backend: {error_detail}"
                 }), 500
         else:
-            # If no town_id, only local save occurs (if filename was provided)
-            broadcast_sse({'type': 'full', 'town': town_data_to_save}) # Still broadcast if saved locally
-            return jsonify({"status": "success", "message": f"{local_save_message} No town_id provided for Django backend update."})
+            # Create new town in Django backend
+            django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
+            django_api_url = django_api_base_url  # POST to base URL for creation
+            django_payload = {"layout_data": town_data_to_save}
+            if town_name_from_payload:
+                django_payload["name"] = town_name_from_payload
+            headers = {'Content-Type': 'application/json'}
+            if API_TOKEN:
+                headers['Authorization'] = f"Bearer {API_TOKEN}"
+            try:
+                logger.debug(f"Creating new town via Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
+                resp = requests.post(django_api_url, headers=headers, json=django_payload, timeout=10)
+                resp.raise_for_status()
+                new_id = resp.json().get("id")
+                logger.info(f"Town created in Django backend with new id: {new_id}")
+                broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                return jsonify({
+                    "status": "success",
+                    "message": f"{local_save_message} Town created in Django backend (ID: {new_id}).",
+                    "town_id": new_id
+                })
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error creating town layout in Django backend: {e}")
+                error_detail = str(e)
+                if getattr(e, 'response', None) is not None:
+                    try:
+                        error_detail = e.response.json()
+                    except ValueError:
+                        error_detail = e.response.text
+                return jsonify({
+                    "status": "partial_error",
+                    "message": f"{local_save_message} Failed to create in Django backend: {error_detail}"
+                }), 500
 
     except Exception as e:
         logger.error(f"Error in save_town endpoint: {e}", exc_info=True)
