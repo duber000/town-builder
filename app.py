@@ -220,7 +220,7 @@ def save_town():
             # These keys are assumed to be consistent for Django, request_payload, and current_layout_data
             fields_to_propagate = [
                 "latitude", "longitude", "description", "population", 
-                "area", "established_date", "place_type", "full_address"
+                "area", "established_date", "place_type", "full_address", "town_image"
             ]
             for key in fields_to_propagate:
                 value = request_payload.get(key)
@@ -282,7 +282,7 @@ def save_town():
             # These keys are assumed to be consistent for Django, request_payload, and current_layout_data
             fields_to_propagate = [
                 "latitude", "longitude", "description", "population", 
-                "area", "established_date", "place_type", "full_address"
+                "area", "established_date", "place_type", "full_address", "town_image"
             ]
             for key in fields_to_propagate:
                 value = request_payload.get(key)
