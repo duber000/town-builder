@@ -189,13 +189,29 @@ async function onSaveScene() {
         const townNameDisplay = document.getElementById('town-name-display');
         const currentTownName = townNameDisplay ? townNameDisplay.textContent : "Unnamed Town";
 
-        const payload = {
-            data: sceneDataArray,
-            townName: currentTownName
-            // filename: "my_town.json", // Optional: backend defaults to town_data.json
-            // town_id: window.currentTownId, // Optional: if you have a global town_id
+        // Construct the payload for app.py, including all relevant Django fields
+        const payloadForAppPy = {
+            data: sceneDataArray, // For layout_data
+            town_id: window.currentTownId || null,
+            townName: currentTownName, // For Django's 'name' field, or search by name
+
+            // Add other Django fields. Assumes these are available in global scope or UI.
+            // If not available, they will be sent as null.
+            latitude: window.currentTownLatitude || null,
+            longitude: window.currentTownLongitude || null,
+            description: window.currentTownDescription || null,
+            population: window.currentTownPopulation || null,
+            area: window.currentTownArea || null,
+            established_date: window.currentTownEstablishedDate || null, // Expected format "YYYY-MM-DD"
+            place_type: window.currentTownPlaceType || null,
+            full_address: window.currentTownFullAddress || null,
+            town_image: window.currentTownImage || null, // Expected as URL string or similar
         };
-        await saveSceneToServer(payload);
+        
+        // filename is optional for local save in app.py, can be added if needed:
+        // payloadForAppPy.filename = "my_town.json";
+
+        await saveSceneToServer(payloadForAppPy); // Pass the fully constructed payload
         showNotification('Scene saved successfully', 'success');
     } catch (err) {
         showNotification(err.message, 'error');

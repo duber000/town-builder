@@ -49,17 +49,13 @@ export function setupSSE() {
 
 // Other network-related functions...
 
-export async function saveSceneToServer(sceneData) {
-    // Include town_id and townName for upsert behavior
-    const payload = {
-        data: sceneData,
-        town_id: window.currentTownId || null,
-        townName: window.currentTownName || null
-    };
+export async function saveSceneToServer(payloadFromUI) { // Argument changed
+    // The payloadFromUI is now expected to be fully formed by ui.js
+    // No re-wrapping needed here.
     const response = await fetch('/api/town/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payloadFromUI) // Send the payload directly
     });
     if (!response.ok) {
         throw new Error('Failed to save scene: ' + response.statusText);
