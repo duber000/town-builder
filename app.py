@@ -243,8 +243,10 @@ def save_town():
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
             django_api_url = django_api_base_url  # POST to base URL for creation
             django_payload = {"layout_data": town_data_to_save}
-            if town_name_from_payload:
-                django_payload["name"] = town_name_from_payload
+            # Use town_name_from_payload if provided, otherwise try to get from town_data_to_save
+            current_town_name = town_name_from_payload or town_data_to_save.get("townName")
+            if current_town_name:
+                 django_payload["name"] = current_town_name
             headers = {'Content-Type': 'application/json'}
             if API_TOKEN:
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
