@@ -201,14 +201,35 @@ def save_town():
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
             django_api_url = f"{django_api_base_url}{town_id}/"
 
-            django_payload = {
-                "layout_data": town_data_to_save
-            }
-            # Use town_name_from_payload if provided, otherwise try to get from town_data_to_save
-            current_town_name = town_name_from_payload or town_data_to_save.get("townName")
-            if current_town_name:
-                 django_payload["name"] = current_town_name
+            # Prepare Django payload
+            current_layout_data = town_data_to_save if town_data_to_save is not None else {}
+            django_payload = {"layout_data": current_layout_data}
 
+            # Name (Django key: "name")
+            # town_name_from_payload is request_payload.get('townName')
+            effective_name = town_name_from_payload
+            if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
+                effective_name = current_layout_data.get('townName') # Prefer 'townName' key
+                if not effective_name: # if still None or empty, try 'name' key
+                    effective_name = current_layout_data.get('name') 
+            if effective_name is not None: # Send if not None (allows empty string if Django permits)
+                django_payload['name'] = effective_name
+
+            # Required: latitude, longitude
+            # Optional: description, population, area, established_date, place_type, full_address
+            # These keys are assumed to be consistent for Django, request_payload, and current_layout_data
+            fields_to_propagate = [
+                "latitude", "longitude", "description", "population", 
+                "area", "established_date", "place_type", "full_address"
+            ]
+            for key in fields_to_propagate:
+                value = request_payload.get(key)
+                # Fallback to current_layout_data if value is None (0, 0.0, False, "" from payload are kept)
+                if value is None and isinstance(current_layout_data, dict):
+                    value = current_layout_data.get(key)
+                if value is not None:
+                    django_payload[key] = value
+            
             headers = {'Content-Type': 'application/json'}
             if API_TOKEN:
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
@@ -242,11 +263,35 @@ def save_town():
             # Create new town in Django backend
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
             django_api_url = django_api_base_url  # POST to base URL for creation
-            django_payload = {"layout_data": town_data_to_save}
-            # Use town_name_from_payload if provided, otherwise try to get from town_data_to_save
-            current_town_name = town_name_from_payload or town_data_to_save.get("townName")
-            if current_town_name:
-                 django_payload["name"] = current_town_name
+            # Prepare Django payload
+            current_layout_data = town_data_to_save if town_data_to_save is not None else {}
+            django_payload = {"layout_data": current_layout_data}
+
+            # Name (Django key: "name")
+            # town_name_from_payload is request_payload.get('townName')
+            effective_name = town_name_from_payload
+            if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
+                effective_name = current_layout_data.get('townName') # Prefer 'townName' key
+                if not effective_name: # if still None or empty, try 'name' key
+                    effective_name = current_layout_data.get('name')
+            if effective_name is not None: # Send if not None (allows empty string if Django permits)
+                django_payload['name'] = effective_name
+
+            # Required: latitude, longitude
+            # Optional: description, population, area, established_date, place_type, full_address
+            # These keys are assumed to be consistent for Django, request_payload, and current_layout_data
+            fields_to_propagate = [
+                "latitude", "longitude", "description", "population", 
+                "area", "established_date", "place_type", "full_address"
+            ]
+            for key in fields_to_propagate:
+                value = request_payload.get(key)
+                # Fallback to current_layout_data if value is None (0, 0.0, False, "" from payload are kept)
+                if value is None and isinstance(current_layout_data, dict):
+                    value = current_layout_data.get(key)
+                if value is not None:
+                    django_payload[key] = value
+            
             headers = {'Content-Type': 'application/json'}
             if API_TOKEN:
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
