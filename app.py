@@ -194,7 +194,9 @@ def save_town():
 
 
         # --- Save to Django backend if town_id is provided ---
-        if town_id:
+        # An ID of 0 is treated as a valid ID for update.
+        # An empty string ID or None is treated as not provided (triggers creation).
+        if town_id is not None and town_id != "":
             # Ensure API_URL ends with a slash if it doesn't already
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
             django_api_url = f"{django_api_base_url}{town_id}/"
