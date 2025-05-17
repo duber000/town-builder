@@ -162,22 +162,25 @@ def update_town():
     return jsonify({"status": "success"})
 
 # --- Helper function to prepare payload for Django ---
-def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload):
+def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload, is_update_operation=False): # Added is_update_operation
     """Prepares the payload dictionary for Django API requests."""
     current_layout_data = town_data_to_save if town_data_to_save is not None else {}
     django_payload = {"layout_data": current_layout_data}
 
-    # Name (Django key: "name")
-    # town_name_from_payload is request_payload.get('townName') from the root of the request
-    effective_name = town_name_from_payload
-    if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
-        effective_name = current_layout_data.get('townName') # Prefer 'townName' key from within 'data'
-        if not effective_name: # if still None or empty, try 'name' key from within 'data'
-            effective_name = current_layout_data.get('name') 
-    if effective_name is not None: # Send if not None
-        django_payload['name'] = effective_name
+    if not is_update_operation: # Only include 'name' for create operations (POST)
+        # Name (Django key: "name")
+        # town_name_from_payload is request_payload.get('townName') from the root of the request
+        effective_name = town_name_from_payload
+        if not effective_name and isinstance(current_layout_data, dict): # if None or empty string, try layout_data
+            effective_name = current_layout_data.get('townName') # Prefer 'townName' key from within 'data'
+            if not effective_name: # if still None or empty, try 'name' key from within 'data'
+                effective_name = current_layout_data.get('name') 
+        if effective_name is not None: # Send if not None
+            django_payload['name'] = effective_name
+        # If name is None here for a create operation, Django will likely reject it as 'name' is required.
 
-    # Required: latitude, longitude
+    # For both create and update, propagate these fields if present.
+    # Required for create: latitude, longitude (plus name, handled above)
     # Optional: description, population, area, established_date, place_type, full_address, town_image
     fields_to_propagate = [
         "latitude", "longitude", "description", "population", 
@@ -232,7 +235,8 @@ def save_town():
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
             django_api_url = f"{django_api_base_url}{town_id}/"
             
-            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload)
+            # For updates, do not send the 'name' field to avoid unique constraint issues if name is not changing.
+            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload, is_update_operation=True)
             
             headers = {'Content-Type': 'application/json'}
             if API_TOKEN:
@@ -271,8 +275,10 @@ def save_town():
             if API_TOKEN:
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
 
-            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload)
-            town_name_in_payload = django_payload.get("name")
+            # Prepare payload for potential creation (is_update_operation=False by default)
+            # or for update by name (is_update_operation=True will be set later if town is found)
+            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload, is_update_operation=False)
+            town_name_in_payload = django_payload.get("name") # Name is needed for search and for create.
             
             existing_town_id_found_by_name = None
             action_verb = "create" # Default action
@@ -302,8 +308,11 @@ def save_town():
                             action_verb = "update by name"
                             http_method = requests.put
                             django_api_url = f"{django_api_base_url}{existing_town_id_found_by_name}/"
+                            # Re-prepare payload specifically for update, omitting name
+                            django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload, is_update_operation=True)
                         else: # No town found by that name, or result format unexpected
                             logger.info(f"Search for town name '{town_name_in_payload}' returned {len(results)} results or no valid ID. Proceeding with POST.")
+                            # Payload for POST (creation) should include name, which is already set by the initial _prepare_django_payload call.
                     else:
                         logger.warning(f"Failed to search for town by name (status {search_resp.status_code}). Proceeding with POST.")
                 except requests.exceptions.RequestException as e_search:
