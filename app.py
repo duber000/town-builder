@@ -176,14 +176,12 @@ def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_p
         if not effective_name: # if still None or empty, try 'name' key from within 'data'
             effective_name = current_layout_data.get('name') 
     
-    if effective_name is not None:
-        django_payload['name'] = effective_name
-    # If effective_name is None:
-    # - For create (POST, !is_update_operation), Django will require 'name'. Log a warning.
-    # - For update (PUT, is_update_operation), Django will also require 'name'.
-    #   The UI should ensure town_name_from_payload is always populated (e.g., with "Unnamed Town").
-    elif not is_update_operation: 
-        logger.warning("Name is missing for a create operation. Django will likely reject this.")
+    if not is_update_operation:
+        if effective_name is not None:
+            django_payload['name'] = effective_name
+        else: # effective_name is None and it's a create operation
+            logger.warning("Name is missing for a create operation. Django will likely reject this.")
+    # If is_update_operation is True, 'name' is deliberately not added to the payload.
 
     # For both create and update, propagate these fields if present.
     # Required for create: latitude, longitude (plus name, handled above)
