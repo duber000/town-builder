@@ -249,11 +249,11 @@ def save_town():
                 headers['Authorization'] = f"Bearer {API_TOKEN}"
 
             try:
-                logger.debug(f"Attempting to update town (PUT) via Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
-                resp = requests.put(django_api_url, headers=headers, json=django_payload, timeout=10)
+                logger.debug(f"Attempting to update town (PATCH) via Django API: {django_api_url} with payload keys: {list(django_payload.keys())}")
+                resp = requests.patch(django_api_url, headers=headers, json=django_payload, timeout=10)
                 resp.raise_for_status()
 
-                logger.info(f"Town layout successfully saved to Django backend for town_id: {town_id}")
+                logger.info(f"Town layout successfully updated via PATCH to Django backend for town_id: {town_id}")
                 broadcast_sse({'type': 'full', 'town': town_data_to_save})
 
                 return jsonify({
@@ -310,11 +310,11 @@ def save_town():
                             if len(results) > 1:
                                 logger.warning(f"Found {len(results)} towns named '{town_name_in_payload}'. Updating the first one found (ID: {existing_town_id_found_by_name}).")
                             else: # len(results) == 1
-                                logger.info(f"Found existing town by name '{town_name_in_payload}' with ID: {existing_town_id_found_by_name}. Will attempt PUT.")
+                                logger.info(f"Found existing town by name '{town_name_in_payload}' with ID: {existing_town_id_found_by_name}. Will attempt PATCH.")
                             action_verb = "update by name"
-                            http_method = requests.put
+                            http_method = requests.patch # Changed from requests.put
                             django_api_url = f"{django_api_base_url}{existing_town_id_found_by_name}/"
-                            # Re-prepare payload specifically for update, omitting name
+                            # Re-prepare payload specifically for update.
                             django_payload = _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload, is_update_operation=True)
                         else: # No town found by that name, or result format unexpected
                             logger.info(f"Search for town name '{town_name_in_payload}' returned {len(results)} results or no valid ID. Proceeding with POST.")
@@ -367,7 +367,7 @@ def get_api_config():
         "apiUrl": "/api/proxy/towns"  # Use our proxy endpoint instead of direct API URL
     })
 
-@app.route('/api/proxy/towns', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+@app.route('/api/proxy/towns', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 def proxy_towns_api():
     """Proxy requests to the external towns API"""
     if request.method == 'OPTIONS':
@@ -407,6 +407,10 @@ def proxy_towns_api():
                 data = request.get_json()
                 logger.debug(f"PUT data: {json.dumps(data)[:200]}...")
                 resp = requests.put(url, headers=headers, json=data, timeout=10)
+            elif request.method == 'PATCH':
+                data = request.get_json()
+                logger.debug(f"PATCH data: {json.dumps(data)[:200]}...")
+                resp = requests.patch(url, headers=headers, json=data, timeout=10)
             elif request.method == 'DELETE':
                 resp = requests.delete(url, headers=headers, timeout=10)
             else:
