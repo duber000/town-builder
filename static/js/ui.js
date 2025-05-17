@@ -245,6 +245,7 @@ async function onTownNameChange() {
         display.style.display = 'block';
         input.style.display = 'none';
     }
+    await onSaveScene(); // Automatically save the scene when the town name changes
 }
 
 function setSkyColor(color) {
