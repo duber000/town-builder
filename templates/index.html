@@ -182,5 +182,14 @@
     <button id="exit-driving-btn" style="display:none; position: absolute; top: 70px; right: 20px; z-index: 2002; background: #c22; color: white; border: none; border-radius: 5px; padding: 10px 18px; font-size: 16px; font-weight: bold; cursor: pointer;">Exit Driving Mode</button>
 
     <script type="module" src="/static/js/main.js"></script>
+    <script src="static/js/wasm_exec.js"></script>
+<script>
+  const go = new Go();
+
+  WebAssembly.instantiateStreaming(fetch("static/wasm/calc.wasm"), go.importObject).then(result => {
+    go.run(result.instance);
+
+  });
+</script>
 </body>
 </html>
