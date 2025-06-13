@@ -4,18 +4,21 @@ This guide explains how to integrate your TinyGo-compiled WebAssembly module (`c
 
 ## Prerequisites
 - Include `wasm_exec.js` in your HTML.
-- Build your Wasm binary with TinyGo:
-  ```
-  tinygo build -o calc.wasm -target wasm main.go
-  ```
+- Build your Wasm binary with TinyGo (or Go 1.20+):
+```bash
+# Using TinyGo:
+tinygo build -o calc.wasm -target wasm calc.go
+# Or with Go (requires Go 1.20+):
+GOOS=js GOARCH=wasm go build -o calc.wasm calc.go
+```
 
 ## Loading the Wasm Module
 In your `templates/index.html`, before your main scripts:
 ```html
-<script src="wasm_exec.js"></script>
+<script src="/static/js/wasm_exec.js"></script>
 <script>
   const go = new Go();
-  WebAssembly.instantiateStreaming(fetch("calc.wasm"), go.importObject)
+  WebAssembly.instantiateStreaming(fetch("/static/wasm/calc.wasm"), go.importObject)
     .then(result => go.run(result.instance));
 </script>
 ```
@@ -48,8 +51,8 @@ TinyGo’s `main()` registers a global `calcDistance(x1, y1, x2, y2)` function. 
 - Use `calcDistance` instead of manual JS computations for any proximity or hit-test logic.
 
 ## Build & Deployment
-- Place `calc.wasm` and `wasm_exec.js` under `static/wasm/`.
-- Update your `Dockerfile` to copy the `static/wasm/` directory into the container.
+- Copy `calc.wasm` to `static/wasm/` and `wasm_exec.js` to `static/js/`.
+- Update your `Dockerfile` to include the `static/wasm/` directory and the JS helper under `static/js/` in the container.
 
 ## Testing & Validation
 - In the browser console, verify:

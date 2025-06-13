@@ -99,89 +99,140 @@ function handleMouseWheel(event) {
     }
 }
 
-// Update controls on each frame based on keysPressed
 export function updateControls() {
-    const moveSpeed = 0.15; // Adjusted speed for car
-    const carRotateSpeed = 0.04; // Rotation speed for the car
-    const cameraRotateSpeed = 0.02; // Original camera rotation speed
+    const cameraRotateSpeed = 0.02;
+    const moveSpeed = 0.15;
 
     if (window.drivingCar) {
         const car = window.drivingCar;
-        let carMoved = false;
-        let attemptedMoveVector = new THREE.Vector3();
 
-        // Update car's bounding box before movement checks
-        if (!car.userData.boundingBox) {
-            car.userData.boundingBox = new THREE.Box3();
-        }
-        car.userData.boundingBox.setFromObject(car);
+        // --- Check if WASM module is loaded ---
+        if (window.physicsWasm) {
+            // --- WASM-Powered Physics ---
+            const inputState = new window.physicsWasm.InputState(
+                !!(keysPressed['w'] || keysPressed['arrowup']),
+                !!(keysPressed['s'] || keysPressed['arrowdown']),
+                !!(keysPressed['a'] || keysPressed['arrowleft']),
+                !!(keysPressed['d'] || keysPressed['arrowright']),
+            );
 
+            // Initialize velocities if they don't exist
+            if (car.userData.velocity_x === undefined) {
+                car.userData.velocity_x = 0;
+                car.userData.velocity_z = 0;
+            }
 
-        // Car controls (W,A,S,D and Arrow Keys)
-        if (keysPressed['w'] || keysPressed['arrowup']) {
-            const forward = new THREE.Vector3(0, 0, 1);
-            forward.applyQuaternion(car.quaternion);
-            attemptedMoveVector.add(forward.multiplyScalar(moveSpeed));
-            carMoved = true;
-        }
-        if (keysPressed['s'] || keysPressed['arrowdown']) {
-            const backward = new THREE.Vector3(0, 0, -1);
-            backward.applyQuaternion(car.quaternion);
-            attemptedMoveVector.add(backward.multiplyScalar(moveSpeed * 0.7));
-            carMoved = true;
-        }
+            const currentState = new window.physicsWasm.CarState(
+                car.position.x,
+                car.position.z,
+                car.rotation.y,
+                car.userData.velocity_x,
+                car.userData.velocity_z,
+            );
+            // Read old position now; the Rust call will destroy the JS wrapper
+            const oldX = currentState.x;
+            const oldZ = currentState.z;
 
-        if (carMoved) {
-            const potentialPosition = car.position.clone().add(attemptedMoveVector);
-            const potentialBoundingBox = car.userData.boundingBox.clone();
-            potentialBoundingBox.translate(attemptedMoveVector); // Translate by the movement vector
+            const newState = window.physicsWasm.update_car_physics(currentState, inputState);
+
+            // Update the velocity on the JS object for the next frame
+            car.userData.velocity_x = newState.velocity_x;
+            car.userData.velocity_z = newState.velocity_z;
+
+            const attemptedMoveVector = new THREE.Vector3(
+                newState.x - oldX,
+                0,
+                newState.z - oldZ
+            );
+
+            // Collision detection remains in JS
+            const potentialPosition = new THREE.Vector3(newState.x, car.position.y, newState.z);
+            const potentialBoundingBox = new THREE.Box3().setFromObject(car);
+            potentialBoundingBox.translate(attemptedMoveVector);
 
             let collisionDetected = false;
+            // Determine movement direction relative to car's current orientation
+            const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
             for (const otherObject of placedObjects) {
-                if (otherObject === car) continue;
-
-                // Skip collision check if the other object is a road segment
-                if (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_')) {
-                    continue;
-                }
-
-                if (!otherObject.userData.boundingBox) {
-                    otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
-                }
-
+                if (otherObject === car || (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_'))) continue;
+                if (!otherObject.userData.boundingBox) otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
                 if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
-                    collisionDetected = true;
-                    showNotification("Bonk!", "error"); // Optional: notify player
+                    // Only block forward motion; allow backing out
+                    if (attemptedMoveVector.dot(forwardDir) > 0) {
+                        collisionDetected = true;
+                        showNotification("Bonk!", "error");
+                        car.userData.velocity_x = 0;
+                        car.userData.velocity_z = 0;
+                    }
                     break;
                 }
             }
 
             if (!collisionDetected) {
                 car.position.copy(potentialPosition);
+                car.rotation.y = newState.rotation_y;
+            }
+
+        } else {
+            // --- Fallback to JavaScript Physics ---
+            if (car.userData.velocity === undefined) {
+                car.userData.velocity = new THREE.Vector3(0, 0, 0);
+                car.userData.acceleration = 0.005;
+                car.userData.maxSpeed = 0.2;
+                car.userData.friction = 0.98;
+                car.userData.brakePower = 0.01;
+                car.userData.carRotateSpeed = 0.04;
+            }
+
+            const { acceleration, maxSpeed, friction, brakePower, carRotateSpeed } = car.userData;
+
+            if (keysPressed['a'] || keysPressed['arrowleft']) car.rotation.y += carRotateSpeed;
+            if (keysPressed['d'] || keysPressed['arrowright']) car.rotation.y -= carRotateSpeed;
+            
+            const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
+            if (keysPressed['w'] || keysPressed['arrowup']) {
+                car.userData.velocity.add(forward.clone().multiplyScalar(acceleration));
+            }
+            if (keysPressed['s'] || keysPressed['arrowdown']) {
+                // Reverse acceleration when pressing backward
+                car.userData.velocity.add(forward.clone().multiplyScalar(-acceleration));
+            }
+            
+            car.userData.velocity.multiplyScalar(friction);
+            if (car.userData.velocity.length() > maxSpeed) car.userData.velocity.normalize().multiplyScalar(maxSpeed);
+            if (car.userData.velocity.length() < 0.001) car.userData.velocity.set(0, 0, 0);
+
+            const attemptedMoveVector = car.userData.velocity;
+            if (attemptedMoveVector.lengthSq() > 0) {
+                const potentialPosition = car.position.clone().add(attemptedMoveVector);
+                const potentialBoundingBox = new THREE.Box3().setFromObject(car);
+                potentialBoundingBox.translate(attemptedMoveVector);
+
+                let collisionDetected = false;
+                for (const otherObject of placedObjects) {
+                    if (otherObject === car || (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_'))) continue;
+                    if (!otherObject.userData.boundingBox) otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
+                    if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
+                        collisionDetected = true;
+                        showNotification("Bonk!", "error");
+                        car.userData.velocity.set(0, 0, 0); // Stop the car
+                        break;
+                    }
+                }
+                if (!collisionDetected) {
+                    car.position.copy(potentialPosition);
+                }
             }
         }
-
-        // Rotation is allowed even if movement is blocked
-        if (keysPressed['a'] || keysPressed['arrowleft']) {
-            car.rotation.y += carRotateSpeed;
-        }
-        if (keysPressed['d'] || keysPressed['arrowright']) {
-            car.rotation.y -= carRotateSpeed;
-        }
-        // The camera is handled by the animate loop in scene.js when drivingCar is active
-
     } else {
-        // Default camera controls when not driving a car
+        // Default camera controls
         if (keysPressed['w']) camera.translateZ(-moveSpeed);
         if (keysPressed['s']) camera.translateZ(moveSpeed);
         if (keysPressed['a']) camera.translateX(-moveSpeed);
         if (keysPressed['d']) camera.translateX(moveSpeed);
-        // Rotate view (only if not right-click orbiting)
         if (!isRightMouseDown) {
             if (keysPressed['arrowleft']) camera.rotation.y += cameraRotateSpeed;
             if (keysPressed['arrowright']) camera.rotation.y -= cameraRotateSpeed;
         }
     }
 }
-
-// Other control-related functions...
