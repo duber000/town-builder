@@ -1,4 +1,5 @@
 import { showNotification, updateOnlineUsersList } from './ui.js';
+import { loadModel, scene, placedObjects, movingCars } from './scene.js';
 
 export function setupSSE() {
     // Setup SSE connection with automatic reconnection and backoff
@@ -20,6 +21,10 @@ export function setupSSE() {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'users') { // Changed 'onlineUsers' to 'users'
                         updateOnlineUsersList(msg.users); // Changed msg.payload to msg.users
+                    } else if (msg.type === 'full' && msg.town) {
+                        // Handle full town updates - render new buildings
+                        loadTownData(msg.town);
+                        showNotification('Town updated', 'success');
                     } else {
                         // Pass the whole message to showNotification for more context if needed
                         // For now, keeping it simple as before, but logging the full message might be useful for debugging other events
@@ -45,6 +50,76 @@ export function setupSSE() {
         }
         connect(true);
     });
+}
+
+// Load town data from SSE updates and render new buildings
+async function loadTownData(townData) {
+    try {
+        // Get current object IDs to avoid duplicates
+        const existingIds = new Set();
+        placedObjects.forEach(obj => {
+            if (obj.userData.id) {
+                existingIds.add(obj.userData.id);
+            }
+        });
+
+        // Process each category of objects
+        const categories = ['buildings', 'terrain', 'roads', 'props'];
+        
+        for (const category of categories) {
+            const objects = townData[category] || [];
+            
+            for (const obj of objects) {
+                // Skip if object already exists
+                if (obj.id && existingIds.has(obj.id)) {
+                    continue;
+                }
+                
+                // Load the model if it has the required properties
+                if (obj.model && obj.position) {
+                    try {
+                        const position = {
+                            x: obj.position.x || 0,
+                            y: obj.position.y || 0,
+                            z: obj.position.z || 0
+                        };
+                        
+                        const loadedModel = await loadModel(category, obj.model, position);
+                        
+                        // Set the ID and other properties
+                        if (obj.id) {
+                            loadedModel.userData.id = obj.id;
+                        }
+                        
+                        // Apply rotation if specified
+                        if (obj.rotation) {
+                            loadedModel.rotation.set(
+                                obj.rotation.x || 0,
+                                obj.rotation.y || 0,
+                                obj.rotation.z || 0
+                            );
+                        }
+                        
+                        // Apply scale if specified
+                        if (obj.scale) {
+                            loadedModel.scale.set(
+                                obj.scale.x || 1,
+                                obj.scale.y || 1,
+                                obj.scale.z || 1
+                            );
+                        }
+                        
+                        console.log(`Loaded ${category} model: ${obj.model} at position`, position);
+                    } catch (err) {
+                        console.error(`Failed to load ${category} model ${obj.model}:`, err);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading town data:', err);
+        showNotification('Error loading town data', 'error');
+    }
 }
 
 // Other network-related functions...

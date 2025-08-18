@@ -4,27 +4,22 @@ import json
 import logging
 import os
 from os import getenv
+from typing import Dict, List, Optional, Any
 
 import dotenv
-from flask import (
-    Flask,
-    jsonify,
-    render_template,
-    request,
-    Response,
-    send_from_directory,
-    stream_with_context
-)
-from flask_cors import CORS
+from fastapi import FastAPI, HTTPException, Request, Query, Depends
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from pygltflib import GLTF2
 import requests
-
-
 
 import queue
 import threading
 
-import redis
+# import redis
 import time
 
 # Configure logging
@@ -34,8 +29,95 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 dotenv.load_dotenv()
 
-app = Flask(__name__)
-CORS(app)
+app = FastAPI(
+    title="Town Builder API",
+    description="Interactive 3D town building application with real-time collaboration",
+    version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Setup templates
+templates = Jinja2Templates(directory="templates")
+
+# Pydantic models for request/response validation
+class Position(BaseModel):
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+
+class Rotation(BaseModel):
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+
+class Scale(BaseModel):
+    x: float = 1.0
+    y: float = 1.0
+    z: float = 1.0
+
+class ModelData(BaseModel):
+    id: Optional[str] = None
+    position: Optional[Position] = None
+    rotation: Optional[Rotation] = None
+    scale: Optional[Scale] = None
+    driver: Optional[str] = None
+
+class TownUpdateRequest(BaseModel):
+    townName: Optional[str] = None
+    buildings: Optional[List[Dict[str, Any]]] = None
+    terrain: Optional[List[Dict[str, Any]]] = None
+    roads: Optional[List[Dict[str, Any]]] = None
+    props: Optional[List[Dict[str, Any]]] = None
+    driver: Optional[str] = None
+    id: Optional[str] = None
+    category: Optional[str] = None
+
+class SaveTownRequest(BaseModel):
+    filename: Optional[str] = "town_data.json"
+    data: Optional[Dict[str, Any]] = None
+    town_id: Optional[str] = None
+    townName: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    description: Optional[str] = None
+    population: Optional[int] = None
+    area: Optional[float] = None
+    established_date: Optional[str] = None
+    place_type: Optional[str] = None
+    full_address: Optional[str] = None
+    town_image: Optional[str] = None
+
+class LoadTownRequest(BaseModel):
+    filename: str = "town_data.json"
+
+class DeleteModelRequest(BaseModel):
+    id: Optional[str] = None
+    category: str
+    position: Optional[Position] = None
+
+class EditModelRequest(BaseModel):
+    id: str
+    category: str
+    position: Optional[Position] = None
+    rotation: Optional[Rotation] = None
+    scale: Optional[Scale] = None
+
+class ApiResponse(BaseModel):
+    status: str
+    message: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    town_id: Optional[str] = None
 
 # --- SSE subscribers ---
 subscribers = set()
@@ -46,9 +128,9 @@ API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
 API_URL = getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
 
 # --- Redis setup ---
-REDIS_URL = getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
-PUBSUB_CHANNEL = "town_events"
+# REDIS_URL = getenv("REDIS_URL", "redis://localhost:6379/0")
+# redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+# PUBSUB_CHANNEL = "town_events"
 
 # Store our town layout in Redis
 DEFAULT_TOWN_DATA = {
@@ -58,15 +140,25 @@ DEFAULT_TOWN_DATA = {
     "props": []  # Added props category for smaller objects
 }
 
+# In-memory town data storage (replaces Redis)
+town_data_storage = DEFAULT_TOWN_DATA.copy()
+
+# def get_town_data():
+#     data = redis_client.get("town_data")
+#     if data:
+#         return json.loads(data)
+#     else:
+#         return DEFAULT_TOWN_DATA.copy()
+
+# def set_town_data(data):
+#     redis_client.set("town_data", json.dumps(data))
+
 def get_town_data():
-    data = redis_client.get("town_data")
-    if data:
-        return json.loads(data)
-    else:
-        return DEFAULT_TOWN_DATA.copy()
+    return town_data_storage.copy()
 
 def set_town_data(data):
-    redis_client.set("town_data", json.dumps(data))
+    global town_data_storage
+    town_data_storage = data.copy() if isinstance(data, dict) else data
 
 # Define paths for models
 MODELS_PATH = os.path.join(os.path.dirname(__file__), 'static', 'models')
@@ -91,42 +183,42 @@ def get_available_models():
     return models
 
 # Routes
-@app.route('/')
-def index():
+@app.get("/", tags=["UI"])
+async def index(request: Request):
     """Render the main town builder interface"""
     models = get_available_models()
     logger.info(f"Rendering index with {sum(len(models[cat]) for cat in models)} models")
-    return render_template('index.html', models=models)
+    return templates.TemplateResponse("index.html", {"request": request, "models": models})
 
 # --- Health Check Endpoints ---
 
-@app.route('/healthz')
-def healthz():
+@app.get("/healthz", tags=["Health"])
+async def healthz():
     """Liveness probe endpoint."""
-    return "OK", 200
+    return JSONResponse(content="OK", status_code=200)
 
-@app.route('/readyz')
-def readyz():
+@app.get("/readyz", tags=["Health"])
+async def readyz():
     """Readiness probe endpoint."""
     # Add checks here if the app needs time to start (e.g., DB connection)
-    return "OK", 200
+    return JSONResponse(content="OK", status_code=200)
 
 # --- API Endpoints ---
 
-@app.route('/api/models')
-def list_models():
+@app.get("/api/models", tags=["Models"])
+async def list_models():
     """API endpoint to get available models"""
-    return jsonify(get_available_models())
+    return get_available_models()
 
-@app.route('/api/town', methods=['GET'])
-def get_town():
+@app.get("/api/town", tags=["Town"])
+async def get_town():
     """Get the current town layout"""
-    return jsonify(get_town_data())
+    return get_town_data()
 
-@app.route('/api/town', methods=['POST'])
-def update_town():
+@app.post("/api/town", tags=["Town"])
+async def update_town(request_data: TownUpdateRequest):
     """Update the town layout"""
-    data = request.get_json()
+    data = request_data.model_dump(exclude_unset=True)
     town_data = get_town_data()
 
     # If we're just updating the town name, ensure townName is present
@@ -152,14 +244,14 @@ def update_town():
                 broadcast_sse({'type': 'driver', 'category': category, 'id': model_id, 'driver': driver})
                 break
         if not updated:
-            return jsonify({"status": "error", "message": "Model not found"}), 404
+            raise HTTPException(status_code=404, detail="Model not found")
     else:
         # Full town data update
         set_town_data(data)
         # --- Broadcast full town update to all clients via Redis PubSub ---
         broadcast_sse({'type': 'full', 'town': data})
 
-    return jsonify({"status": "success"})
+    return {"status": "success"}
 
 # --- Helper function to prepare payload for Django ---
 def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_payload, is_update_operation=False): # Added is_update_operation
@@ -199,15 +291,15 @@ def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_p
             django_payload[key] = value
     return django_payload
 
-@app.route('/api/town/save', methods=['POST'])
-def save_town():
+@app.post("/api/town/save", tags=["Town"])
+async def save_town(request_data: SaveTownRequest):
     """Save the town layout.
     Optionally saves to a local file and updates the Django backend if town_id is provided.
     """
     try:
-        request_payload = request.get_json()
+        request_payload = request_data.model_dump(exclude_unset=True)
         if not request_payload:
-            return jsonify({"status": "error", "message": "Invalid JSON payload"}), 400
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
         filename = request_payload.get('filename', 'town_data.json')
         town_data_to_save = request_payload.get('data') # This is the sceneData from frontend
@@ -217,7 +309,7 @@ def save_town():
 
 
         if town_data_to_save is None:
-            return jsonify({"status": "error", "message": "No data provided to save"}), 400
+            raise HTTPException(status_code=400, detail="No data provided to save")
 
         # --- Save to local file (optional) ---
         if filename: # Only save locally if a filename is provided or defaulted
@@ -254,11 +346,11 @@ def save_town():
                 logger.info(f"Town layout successfully updated via PATCH to Django backend for town_id: {town_id}")
                 broadcast_sse({'type': 'full', 'town': town_data_to_save})
 
-                return jsonify({
+                return {
                     "status": "success",
                     "message": f"{local_save_message} Town updated in Django backend (ID: {town_id}).",
                     "town_id": town_id # Ensure town_id is returned
-                })
+                }
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error updating town layout in Django backend for town_id {town_id}: {e}")
@@ -268,10 +360,13 @@ def save_town():
                         error_detail = e.response.json()
                     except ValueError: # if response is not JSON
                         error_detail = e.response.text
-                return jsonify({
-                    "status": "partial_error",
-                    "message": f"{local_save_message} Failed to update in Django backend: {error_detail}"
-                }), 500
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "status": "partial_error",
+                        "message": f"{local_save_message} Failed to update in Django backend: {error_detail}"
+                    }
+                )
         else:
             # --- Create new town (POST) or update by name if found (PUT) ---
             django_api_base_url = API_URL if API_URL.endswith('/') else API_URL + '/'
@@ -335,11 +430,11 @@ def save_town():
                 
                 logger.info(f"Town {action_verb}d in Django backend. ID: {returned_id}")
                 broadcast_sse({'type': 'full', 'town': town_data_to_save})
-                return jsonify({
+                return {
                     "status": "success",
                     "message": f"{local_save_message} Town {action_verb}d in Django backend (ID: {returned_id}).",
                     "town_id": returned_id
-                })
+                }
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error {action_verb}ing town layout in Django backend: {e}")
                 error_detail = str(e)
@@ -348,104 +443,123 @@ def save_town():
                         error_detail = e.response.json()
                     except ValueError:
                         error_detail = e.response.text
-                return jsonify({
-                    "status": "partial_error",
-                    "message": f"{local_save_message} Failed to create in Django backend: {error_detail}"
-                }), 500
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "status": "partial_error",
+                        "message": f"{local_save_message} Failed to create in Django backend: {error_detail}"
+                    }
+                )
 
     except Exception as e:
         logger.error(f"Error in save_town endpoint: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
 
-@app.route('/api/config')
-def get_api_config():
+@app.get('/api/config', tags=["Config"])
+async def get_api_config():
     """Get API configuration including JWT token"""
-    return jsonify({
+    return {
         "token": API_TOKEN,
         "apiUrl": "/api/proxy/towns"  # Use our proxy endpoint instead of direct API URL
-    })
+    }
 
-@app.route('/api/proxy/towns', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
-def proxy_towns_api():
-    """Proxy requests to the external towns API"""
-    if request.method == 'OPTIONS':
-        # Handle preflight requests
-        response = app.make_default_options_response()
-    else:
-        # Forward the request to the actual API
-        # Ensure API_URL ends with a slash
-        base_api_url = API_URL if API_URL.endswith('/') else API_URL + '/'
-        # Construct target URL carefully
-        path_segment = request.path.replace('/api/proxy/towns', '').lstrip('/')
-        url = f"{base_api_url}{path_segment}"
+async def _proxy_request(request: Request, method: str, data: dict = None):
+    """Helper function to proxy requests to the external towns API"""
+    # Ensure API_URL ends with a slash
+    base_api_url = API_URL if API_URL.endswith('/') else API_URL + '/'
+    # Construct target URL carefully  
+    path_segment = str(request.url.path).replace('/api/proxy/towns', '').lstrip('/')
+    url = f"{base_api_url}{path_segment}"
 
-        # Copy request headers
-        headers = {
-            key: value for key, value in request.headers
-            if key.lower() != 'host' and key.lower() != 'content-length'
-        }
+    # Copy request headers
+    headers = {
+        key: value for key, value in request.headers.items()
+        if key.lower() not in ['host', 'content-length']
+    }
 
-        # Add authorization if we have a token
-        if API_TOKEN:
-            headers['Authorization'] = f"Bearer {API_TOKEN}"
+    # Add authorization if we have a token
+    if API_TOKEN:
+        headers['Authorization'] = f"Bearer {API_TOKEN}"
 
-        # Log the request for debugging
-        logger.debug(f"Proxying {request.method} request to {url}")
-        logger.debug(f"Headers: {headers}")
+    # Log the request for debugging
+    logger.debug(f"Proxying {method} request to {url}")
+    logger.debug(f"Headers: {headers}")
 
-        # Forward the request with the appropriate method
-        try:
-            if request.method == 'GET':
-                resp = requests.get(url, headers=headers, params=request.args, timeout=10)
-            elif request.method == 'POST':
-                data = request.get_json()
-                logger.debug(f"POST data: {json.dumps(data)[:200]}...")
-                resp = requests.post(url, headers=headers, json=data, timeout=10)
-            elif request.method == 'PUT':
-                data = request.get_json()
-                logger.debug(f"PUT data: {json.dumps(data)[:200]}...")
-                resp = requests.put(url, headers=headers, json=data, timeout=10)
-            elif request.method == 'PATCH':
-                data = request.get_json()
-                logger.debug(f"PATCH data: {json.dumps(data)[:200]}...")
-                resp = requests.patch(url, headers=headers, json=data, timeout=10)
-            elif request.method == 'DELETE':
-                resp = requests.delete(url, headers=headers, timeout=10)
-            else:
-                return jsonify({"error": "Method not supported"}), 405
+    # Forward the request with the appropriate method
+    try:
+        if method == 'GET':
+            resp = requests.get(url, headers=headers, params=dict(request.query_params), timeout=10)
+        elif method == 'POST':
+            logger.debug(f"POST data: {json.dumps(data)[:200] if data else 'None'}...")
+            resp = requests.post(url, headers=headers, json=data, timeout=10)
+        elif method == 'PUT':
+            logger.debug(f"PUT data: {json.dumps(data)[:200] if data else 'None'}...")
+            resp = requests.put(url, headers=headers, json=data, timeout=10)
+        elif method == 'PATCH':
+            logger.debug(f"PATCH data: {json.dumps(data)[:200] if data else 'None'}...")
+            resp = requests.patch(url, headers=headers, json=data, timeout=10)
+        elif method == 'DELETE':
+            resp = requests.delete(url, headers=headers, timeout=10)
+        else:
+            raise HTTPException(status_code=405, detail="Method not supported")
 
-            logger.debug(f"Response status: {resp.status_code}")
-            # logger.debug(f"Response headers: {resp.headers}")
-            # logger.debug(f"Response content: {resp.text[:200]}...")
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout proxying request to {url}")
-            return jsonify({"error": "Request to upstream service timed out"}), 504
-        except requests.exceptions.ConnectionError:
-            logger.error(f"Connection error proxying request to {url}")
-            return jsonify({"error": "Could not connect to upstream service"}), 503
-        except Exception as e:
-            logger.error(f"Error proxying request: {e}")
-            return jsonify({"error": str(e)}), 500
-
-        # Create response object
-        response = app.response_class(
-            response=resp.content,
-            status=resp.status_code,
-            mimetype=resp.headers.get('content-type')
+        logger.debug(f"Response status: {resp.status_code}")
+        return JSONResponse(
+            content=resp.json() if resp.headers.get('content-type', '').startswith('application/json') else resp.text,
+            status_code=resp.status_code,
+            headers={k: v for k, v in resp.headers.items() 
+                    if k.lower() not in ['content-length', 'transfer-encoding', 'connection', 'content-encoding']}
         )
+    except requests.exceptions.Timeout:
+        logger.error(f"Timeout proxying request to {url}")
+        raise HTTPException(status_code=504, detail="Request to upstream service timed out")
+    except requests.exceptions.ConnectionError:
+        logger.error(f"Connection error proxying request to {url}")
+        raise HTTPException(status_code=503, detail="Could not connect to upstream service")
+    except Exception as e:
+        logger.error(f"Error proxying request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-        # Copy response headers
-        for key, value in resp.headers.items():
-            if key.lower() not in ['content-length', 'transfer-encoding', 'connection', 'content-encoding']:
-                response.headers[key] = value
+@app.get('/api/proxy/towns/{path:path}', tags=["Proxy"])
+async def proxy_towns_get(request: Request, path: str = ""):
+    """Proxy GET requests to the external towns API"""
+    return await _proxy_request(request, 'GET')
 
-    return response
+@app.post('/api/proxy/towns/{path:path}', tags=["Proxy"])
+async def proxy_towns_post(request: Request, data: dict, path: str = ""):
+    """Proxy POST requests to the external towns API"""
+    return await _proxy_request(request, 'POST', data)
 
-@app.route('/api/town/load', methods=['POST'])
-def load_town():
+@app.put('/api/proxy/towns/{path:path}', tags=["Proxy"])
+async def proxy_towns_put(request: Request, data: dict, path: str = ""):
+    """Proxy PUT requests to the external towns API"""
+    return await _proxy_request(request, 'PUT', data)
+
+@app.patch('/api/proxy/towns/{path:path}', tags=["Proxy"])
+async def proxy_towns_patch(request: Request, data: dict, path: str = ""):
+    """Proxy PATCH requests to the external towns API"""
+    return await _proxy_request(request, 'PATCH', data)
+
+@app.delete('/api/proxy/towns/{path:path}', tags=["Proxy"])
+async def proxy_towns_delete(request: Request, path: str = ""):
+    """Proxy DELETE requests to the external towns API"""
+    return await _proxy_request(request, 'DELETE')
+
+@app.get('/api/proxy/towns', tags=["Proxy"])
+async def proxy_towns_get_root(request: Request):
+    """Proxy GET requests to the external towns API root"""
+    return await _proxy_request(request, 'GET')
+
+@app.post('/api/proxy/towns', tags=["Proxy"])
+async def proxy_towns_post_root(request: Request, data: dict):
+    """Proxy POST requests to the external towns API root"""
+    return await _proxy_request(request, 'POST', data)
+
+@app.post("/api/town/load", tags=["Town"])
+async def load_town(request_data: LoadTownRequest):
     """Load the town layout from a file"""
     try:
-        filename = request.json.get('filename', 'town_data.json')
+        filename = request_data.filename
         
         # Ensure the filename has .json extension
         if not filename.endswith('.json'):
@@ -453,32 +567,31 @@ def load_town():
             
         # Check if the file exists
         if not os.path.exists(filename):
-            return jsonify({"status": "error", "message": f"File {filename} not found"}), 404
+            raise HTTPException(status_code=404, detail={"status": "error", "message": f"File {filename} not found"})
             
         # Load the town data from the file
         with open(filename, 'r') as f:
             town_data = json.load(f)
-            set_town_data(town_data) # Update Redis cache if still used primarily
+            set_town_data(town_data) # Update local storage (Redis cache disabled)
 
         logger.info(f"Town loaded from {filename}")
         # --- Broadcast full town update to all clients on load via Redis PubSub ---
         broadcast_sse({'type': 'full', 'town': town_data})
-        return jsonify({"status": "success", "message": f"Town loaded from {filename}", "data": town_data})
+        return {"status": "success", "message": f"Town loaded from {filename}", "data": town_data}
     except Exception as e:
         logger.error(f"Error loading town: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
 
-@app.route('/api/town/model', methods=['DELETE'])
-def delete_model():
+@app.delete("/api/town/model", tags=["Town"])
+async def delete_model(request_data: DeleteModelRequest):
     """Delete a model from the town layout"""
-    data = request.get_json()
-    model_id = data.get('id')
-    category = data.get('category')
-    position = data.get('position')
+    # Extract data from Pydantic model
+    model_id = request_data.id
+    category = request_data.category
+    position = request_data.position
 
     if not category or (not model_id and not position):
-        return jsonify({"error": "Missing required parameters"}), 400
-        return jsonify({"error": "Missing required parameters"}), 400
+        raise HTTPException(status_code=400, detail={"error": "Missing required parameters"})
 
     town_data = get_town_data()
 
@@ -494,7 +607,7 @@ def delete_model():
                     item_found = True
                     break
         if item_found:
-            return jsonify({"status": "success", "message": f"Deleted model with ID {model_id}"})
+            return {"status": "success", "message": f"Deleted model with ID {model_id}"}
 
     # Otherwise use position for deletion (find closest model)
     elif position:
@@ -536,15 +649,15 @@ def delete_model():
                 item_found_by_pos = True
 
         if item_found_by_pos:
-            return jsonify({
+            return {
                 "status": "success",
                 "message": f"Deleted model at position ({position.get('x')}, {position.get('y')}, {position.get('z')})"
-            })
+            }
 
-    return jsonify({"error": "Model not found"}), 404
+    raise HTTPException(status_code=404, detail={"error": "Model not found"})
 
-@app.route('/api/model/<category>/<model_name>')
-def get_model_info(category, model_name):
+@app.get('/api/model/{category}/{model_name}', tags=["Models"])
+async def get_model_info(category: str, model_name: str, info: str = Query(None)):
     """
     Serve the model file or its metadata.
     If ?info=1 is present, return metadata as JSON.
@@ -552,39 +665,35 @@ def get_model_info(category, model_name):
     """
     model_path = os.path.join(MODELS_PATH, category, model_name)
     if not os.path.exists(model_path):
-        return jsonify({"error": "Model not found"}), 404
+        raise HTTPException(status_code=404, detail="Model not found")
 
     # If ?info=1, return metadata
-    if request.args.get("info") == "1":
+    if info == "1":
         try:
             gltf = GLTF2().load(model_path)
             bin_path = model_path.replace('.gltf', '.bin')
             has_bin = os.path.exists(bin_path)
-            return jsonify({
+            return {
                 "name": model_name,
                 "category": category,
                 "nodes": len(gltf.nodes),
                 "has_bin": has_bin
-            })
+            }
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            raise HTTPException(status_code=500, detail=str(e))
 
     # Otherwise, serve the file
-    return send_from_directory(
-        os.path.join(MODELS_PATH, category),
-        model_name,
-        as_attachment=False
-    )
+    return FileResponse(model_path)
 
-@app.route('/api/town/model', methods=['PUT'])
-def edit_model():
+@app.put("/api/town/model", tags=["Town"])
+async def edit_model(request_data: EditModelRequest):
     """Edit a model in the town layout (position, rotation, scale)"""
-    data = request.get_json()
-    model_id = data.get('id')
-    category = data.get('category')
+    # Extract data from Pydantic model
+    model_id = request_data.id
+    category = request_data.category
 
     if not category or not model_id:
-        return jsonify({"error": "Missing required parameters"}), 400
+        raise HTTPException(status_code=400, detail={"error": "Missing required parameters"})
 
     town_data = get_town_data()
     item_found = False
@@ -593,17 +702,12 @@ def edit_model():
         for i, model in enumerate(town_data[category]):
             if isinstance(model, dict) and model.get('id') == model_id:
                 # Update model properties
-                if 'position' in data:
-                    town_data[category][i]['position'] = data['position']
-                if 'rotation' in data:
-                    town_data[category][i]['rotation'] = data['rotation']
-                if 'scale' in data:
-                    town_data[category][i]['scale'] = data['scale']
-                # Allow updating other arbitrary data if needed, e.g., color
-                for key, value in data.items():
-                    if key not in ['id', 'category', 'position', 'rotation', 'scale']:
-                        town_data[category][i][key] = value
-
+                if request_data.position is not None:
+                    town_data[category][i]['position'] = request_data.position.model_dump()
+                if request_data.rotation is not None:
+                    town_data[category][i]['rotation'] = request_data.rotation.model_dump()
+                if request_data.scale is not None:
+                    town_data[category][i]['scale'] = request_data.scale.model_dump()
 
                 set_town_data(town_data)
                 broadcast_sse({'type': 'edit', 'category': category, 'id': model_id, 'data': town_data[category][i]})
@@ -611,12 +715,12 @@ def edit_model():
                 break
 
     if item_found:
-        return jsonify({
+        return {
             "status": "success",
             "message": f"Updated model with ID {model_id}"
-        })
+        }
 
-    return jsonify({"error": "Model not found"}), 404
+    raise HTTPException(status_code=404, detail={"error": "Model not found"})
 
 
 # --- SSE event stream for multiplayer sync ---
@@ -628,9 +732,11 @@ connected_users = {}
 connected_users_lock = threading.Lock()
 
 def broadcast_sse(data):
-    """Send data to all connected SSE clients via Redis PubSub."""
-    msg = json.dumps(data)
-    redis_client.publish(PUBSUB_CHANNEL, msg)
+    """Send data to all connected SSE clients (Redis PubSub disabled)."""
+    # msg = json.dumps(data)
+    # redis_client.publish(PUBSUB_CHANNEL, msg)
+    # Redis PubSub functionality commented out
+    pass
 
 def get_online_users():
     """Return a list of online user names."""
@@ -643,15 +749,12 @@ def get_online_users():
                 del connected_users[name]
         return list(connected_users.keys())
 
-def event_stream():
+def event_stream(player_name: str = None):
     q = queue.Queue()
     # Removed direct subscribers list as Redis handles fan-out
 
-    pubsub = redis_client.pubsub()
-    pubsub.subscribe(PUBSUB_CHANNEL)
-
-    # Get player name from query parameter (for SSE)
-    player_name = request.args.get('name')
+    # pubsub = redis_client.pubsub()
+    # pubsub.subscribe(PUBSUB_CHANNEL)
     if player_name:
         with connected_users_lock:
             connected_users[player_name] = time.time()
@@ -659,19 +762,19 @@ def event_stream():
         broadcast_sse({'type': 'users', 'users': get_online_users()})
 
 
-    def listen_redis():
-        for message in pubsub.listen():
-            if message['type'] == 'message':
-                try:
-                    q.put(f"data: {message['data']}\n\n")
-                except Exception as e:
-                    logger.error(f"Error putting SSE from Redis: {e}")
-            elif message['type'] == 'subscribe':
-                 logger.info(f"Subscribed to Redis channel: {message['channel']}")
+    # def listen_redis():
+    #     for message in pubsub.listen():
+    #         if message['type'] == 'message':
+    #             try:
+    #                 q.put(f"data: {message['data']}\n\n")
+    #             except Exception as e:
+    #                 logger.error(f"Error putting SSE from Redis: {e}")
+    #         elif message['type'] == 'subscribe':
+    #              logger.info(f"Subscribed to Redis channel: {message['channel']}")
 
 
-    t = threading.Thread(target=listen_redis, daemon=True)
-    t.start()
+    # t = threading.Thread(target=listen_redis, daemon=True)
+    # t.start()
 
     try:
         # Send initial town data upon connection
@@ -708,14 +811,19 @@ def event_stream():
                     del connected_users[player_name]
             broadcast_sse({'type': 'users', 'users': get_online_users()}) # Update user list on disconnect
     finally:
-        pubsub.unsubscribe(PUBSUB_CHANNEL)
-        pubsub.close()
-        logger.info(f"Redis pubsub connection closed for {player_name or 'Unknown'}.")
+        # pubsub.unsubscribe(PUBSUB_CHANNEL)
+        # pubsub.close()
+        # logger.info(f"Redis pubsub connection closed for {player_name or 'Unknown'}.")
+        pass
 
 
-@app.route('/events')
-def sse_events():
-    return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
+@app.get('/events', tags=["Events"])
+async def sse_events(name: str = Query(None)):
+    """Server-Sent Events endpoint for real-time updates"""
+    def generate():
+        return event_stream(name)
+    
+    return StreamingResponse(generate(), media_type='text/event-stream')
 
 if __name__ == '__main__':
     # This block will only run when you execute the file directly
