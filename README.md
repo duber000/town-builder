@@ -1,6 +1,6 @@
 # Simple Town Builder
 
-A web-based 3D town building application using Flask and Three.js.
+A web-based 3D town building application using FastAPI and Three.js.
 
 Inspired by [Florian's Room](https://github.com/flo-bit/room)
 
@@ -18,7 +18,7 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 ## Requirements
 
 - Python 3.13+
-- Flask
+- FastAPI
 - pygltflib
 - Redis (for multiplayer state sharing)
 - [uv](https://github.com/astral-sh/uv) (for dependency management)
@@ -65,10 +65,6 @@ To run the application in development mode:
 ```
 uvicorn app:app --reload
 ```
-or, for Flask's built-in server (not for production):
-```
-python app.py
-```
 
 To run in production (recommended, matches Docker/Kubernetes setup):
 
@@ -88,7 +84,7 @@ Then open your browser to http://127.0.0.1:5000/
 
 ## Project Structure
 
-- `app.py` - Flask application and server-side logic (uses Redis for multiplayer state)
+- `app.py` - FastAPI application and server-side logic (uses Redis for multiplayer state)
 - `templates/` - HTML templates
 - `static/models/` - 3D model files (GLTF format)
 - `Dockerfile` - Production container setup (uses Gunicorn with gevent for SSE support)

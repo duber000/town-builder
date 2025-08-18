@@ -12,9 +12,12 @@ from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from pygltflib import GLTF2
 import requests
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
 
 import queue
 import threading
@@ -127,6 +130,13 @@ subscribers_lock = threading.Lock()
 API_TOKEN = getenv('TOWN_API_JWT_TOKEN')
 API_URL = getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
 
+# JWT Configuration
+JWT_SECRET_KEY = getenv('JWT_SECRET_KEY', 'your-secret-key-change-this-in-production')
+JWT_ALGORITHM = getenv('JWT_ALGORITHM', 'HS256')
+
+# Security scheme
+security = HTTPBearer()
+
 # --- Redis setup ---
 # REDIS_URL = getenv("REDIS_URL", "redis://localhost:6379/0")
 # redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
@@ -142,6 +152,48 @@ DEFAULT_TOWN_DATA = {
 
 # In-memory town data storage (replaces Redis)
 town_data_storage = DEFAULT_TOWN_DATA.copy()
+
+# JWT Authentication Functions
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Verify JWT token and return user info"""
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return {"username": username, "payload": payload}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+# Optional: Allow bypassing JWT for development
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from JWT token, with development bypass option"""
+    # Check if JWT authentication is disabled for development
+    if getenv('DISABLE_JWT_AUTH', '').lower() == 'true':
+        logger.warning("JWT authentication is DISABLED - development mode only!")
+        return {"username": "dev-user", "payload": {"sub": "dev-user"}}
+    
+    return verify_token(credentials)
+
+# Development endpoint to generate JWT tokens
+@app.post("/api/auth/token", tags=["Auth"])
+async def create_access_token(username: str = "user"):
+    """Generate a JWT token for development/testing. Remove in production!"""
+    if getenv('ENVIRONMENT', 'development').lower() == 'production':
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # Create token with 24 hour expiration
+    expire = datetime.utcnow() + timedelta(hours=24)
+    to_encode = {"sub": username, "exp": expire}
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    
+    return {
+        "access_token": encoded_jwt,
+        "token_type": "bearer",
+        "expires_in": 24 * 3600,
+        "username": username
+    }
 
 # def get_town_data():
 #     data = redis_client.get("town_data")
@@ -206,17 +258,17 @@ async def readyz():
 # --- API Endpoints ---
 
 @app.get("/api/models", tags=["Models"])
-async def list_models():
+async def list_models(current_user: dict = Depends(get_current_user)):
     """API endpoint to get available models"""
     return get_available_models()
 
 @app.get("/api/town", tags=["Town"])
-async def get_town():
+async def get_town(current_user: dict = Depends(get_current_user)):
     """Get the current town layout"""
     return get_town_data()
 
 @app.post("/api/town", tags=["Town"])
-async def update_town(request_data: TownUpdateRequest):
+async def update_town(request_data: TownUpdateRequest, current_user: dict = Depends(get_current_user)):
     """Update the town layout"""
     data = request_data.model_dump(exclude_unset=True)
     town_data = get_town_data()
@@ -292,7 +344,7 @@ def _prepare_django_payload(request_payload, town_data_to_save, town_name_from_p
     return django_payload
 
 @app.post("/api/town/save", tags=["Town"])
-async def save_town(request_data: SaveTownRequest):
+async def save_town(request_data: SaveTownRequest, current_user: dict = Depends(get_current_user)):
     """Save the town layout.
     Optionally saves to a local file and updates the Django backend if town_id is provided.
     """
@@ -456,11 +508,12 @@ async def save_town(request_data: SaveTownRequest):
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
 
 @app.get('/api/config', tags=["Config"])
-async def get_api_config():
-    """Get API configuration including JWT token"""
+async def get_api_config(current_user: dict = Depends(get_current_user)):
+    """Get API configuration"""
     return {
-        "token": API_TOKEN,
-        "apiUrl": "/api/proxy/towns"  # Use our proxy endpoint instead of direct API URL
+        "apiUrl": "/api/proxy/towns",  # Use our proxy endpoint instead of direct API URL
+        "authenticated": True,
+        "user": current_user.get("username")
     }
 
 async def _proxy_request(request: Request, method: str, data: dict = None):
@@ -521,42 +574,42 @@ async def _proxy_request(request: Request, method: str, data: dict = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/api/proxy/towns/{path:path}', tags=["Proxy"])
-async def proxy_towns_get(request: Request, path: str = ""):
+async def proxy_towns_get(request: Request, path: str = "", current_user: dict = Depends(get_current_user)):
     """Proxy GET requests to the external towns API"""
     return await _proxy_request(request, 'GET')
 
 @app.post('/api/proxy/towns/{path:path}', tags=["Proxy"])
-async def proxy_towns_post(request: Request, data: dict, path: str = ""):
+async def proxy_towns_post(request: Request, data: dict, path: str = "", current_user: dict = Depends(get_current_user)):
     """Proxy POST requests to the external towns API"""
     return await _proxy_request(request, 'POST', data)
 
 @app.put('/api/proxy/towns/{path:path}', tags=["Proxy"])
-async def proxy_towns_put(request: Request, data: dict, path: str = ""):
+async def proxy_towns_put(request: Request, data: dict, path: str = "", current_user: dict = Depends(get_current_user)):
     """Proxy PUT requests to the external towns API"""
     return await _proxy_request(request, 'PUT', data)
 
 @app.patch('/api/proxy/towns/{path:path}', tags=["Proxy"])
-async def proxy_towns_patch(request: Request, data: dict, path: str = ""):
+async def proxy_towns_patch(request: Request, data: dict, path: str = "", current_user: dict = Depends(get_current_user)):
     """Proxy PATCH requests to the external towns API"""
     return await _proxy_request(request, 'PATCH', data)
 
 @app.delete('/api/proxy/towns/{path:path}', tags=["Proxy"])
-async def proxy_towns_delete(request: Request, path: str = ""):
+async def proxy_towns_delete(request: Request, path: str = "", current_user: dict = Depends(get_current_user)):
     """Proxy DELETE requests to the external towns API"""
     return await _proxy_request(request, 'DELETE')
 
 @app.get('/api/proxy/towns', tags=["Proxy"])
-async def proxy_towns_get_root(request: Request):
+async def proxy_towns_get_root(request: Request, current_user: dict = Depends(get_current_user)):
     """Proxy GET requests to the external towns API root"""
     return await _proxy_request(request, 'GET')
 
 @app.post('/api/proxy/towns', tags=["Proxy"])
-async def proxy_towns_post_root(request: Request, data: dict):
+async def proxy_towns_post_root(request: Request, data: dict, current_user: dict = Depends(get_current_user)):
     """Proxy POST requests to the external towns API root"""
     return await _proxy_request(request, 'POST', data)
 
 @app.post("/api/town/load", tags=["Town"])
-async def load_town(request_data: LoadTownRequest):
+async def load_town(request_data: LoadTownRequest, current_user: dict = Depends(get_current_user)):
     """Load the town layout from a file"""
     try:
         filename = request_data.filename
@@ -583,7 +636,7 @@ async def load_town(request_data: LoadTownRequest):
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
 
 @app.delete("/api/town/model", tags=["Town"])
-async def delete_model(request_data: DeleteModelRequest):
+async def delete_model(request_data: DeleteModelRequest, current_user: dict = Depends(get_current_user)):
     """Delete a model from the town layout"""
     # Extract data from Pydantic model
     model_id = request_data.id
@@ -657,7 +710,7 @@ async def delete_model(request_data: DeleteModelRequest):
     raise HTTPException(status_code=404, detail={"error": "Model not found"})
 
 @app.get('/api/model/{category}/{model_name}', tags=["Models"])
-async def get_model_info(category: str, model_name: str, info: str = Query(None)):
+async def get_model_info(category: str, model_name: str, info: str = Query(None), current_user: dict = Depends(get_current_user)):
     """
     Serve the model file or its metadata.
     If ?info=1 is present, return metadata as JSON.
@@ -686,7 +739,7 @@ async def get_model_info(category: str, model_name: str, info: str = Query(None)
     return FileResponse(model_path)
 
 @app.put("/api/town/model", tags=["Town"])
-async def edit_model(request_data: EditModelRequest):
+async def edit_model(request_data: EditModelRequest, current_user: dict = Depends(get_current_user)):
     """Edit a model in the town layout (position, rotation, scale)"""
     # Extract data from Pydantic model
     model_id = request_data.id
@@ -818,7 +871,7 @@ def event_stream(player_name: str = None):
 
 
 @app.get('/events', tags=["Events"])
-async def sse_events(name: str = Query(None)):
+async def sse_events(name: str = Query(None), current_user: dict = Depends(get_current_user)):
     """Server-Sent Events endpoint for real-time updates"""
     def generate():
         return event_stream(name)
