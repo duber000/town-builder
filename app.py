@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 import queue
 import threading
 
-# import redis
+import redis
 import time
 
 # Configure logging
@@ -138,9 +138,9 @@ JWT_ALGORITHM = getenv('JWT_ALGORITHM', 'HS256')
 security = HTTPBearer()
 
 # --- Redis setup ---
-# REDIS_URL = getenv("REDIS_URL", "redis://localhost:6379/0")
-# redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
-# PUBSUB_CHANNEL = "town_events"
+REDIS_URL = getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+PUBSUB_CHANNEL = "town_events"
 
 # Store our town layout in Redis
 DEFAULT_TOWN_DATA = {
@@ -195,15 +195,15 @@ async def create_access_token(username: str = "user"):
         "username": username
     }
 
-# def get_town_data():
-#     data = redis_client.get("town_data")
-#     if data:
-#         return json.loads(data)
-#     else:
-#         return DEFAULT_TOWN_DATA.copy()
+def get_town_data():
+    data = redis_client.get("town_data")
+    if data:
+        return json.loads(data)
+    else:
+        return DEFAULT_TOWN_DATA.copy()
 
-# def set_town_data(data):
-#     redis_client.set("town_data", json.dumps(data))
+def set_town_data(data):
+     redis_client.set("town_data", json.dumps(data))
 
 def get_town_data():
     return town_data_storage.copy()
@@ -786,9 +786,8 @@ connected_users_lock = threading.Lock()
 
 def broadcast_sse(data):
     """Send data to all connected SSE clients (Redis PubSub disabled)."""
-    # msg = json.dumps(data)
-    # redis_client.publish(PUBSUB_CHANNEL, msg)
-    # Redis PubSub functionality commented out
+    msg = json.dumps(data)
+    redis_client.publish(PUBSUB_CHANNEL, msg)
     pass
 
 def get_online_users():
@@ -806,8 +805,8 @@ def event_stream(player_name: str = None):
     q = queue.Queue()
     # Removed direct subscribers list as Redis handles fan-out
 
-    # pubsub = redis_client.pubsub()
-    # pubsub.subscribe(PUBSUB_CHANNEL)
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(PUBSUB_CHANNEL)
     if player_name:
         with connected_users_lock:
             connected_users[player_name] = time.time()
@@ -815,19 +814,19 @@ def event_stream(player_name: str = None):
         broadcast_sse({'type': 'users', 'users': get_online_users()})
 
 
-    # def listen_redis():
-    #     for message in pubsub.listen():
-    #         if message['type'] == 'message':
-    #             try:
-    #                 q.put(f"data: {message['data']}\n\n")
-    #             except Exception as e:
-    #                 logger.error(f"Error putting SSE from Redis: {e}")
-    #         elif message['type'] == 'subscribe':
-    #              logger.info(f"Subscribed to Redis channel: {message['channel']}")
+    def listen_redis():
+        for message in pubsub.listen():
+            if message['type'] == 'message':
+                try:
+                    q.put(f"data: {message['data']}\n\n")
+                except Exception as e:
+                    logger.error(f"Error putting SSE from Redis: {e}")
+            elif message['type'] == 'subscribe':
+                 logger.info(f"Subscribed to Redis channel: {message['channel']}")
 
 
-    # t = threading.Thread(target=listen_redis, daemon=True)
-    # t.start()
+    t = threading.Thread(target=listen_redis, daemon=True)
+    t.start()
 
     try:
         # Send initial town data upon connection
@@ -864,9 +863,9 @@ def event_stream(player_name: str = None):
                     del connected_users[player_name]
             broadcast_sse({'type': 'users', 'users': get_online_users()}) # Update user list on disconnect
     finally:
-        # pubsub.unsubscribe(PUBSUB_CHANNEL)
-        # pubsub.close()
-        # logger.info(f"Redis pubsub connection closed for {player_name or 'Unknown'}.")
+        pubsub.unsubscribe(PUBSUB_CHANNEL)
+        pubsub.close()
+        logger.info(f"Redis pubsub connection closed for {player_name or 'Unknown'}.")
         pass
 
 
