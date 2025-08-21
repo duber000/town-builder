@@ -68,7 +68,28 @@ async def serve_wasm_files(file_path: str):
     file_full_path = os.path.join("static", "wasm", file_path)
     if not os.path.exists(file_full_path):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(file_full_path, media_type="application/wasm")
+    
+    # Determine correct MIME type based on file extension
+    if file_path.endswith('.js'):
+        media_type = "application/javascript"
+    elif file_path.endswith('.wasm'):
+        media_type = "application/wasm"
+    elif file_path.endswith('.d.ts'):
+        media_type = "text/plain"
+    else:
+        media_type = "application/octet-stream"
+    
+    return FileResponse(file_full_path, media_type=media_type)
+
+# Favicon handler
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon or return 404"""
+    favicon_path = "static/favicon.ico"
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    else:
+        raise HTTPException(status_code=404, detail="Favicon not found")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -219,21 +240,26 @@ async def create_access_token(username: str = "user"):
     }
 
 def get_town_data():
-    data = redis_client.get("town_data")
-    if data:
-        return json.loads(data)
-    else:
-        return DEFAULT_TOWN_DATA.copy()
-
-def set_town_data(data):
-     redis_client.set("town_data", json.dumps(data))
-
-def get_town_data():
+    """Get town data from Redis with fallback to in-memory storage"""
+    try:
+        data = redis_client.get("town_data")
+        if data:
+            return json.loads(data)
+    except Exception as e:
+        logger.warning(f"Redis get failed, using in-memory storage: {e}")
+    
+    # Fallback to in-memory storage
     return town_data_storage.copy()
 
 def set_town_data(data):
+    """Set town data in both Redis and in-memory storage"""
     global town_data_storage
     town_data_storage = data.copy() if isinstance(data, dict) else data
+    
+    try:
+        redis_client.set("town_data", json.dumps(data))
+    except Exception as e:
+        logger.warning(f"Redis set failed, data saved to memory only: {e}")
 
 # Define paths for models
 MODELS_PATH = os.path.join(os.path.dirname(__file__), 'static', 'models')
@@ -830,12 +856,6 @@ def event_stream(player_name: str = None):
 
     pubsub = redis_client.pubsub()
     pubsub.subscribe(PUBSUB_CHANNEL)
-    if player_name:
-        with connected_users_lock:
-            connected_users[player_name] = time.time()
-        # Broadcast updated user list
-        broadcast_sse({'type': 'users', 'users': get_online_users()})
-
 
     def listen_redis():
         for message in pubsub.listen():
@@ -847,9 +867,19 @@ def event_stream(player_name: str = None):
             elif message['type'] == 'subscribe':
                  logger.info(f"Subscribed to Redis channel: {message['channel']}")
 
-
     t = threading.Thread(target=listen_redis, daemon=True)
     t.start()
+    
+    # Give the Redis listener a moment to fully initialize
+    import time as sync_time
+    sync_time.sleep(0.1)
+    
+    # Now add user and broadcast after Redis listener is ready
+    if player_name:
+        with connected_users_lock:
+            connected_users[player_name] = time.time()
+        # Broadcast updated user list
+        broadcast_sse({'type': 'users', 'users': get_online_users()})
 
     try:
         # Send initial town data upon connection
@@ -893,7 +923,7 @@ def event_stream(player_name: str = None):
 
 
 @app.get('/events', tags=["Events"])
-async def sse_events(name: str = Query(None), current_user: dict = Depends(get_current_user)):
+async def sse_events(name: str = Query(None)):
     """Server-Sent Events endpoint for real-time updates"""
     def generate():
         return event_stream(name)
