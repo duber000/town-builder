@@ -47,6 +47,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configure MIME types for WASM and JS files
+import mimetypes
+mimetypes.add_type('application/wasm', '.wasm')
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('text/javascript', '.js')
+
+# Custom static file handler for better MIME type support
+@app.get("/static/js/{file_path:path}")
+async def serve_js_files(file_path: str):
+    """Serve JavaScript files with correct MIME type"""
+    file_full_path = os.path.join("static", "js", file_path)
+    if not os.path.exists(file_full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_full_path, media_type="application/javascript")
+
+@app.get("/static/wasm/{file_path:path}")
+async def serve_wasm_files(file_path: str):
+    """Serve WASM files with correct MIME type"""
+    file_full_path = os.path.join("static", "wasm", file_path)
+    if not os.path.exists(file_full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_full_path, media_type="application/wasm")
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
