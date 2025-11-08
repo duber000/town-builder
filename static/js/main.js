@@ -4,6 +4,19 @@ import { setupSSE } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
 
+async function initPhysicsWasm() {
+    try {
+        // Load the wasm-bindgen generated module from the static/wasm directory
+        const wasm = await import('/static/wasm/town_builder_physics.js');
+        await wasm.default(); // Initialize the wasm module
+        window.physicsWasm = wasm; // Make it globally accessible
+        console.log("Physics WASM module loaded successfully.");
+    } catch (e) {
+        console.error("Error loading physics WASM module. Falling back to JS physics.", e);
+        window.physicsWasm = null;
+    }
+}
+
 // Cookie helper functions
 function setCookie(name, value, days) {
     let expires = "";
@@ -34,7 +47,8 @@ window.myName = userName;
 setCookie("userName", userName, 30); // Remember for 30 days
 
 
-function init() {
+async function init() {
+    await initPhysicsWasm();
     // Initialize the scene
     initScene();
     animate();

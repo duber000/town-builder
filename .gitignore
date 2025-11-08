@@ -7,9 +7,12 @@ wheels/
 *.egg-info
 .env
 
-# Virtual environments
 .venv
 .aider*
+CLAUDE.md
+static/wasm/
 
 #Local Test
 *.json
+
+repomix-output.xml

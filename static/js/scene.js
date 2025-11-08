@@ -1,3 +1,10 @@
+// TinyGo Wasm helper loader
+async function initWasm() {
+    while (typeof calcDistance !== 'function') {
+        await new Promise(r => setTimeout(r, 50));
+    }
+}
+const wasmReady = initWasm();
 import * as THREE from './three.module.js';
 import { GLTFLoader } from './three/examples/jsm/loaders/GLTFLoader.js'; // Corrected path
 import { updateControls } from './controls.js';
@@ -23,7 +30,7 @@ export function initScene() {
         backgroundMesh.rotation.x = -Math.PI / 2; // Rotate to lay flat
         scene.add(backgroundMesh);
 
-    // Create camera
+        // Create camera
     }
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(10, 10, 10);
@@ -122,7 +129,8 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-export function animate() {
+export async function animate() {
+    await wasmReady;
     requestAnimationFrame(animate);
     updateControls(); // Handles keyboard input for car/camera
 
@@ -165,7 +173,7 @@ export function animate() {
             for (const potentialTarget of placedObjects) {
                 // Check if potentialTarget is the correct model type, not the chaser itself, and is moving
                 // Ensure targetType check uses .gltf
-                if (potentialTarget.userData.modelName === car.userData.targetType && 
+                if (potentialTarget.userData.modelName === car.userData.targetType &&
                     potentialTarget !== car &&
                     potentialTarget.userData.currentSpeed > 0) { // Added check for target moving
                     const distanceSq = car.position.distanceToSquared(potentialTarget.position);
@@ -177,13 +185,16 @@ export function animate() {
             }
 
             if (nearestTarget) {
-                const distanceToTarget = car.position.distanceTo(nearestTarget.position);
+                const distanceToTarget = calcDistance(
+                    car.position.x, car.position.z,
+                    nearestTarget.position.x, nearestTarget.position.z
+                );
 
                 // Smooth Turning
                 tempRotationObject.position.copy(car.position);
                 tempRotationObject.lookAt(nearestTarget.position);
                 // tempRotationObject.rotateY(Math.PI); // Removed: Adjust for model's forward axis (+Z) - lookAt handles +Z to target
-                
+
                 const targetQuaternion = tempRotationObject.quaternion;
                 car.quaternion.slerp(targetQuaternion, car.userData.turnSpeedFactor);
 
@@ -198,9 +209,9 @@ export function animate() {
                     let targetSpeed = nearestTarget.userData.currentSpeed !== undefined ? nearestTarget.userData.currentSpeed : car.userData.defaultSpeed;
                     car.userData.currentSpeed = Math.min(car.userData.currentSpeed, targetSpeed);
                     if (distanceToTarget < car.userData.tailingDistance * 0.5) {
-                         car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 3); // Brake harder
+                        car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 3); // Brake harder
                     } else {
-                         car.userData.currentSpeed = Math.max(car.userData.defaultSpeed * 0.5, car.userData.currentSpeed - car.userData.acceleration);
+                        car.userData.currentSpeed = Math.max(car.userData.defaultSpeed * 0.5, car.userData.currentSpeed - car.userData.acceleration);
                     }
                 }
                 actualSpeedThisFrame = car.userData.currentSpeed;
@@ -221,13 +232,13 @@ export function animate() {
             actualSpeedThisFrame = car.userData.currentSpeed;
             moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
         }
-        
+
         const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(actualSpeedThisFrame));
         // Boundary check BEFORE object collision check for chasing cars to prevent going off map
         // For chasing cars, if they are about to go out of bounds (and not recently teleported),
         // clamp their potential position to the boundary, re-orient them towards the center, and apply brakes.
         // They will still attempt to move to the clamped position.
-        if (car.userData.behavior === 'chase' && !(car.userData.isTeleportedRecently && car.userData.teleportCooldownFrames > 0) ) {
+        if (car.userData.behavior === 'chase' && !(car.userData.isTeleportedRecently && car.userData.teleportCooldownFrames > 0)) {
             let isClamped = false;
             if (potentialPosition.x > groundBoundary) { potentialPosition.x = groundBoundary; isClamped = true; }
             else if (potentialPosition.x < -groundBoundary) { potentialPosition.x = -groundBoundary; isClamped = true; }
@@ -238,7 +249,7 @@ export function animate() {
             if (isClamped) {
                 // Re-orient towards the center of the map if about to go off-edge
                 const centerOfMap = new THREE.Vector3(0, car.position.y, 0); // Keep current Y
-                
+
                 tempRotationObject.position.copy(car.position);
                 tempRotationObject.lookAt(centerOfMap);
                 // tempRotationObject.rotateY(Math.PI); // Removed: Adjust for model's forward axis (+Z) - lookAt handles +Z to target
@@ -247,7 +258,7 @@ export function animate() {
                 car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 5); // Brake
             }
         }
-        
+
         // Update car's bounding box for current position before checking potential
         if (!car.userData.boundingBox) {
             car.userData.boundingBox = new THREE.Box3();
@@ -328,7 +339,7 @@ export function animate() {
         // Third-person camera: position behind and slightly above the car
         const offset = new THREE.Vector3(0, 2.5, -6); // Adjust Y for height, Z for distance
         const cameraTargetPosition = new THREE.Vector3();
-        
+
         // Apply car's world rotation and position to the offset
         cameraTargetPosition.copy(offset);
         cameraTargetPosition.applyMatrix4(car.matrixWorld); // Transforms offset to world space relative to car
@@ -356,10 +367,10 @@ export async function loadModel(category, modelName, position) {
             if (position) {
                 gltf.scene.position.copy(position);
             }
-            
+
             // Initialize bounding box for the object
             gltf.scene.userData.boundingBox = new THREE.Box3().setFromObject(gltf.scene);
-            
+
             scene.add(gltf.scene);
             placedObjects.push(gltf.scene);
 
@@ -367,7 +378,7 @@ export async function loadModel(category, modelName, position) {
             if (gltf.scene.userData.category === 'vehicles') {
                 gltf.scene.userData.defaultSpeed = 0.05; // Default speed
                 gltf.scene.userData.currentSpeed = gltf.scene.userData.defaultSpeed;
-                
+
                 // Specific behavior for car_police
                 if (gltf.scene.userData.modelName === 'car_police.gltf') {
                     gltf.scene.userData.behavior = 'chase';
@@ -472,10 +483,10 @@ function onCanvasClick(event) {
                 scene.remove(selected);
                 const placedIdx = placedObjects.indexOf(selected);
                 if (placedIdx > -1) placedObjects.splice(placedIdx, 1);
-                
+
                 const movingCarIdx = movingCars.indexOf(selected);
                 if (movingCarIdx > -1) movingCars.splice(movingCarIdx, 1);
-                
+
                 showNotification('Object deleted', 'success');
             } else if (mode === 'edit') {
                 window.selectedObject = selected;

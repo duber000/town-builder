@@ -22,5 +22,5 @@ COPY . .
 # Expose the port that Gunicorn will listen on
 EXPOSE 5000
 
-# Specify the command to run the application via Gunicorn with gevent workers for SSE support
-CMD ["gunicorn", "-w", "4", "-k", "gevent", "-b", "0.0.0.0:5000", "app:app"]
+# Specify the command to run the application via uvicorn
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "4"]
