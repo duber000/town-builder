@@ -1,5 +1,5 @@
 import './api-error-handler.js';
-import { initScene, animate } from './scene.js';
+import { initializeScene, animate } from './scene.js';
 import { setupSSE } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
@@ -50,7 +50,7 @@ setCookie("userName", userName, 30); // Remember for 30 days
 async function init() {
     await initPhysicsWasm();
     // Initialize the scene
-    initScene();
+    initializeScene();
     animate();
     // Wire up keyboard listeners (was inline before)
     setupKeyboardControls();
