@@ -2,33 +2,6 @@
 
 This document outlines recommended improvements and next steps for the town-builder project following the code organization refactoring.
 
-## 🧹 Immediate Cleanup
-
-- [ ] Delete `static/js/scene.js.old` once refactored code is verified working
-- [ ] Remove or archive old `app.py` (now replaced by modular structure)
-- [ ] Update README.md to reflect new architecture
-- [ ] Remove Go WASM (`calc.go`) if distance calculation can be done in JavaScript (reduces complexity)
-
-## ✅ Testing Infrastructure
-
-- [ ] Add pytest configuration (`pytest.ini`, `conftest.py`)
-- [ ] Create unit tests for services:
-  - [ ] `app/services/auth.py` - JWT token validation
-  - [ ] `app/services/storage.py` - Redis operations
-  - [ ] `app/services/django_client.py` - API client
-  - [ ] `app/services/model_loader.py` - Model discovery
-- [ ] Create integration tests for routes:
-  - [ ] `app/routes/town.py` - Town CRUD operations
-  - [ ] `app/routes/models.py` - Model endpoints
-  - [ ] `app/routes/proxy.py` - Django proxy
-- [ ] Add frontend tests (Jest/Vitest):
-  - [ ] `models/collision.js` - Collision detection
-  - [ ] `models/placement.js` - Placement validation
-  - [ ] `physics/car.js` - Car movement logic
-- [ ] Setup CI/CD pipeline (GitHub Actions)
-  - [ ] Run tests on pull requests
-  - [ ] Lint Python code (ruff, black)
-  - [ ] Lint JavaScript code (eslint)
 
 ## 📝 Documentation
 
@@ -168,14 +141,10 @@ This document outlines recommended improvements and next steps for the town-buil
 
 ## 🎓 Future Considerations
 
-- [ ] Migrate from Django to fully FastAPI-based backend
-- [ ] Consider GraphQL for more flexible API queries
 - [ ] Evaluate WebGL2 features for better graphics
 - [ ] Explore WebGPU for future-proof rendering
-- [ ] Consider adding VR/AR support
 - [ ] Implement offline mode with service workers
 - [ ] Add mobile/touch support
-- [ ] Create desktop app with Electron/Tauri
 
 ---
 
