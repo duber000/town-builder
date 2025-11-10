@@ -11,11 +11,16 @@ import { createPlacementIndicator, updatePlacementIndicator, isPlacementValid } 
 import { updateMovingCars, updateDrivingCamera } from './physics/car.js';
 import { disposeObject } from './utils/disposal.js';
 import { getMouseCoordinates, findRootObject } from './utils/raycaster.js';
+import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
 
 // Scene state
 export let scene, camera, renderer, groundPlane, placementIndicator;
 export let placedObjects = [];
 export let movingCars = [];
+
+// Spatial grid update tracking
+let frameCounter = 0;
+const SPATIAL_GRID_UPDATE_INTERVAL = 10; // Update every 10 frames
 
 // Initialize scene on module load
 export function initializeScene() {
@@ -71,6 +76,13 @@ export async function animate() {
 
     // Update moving cars
     updateMovingCars(movingCars, placedObjects, groundPlane, window.drivingCar);
+
+    // Periodically update spatial grid for moving objects
+    frameCounter++;
+    if (frameCounter >= SPATIAL_GRID_UPDATE_INTERVAL && isPhysicsWasmReady()) {
+        updateSpatialGrid(placedObjects);
+        frameCounter = 0;
+    }
 
     // Update camera if driving
     if (window.drivingCar) {
@@ -168,6 +180,11 @@ function handleDelete(object) {
 
     const movingCarIdx = movingCars.indexOf(object);
     if (movingCarIdx > -1) movingCars.splice(movingCarIdx, 1);
+
+    // Update WASM spatial grid after deletion
+    if (isPhysicsWasmReady()) {
+        updateSpatialGrid(placedObjects);
+    }
 
     showNotification('Object deleted', 'success');
 }

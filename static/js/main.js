@@ -3,18 +3,20 @@ import { initializeScene, animate } from './scene.js';
 import { setupSSE } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
+import { initPhysicsWasm } from './utils/physics_wasm.js';
 
-async function initPhysicsWasm() {
-    try {
-        // Load the wasm-bindgen generated module from the static/wasm directory
-        const wasm = await import('/static/wasm/town_builder_physics.js');
-        await wasm.default(); // Initialize the wasm module
-        window.physicsWasm = wasm; // Make it globally accessible
-        console.log("Physics WASM module loaded successfully.");
-    } catch (e) {
-        console.error("Error loading physics WASM module. Falling back to JS physics.", e);
-        window.physicsWasm = null;
+// Wait for Go WASM module to be ready
+async function waitForWasm() {
+    // Poll for WASM functions to be available
+    for (let i = 0; i < 50; i++) {
+        if (typeof window.wasmUpdateSpatialGrid === 'function') {
+            await initPhysicsWasm();
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
+    console.warn("WASM module did not load in time, continuing without WASM optimization");
+    return false;
 }
 
 // Cookie helper functions
@@ -48,15 +50,18 @@ setCookie("userName", userName, 30); // Remember for 30 days
 
 
 async function init() {
-    await initPhysicsWasm();
+    // Wait for Go WASM module to load
+    await waitForWasm();
+
     // Initialize the scene
     initializeScene();
     animate();
-    // Wire up keyboard listeners (was inline before)
+
+    // Wire up keyboard listeners
     setupKeyboardControls();
     initUI();
 
-    // Prompt for name and connect SSE after scene is initialized
+    // Connect SSE after scene is initialized
     setTimeout(() => {
         setupSSE().catch(error => {
             console.error("Error setting up SSE:", error);
