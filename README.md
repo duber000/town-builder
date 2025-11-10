@@ -1,6 +1,6 @@
 # Simple Town Builder
 
-A web-based 3D town building application using FastAPI and Three.js.
+A web-based 3D town building application using FastAPI and Three.js, powered by **Go 1.24 WASM** for high-performance physics and collision detection.
 
 Inspired by [Florian's Room](https://github.com/flo-bit/room)
 
@@ -20,9 +20,14 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 
 ## Requirements
 
+### Backend
 - Python 3.13+
 - Redis (for multiplayer state sharing via Pub/Sub)
 - [uv](https://github.com/astral-sh/uv) (recommended for dependency management)
+
+### WASM Build Tools
+- Go 1.24+ (required for building physics WASM module)
+- Bash (for running build script)
 
 ## Installation
 
@@ -45,12 +50,10 @@ This project can use WebAssembly modules for enhanced performance. Both modules 
 
 The physics engine falls back to JavaScript-based physics if not built.
 
-Ensure you have `wasm-pack` installed, then build and output to the static/wasm directory:
+Use the automated build script:
 
 ```bash
-cd town-builder-physics
-wasm-pack build --release --target web --out-dir ../static/wasm
-cd -
+./build_wasm.sh
 ```
 
 ### Collision & AI helper (Go/TinyGo) - REQUIRED for AI features
@@ -58,11 +61,24 @@ cd -
 Requires Go 1.24+ (or TinyGo). From the project root, build the Go/WASM binary and copy the JS runtime:
 
 ```bash
-# Build the Go/WASM binary
-GOOS=js GOARCH=wasm go build -o static/wasm/calc.wasm calc.go
+./build_wasm.sh --experimental
+```
 
-# Copy Go's JavaScript runtime helper
-cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" static/js/wasm_exec.js
+This creates `static/wasm/physics_greentea.wasm` optimized for:
+- Programs with many small objects (20-40% less GC pause time)
+- Better worst-case latency
+- More consistent frame times
+
+### Manual Build
+
+If you prefer to build manually:
+
+```bash
+# Standard build with Go 1.24
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/physics.wasm physics_wasm.go
+
+# Copy WASM runtime
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" static/js/wasm_exec.js
 ```
 
 Note: The `calc.wasm` file is already pre-built and included in the repository, built with Go 1.24.
@@ -112,11 +128,28 @@ ENVIRONMENT=development  # or 'production'
 
 ### Controls
 
+#### General
 - **Mouse**: Click and drag to rotate the camera view
 - **Arrow keys** or **WASD**: Move the camera around the scene
+- **Mouse wheel**: Zoom in/out
+
+#### Modes
 - **Place Mode**: Select a model from the sidebar, then click to place it
-- **Edit Mode**: Click on a model to adjust its position and rotation
-- **Delete Mode**: Click on a model to remove it
+- **Edit Mode**: Click on an object to adjust its position and rotation
+- **Delete Mode**: Click on an object to remove it
+- **Drive Mode**: Click on a vehicle to enter driving mode
+
+#### Drive Mode Controls
+- **W / Up Arrow**: Accelerate forward
+- **S / Down Arrow**: Brake / Reverse
+- **A / Left Arrow**: Turn left
+- **D / Right Arrow**: Turn right
+- **Exit Driving Mode** button: Return to normal camera view
+
+#### Advanced Features
+- **Chase AI**: Place police cars to chase other vehicles automatically
+- **Multiplayer**: See other users' changes in real-time
+- **Save/Load**: Persist your town layout across sessions
 
 ## Project Structure
 
@@ -230,10 +263,69 @@ uv add pydantic-settings
 - Default: `redis://localhost:6379/0`
 
 ## Development
-- Development assisted by Claude and Gemini via [aider](https://aider.chat/)
 
-## Kubernetes
+### Tools Used
+- Development assisted by Claude via [aider](https://aider.chat/)
+- Go 1.24.7 with WASM target
+- Three.js for 3D rendering
+- FastAPI for backend services
 
-- The app is designed to run in Kubernetes with multiple replicas.
-- Use the provided manifests in `k8s/` to deploy the app and Valkey (Redis-compatible) for shared state.
-- Make sure to update environment variables as needed for your cluster.
+## Kubernetes Deployment
+
+The app is designed to run in Kubernetes with multiple replicas:
+
+1. **Deploy Valkey** (Redis-compatible):
+   ```bash
+   kubectl apply -f k8s/07-valkey.yaml
+   ```
+
+2. **Deploy the application**:
+   ```bash
+   kubectl apply -f k8s/
+   ```
+
+3. **Scale replicas**:
+   ```bash
+   kubectl scale deployment town-builder --replicas=3
+   ```
+
+### Environment Variables
+
+- `REDIS_HOST` - Redis/Valkey hostname (default: localhost)
+- `REDIS_PORT` - Redis/Valkey port (default: 6379)
+- `PORT` - Application port (default: 5000)
+
+## Performance Monitoring
+
+To monitor WASM performance in the browser console:
+
+```javascript
+import { perfMonitor, getGridStats } from '/static/js/utils/physics_wasm.js';
+
+// Log performance stats
+perfMonitor.logStats();
+
+// Check spatial grid statistics
+console.log(getGridStats());
+```
+
+## Contributing
+
+Contributions are welcome! Key areas:
+
+- 🎨 Additional 3D models and assets
+- 🎮 New game features and mechanics
+- ⚡ Performance optimizations
+- 📱 Mobile controls and UI improvements
+- 🌐 Multiplayer features
+
+## License
+
+See LICENSE file for details.
+
+## Acknowledgments
+
+- [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits) for 3D assets
+- [Florian's Room](https://github.com/flo-bit/room) for inspiration
+- Go team for exceptional WASM support and Swiss Tables optimization
+- Three.js community for the excellent 3D library

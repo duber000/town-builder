@@ -4,6 +4,7 @@
 import * as THREE from '../three.module.js';
 import { GLTFLoader } from '../three/examples/jsm/loaders/GLTFLoader.js';
 import { updateBoundingBox } from './collision.js';
+import { updateSpatialGrid, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 
 const MODELS_BASE_URL = '/static/models';
 
@@ -38,6 +39,11 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             // If it's a vehicle, configure it as a moving car
             if (gltf.scene.userData.category === 'vehicles') {
                 configureVehicle(gltf.scene, movingCars);
+            }
+
+            // Update WASM spatial grid with new object
+            if (isPhysicsWasmReady()) {
+                updateSpatialGrid(placedObjects);
             }
 
             resolve(gltf.scene);
