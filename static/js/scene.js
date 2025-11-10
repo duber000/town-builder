@@ -194,5 +194,5 @@ export async function loadModelToScene(category, modelName, position) {
     return loadModel(scene, placedObjects, movingCars, category, modelName, position);
 }
 
-// Re-export disposeObject for backwards compatibility
-export { disposeObject };
+// Re-export disposeObject and loadModel for backwards compatibility
+export { disposeObject, loadModel };
