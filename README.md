@@ -1,6 +1,6 @@
 # Simple Town Builder
 
-A web-based 3D town building application using FastAPI and Three.js, powered by **Go 1.24 WASM** for high-performance physics and collision detection.
+A web-based 3D town building application using FastAPI and Three.js, with **Go 1.24 WASM** for high-performance distance calculations.
 
 Inspired by [Florian's Room](https://github.com/flo-bit/room)
 
@@ -42,46 +42,27 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
    uv pip install -r pyproject.toml
    ```
 
-## Building WebAssembly modules (Optional)
+## Building WebAssembly Module (Optional)
 
-This project can use WebAssembly modules for enhanced performance. Both modules are **optional** - the application will automatically fall back to JavaScript implementations if WASM modules are not available.
+The project includes a Go 1.24 WASM module (`calc.wasm`) for distance calculations. This is **pre-built** and included in the repository, so rebuilding is optional unless you modify the Go source code.
 
-### Physics engine (Rust + wasm-bindgen) - OPTIONAL
+### Rebuilding the WASM Module
 
-The physics engine falls back to JavaScript-based physics if not built.
+If you need to rebuild after modifying `calc.go`:
 
-Use the automated build script:
+```bash
+# Build the WASM module
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/calc.wasm calc.go
+
+# Copy the WASM runtime
+cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" static/js/wasm_exec.js
+```
+
+Or use the automated build script:
 
 ```bash
 ./build_wasm.sh
 ```
-
-### Collision & AI helper (Go/TinyGo) - REQUIRED for AI features
-
-Requires Go 1.24+ (or TinyGo). From the project root, build the Go/WASM binary and copy the JS runtime:
-
-```bash
-./build_wasm.sh --experimental
-```
-
-This creates `static/wasm/physics_greentea.wasm` optimized for:
-- Programs with many small objects (20-40% less GC pause time)
-- Better worst-case latency
-- More consistent frame times
-
-### Manual Build
-
-If you prefer to build manually:
-
-```bash
-# Standard build with Go 1.24
-GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/physics.wasm physics_wasm.go
-
-# Copy WASM runtime
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" static/js/wasm_exec.js
-```
-
-Note: The `calc.wasm` file is already pre-built and included in the repository, built with Go 1.24.
 
 ## Running the Application
 
@@ -213,31 +194,18 @@ static/js/
 - Real-time updates are delivered via Server-Sent Events (SSE) to all connected clients.
 - Users are tracked and displayed in the online users list.
 
-## Recent Changes (November 8, 2025)
+## Recent Changes
 
-### Code Refactoring
-The codebase underwent a major refactoring for better maintainability and scalability:
+### November 2025 - Code Refactoring
+The codebase underwent a major refactoring for better maintainability:
 
-**Backend:**
-- Split monolithic `app.py` (937 lines) into modular structure
-- Created organized `app/` package with routes, services, and models
-- Centralized configuration using pydantic-settings
-- Improved separation of concerns
+- **Backend:** Split monolithic `app.py` into modular `app/` package structure with routes, services, and models
+- **Frontend:** Split large `scene.js` file into focused modules organized by domain
+- **Breaking Change:** Application entry point changed from `app:app` to `app.main:app`
 
-**Frontend:**
-- Split `scene.js` (516 lines) into focused modules
-- Better code organization with domain-specific directories
-- Maintained backward compatibility with existing imports
-- Improved reusability and testability
-
-**Breaking Changes:**
-- Application entry point changed from `app:app` to `app.main:app`
-- Commands must be updated to use `app.main:app` instead of `app:app`
-
-### Go WASM Updates
-- Updated to Go 1.24/1.25 with optimizations
-- Rebuilt `calc.wasm` with latest Go version
-- Updated `wasm_exec.js` to Go 1.24 version
+### Go WASM Module
+- Built with Go 1.24 for improved performance
+- Provides fast distance calculations for game logic
 
 ## Troubleshooting
 
@@ -252,10 +220,10 @@ uv add pydantic-settings
 - Make sure you're using `app.main:app` not `app:app`
 - Correct command: `uv run uvicorn app.main:app --reload`
 
-**404 Error: town_builder_physics.js not found**
-- This is expected if you haven't built the Rust WASM module
-- The app will automatically fall back to JavaScript physics
-- This is not an error and won't affect functionality
+**WASM loading errors**
+- The app loads `physics.wasm` at startup (falls back to `calc.wasm` if not found)
+- WASM errors are non-critical - the app will work with JavaScript fallbacks
+- Rebuild the WASM module if you've modified the Go source: `./build_wasm.sh`
 
 **Redis connection errors**
 - Ensure Redis is running: `redis-server`
@@ -264,11 +232,11 @@ uv add pydantic-settings
 
 ## Development
 
-### Tools Used
-- Development assisted by Claude via [aider](https://aider.chat/)
-- Go 1.24.7 with WASM target
-- Three.js for 3D rendering
-- FastAPI for backend services
+### Technology Stack
+- **Backend:** Python 3.13+ with FastAPI, Redis for state management
+- **Frontend:** Three.js for 3D rendering, vanilla JavaScript
+- **WASM:** Go 1.24 for performance-critical calculations
+- **Deployment:** Docker, Kubernetes with Gunicorn + Gevent
 
 ## Kubernetes Deployment
 
@@ -295,19 +263,6 @@ The app is designed to run in Kubernetes with multiple replicas:
 - `REDIS_PORT` - Redis/Valkey port (default: 6379)
 - `PORT` - Application port (default: 5000)
 
-## Performance Monitoring
-
-To monitor WASM performance in the browser console:
-
-```javascript
-import { perfMonitor, getGridStats } from '/static/js/utils/physics_wasm.js';
-
-// Log performance stats
-perfMonitor.logStats();
-
-// Check spatial grid statistics
-console.log(getGridStats());
-```
 
 ## Contributing
 
@@ -327,5 +282,5 @@ See LICENSE file for details.
 
 - [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits) for 3D assets
 - [Florian's Room](https://github.com/flo-bit/room) for inspiration
-- Go team for exceptional WASM support and Swiss Tables optimization
+- Go team for excellent WASM support
 - Three.js community for the excellent 3D library
