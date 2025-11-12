@@ -1,6 +1,6 @@
 import './api-error-handler.js';
-import { initializeScene, animate } from './scene.js';
-import { setupSSE } from './network.js';
+import { initializeScene, animate, loadModelToScene } from './scene.js';
+import { setupSSE, loadTownFromDjango } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
 import { initPhysicsWasm } from './utils/physics_wasm.js';
@@ -60,6 +60,52 @@ async function init() {
     // Wire up keyboard listeners
     setupKeyboardControls();
     initUI();
+
+    // Auto-load town data if town_id is present
+    if (window.currentTownId) {
+        console.log(`Auto-loading town ${window.currentTownId} from Django...`);
+        try {
+            const result = await loadTownFromDjango(window.currentTownId);
+            console.log("Town loaded:", result);
+
+            // Update town name display
+            const townNameDisplay = document.getElementById('town-name-display');
+            const townNameInput = document.getElementById('town-name-input');
+            if (result.town_info && result.town_info.name) {
+                if (townNameDisplay) townNameDisplay.textContent = result.town_info.name;
+                if (townNameInput) townNameInput.value = result.town_info.name;
+            }
+
+            // Load scene objects if layout_data exists
+            if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+                console.log(`Loading ${result.data.length} objects into scene...`);
+                for (const item of result.data) {
+                    try {
+                        const obj = await loadModelToScene(item.category, item.modelName);
+                        if (obj) {
+                            if (item.position && Array.isArray(item.position)) {
+                                obj.position.fromArray(item.position);
+                            }
+                            if (item.rotation && Array.isArray(item.rotation)) {
+                                obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
+                            }
+                            if (item.scale && Array.isArray(item.scale)) {
+                                obj.scale.fromArray(item.scale);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Error loading model ${item.category}/${item.modelName}:`, err);
+                    }
+                }
+                showNotification(`Town "${result.town_info.name}" loaded successfully`, 'success');
+            } else {
+                showNotification(`Town "${result.town_info.name}" loaded (no saved layout)`, 'info');
+            }
+        } catch (error) {
+            console.error("Error auto-loading town:", error);
+            showNotification("Error loading town data", "error");
+        }
+    }
 
     // Connect SSE after scene is initialized
     setTimeout(() => {

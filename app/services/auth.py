@@ -11,8 +11,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Security scheme
-security = HTTPBearer()
+# Security scheme (auto_error=False allows optional authentication)
+security = HTTPBearer(auto_error=False)
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, any]:
@@ -54,6 +54,10 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     if settings.disable_jwt_auth:
         logger.warning("JWT authentication is DISABLED - development mode only!")
         return {"username": "dev-user", "payload": {"sub": "dev-user"}}
+
+    # If no credentials provided and JWT auth is required, raise error
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     return verify_token(credentials)
 

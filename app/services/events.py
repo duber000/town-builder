@@ -22,9 +22,13 @@ def broadcast_sse(data: Dict) -> None:
     Args:
         data: Dictionary to broadcast (will be JSON encoded)
     """
-    redis_client = get_redis_client()
-    msg = json.dumps(data)
-    redis_client.publish(settings.pubsub_channel, msg)
+    try:
+        redis_client = get_redis_client()
+        msg = json.dumps(data)
+        redis_client.publish(settings.pubsub_channel, msg)
+    except Exception as e:
+        # Redis is optional for multiplayer features - log error but don't fail
+        logger.warning(f"Failed to broadcast SSE event (Redis unavailable): {e}")
 
 
 def get_online_users() -> list[str]:

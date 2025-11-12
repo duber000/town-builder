@@ -152,3 +152,23 @@ export async function loadSceneFromServer() {
     }
     return response.json();
 }
+
+export async function loadTownFromDjango(townId) {
+    const response = await fetch(`/api/town/load-from-django/${townId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) {
+        throw new Error('Failed to load town from Django: ' + response.statusText);
+    }
+    const result = await response.json();
+    // Update current town info
+    if (result.town_info) {
+        window.currentTownId = result.town_info.id;
+        window.currentTownName = result.town_info.name;
+        window.currentTownDescription = result.town_info.description;
+        window.currentTownLatitude = result.town_info.latitude;
+        window.currentTownLongitude = result.town_info.longitude;
+    }
+    return result;
+}

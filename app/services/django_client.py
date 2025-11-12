@@ -65,7 +65,8 @@ def _get_headers() -> Dict[str, str]:
         Dictionary of HTTP headers
     """
     headers = {'Content-Type': 'application/json'}
-    if settings.api_token:
+    # Only add Authorization header if api_token is not None and not empty
+    if settings.api_token and settings.api_token.strip():
         headers['Authorization'] = f"Bearer {settings.api_token}"
     return headers
 

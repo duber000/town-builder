@@ -48,8 +48,8 @@ class TownUpdateRequest(BaseModel):
 class SaveTownRequest(BaseModel):
     """Request to save town data."""
     filename: Optional[str] = "town_data.json"
-    data: Optional[Dict[str, Any]] = None
-    town_id: Optional[str] = None
+    data: Optional[Any] = None  # Can be array or dict depending on use case
+    town_id: Optional[int] = None  # Changed to int to match Django's integer primary key
     townName: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None

@@ -18,11 +18,21 @@ templates = Jinja2Templates(directory=settings.templates_path)
 
 
 @router.get("/")
-async def index(request: Request):
-    """Render the main town builder interface."""
+async def index(request: Request, town_id: int = None):
+    """Render the main town builder interface.
+
+    Args:
+        request: FastAPI request object
+        town_id: Optional town ID from URL parameter (e.g., ?town_id=123)
+    """
     models = get_available_models()
     logger.info(f"Rendering index with {sum(len(models[cat]) for cat in models)} models")
-    return templates.TemplateResponse("index.html", {"request": request, "models": models})
+    logger.info(f"Town ID from URL: {town_id}")
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "models": models,
+        "town_id": town_id
+    })
 
 
 @router.get("/healthz")

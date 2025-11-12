@@ -135,7 +135,7 @@ async def save_town(
             local_save_message = "Local save skipped (no filename)."
 
         # Save to Django backend if town_id is provided
-        if town_id is not None and town_id != "":
+        if town_id is not None:
             # Update existing town (PATCH)
             try:
                 update_town(town_id, request_payload, town_data_to_save, town_name_from_payload)
@@ -249,6 +249,79 @@ async def load_town(
     except Exception as e:
         logger.error(f"Error loading town: {e}")
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
+
+
+@router.get("/town/load-from-django/{town_id}")
+async def load_town_from_django(
+    town_id: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """Load town layout data from Django backend.
+
+    Args:
+        town_id: ID of the town to load
+        current_user: Authenticated user
+
+    Returns:
+        Status, message, and town data with layout_data
+    """
+    try:
+        # Fetch town data from Django API
+        from app.config import settings
+        import requests
+
+        base_url = settings.api_url if settings.api_url.endswith('/') else settings.api_url + '/'
+        url = f"{base_url}{town_id}/"
+
+        headers = {'Content-Type': 'application/json'}
+        if settings.api_token and settings.api_token.strip():
+            headers['Authorization'] = f"Bearer {settings.api_token}"
+
+        logger.info(f"Loading town from Django: {url}")
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        town_data = response.json()
+        logger.info(f"Successfully loaded town {town_id} from Django: {town_data.get('name')}")
+
+        # Extract layout_data if available
+        layout_data = town_data.get('layout_data', [])
+
+        # Store in Redis/memory for multiplayer sync
+        set_town_data(layout_data if layout_data else [])
+        broadcast_sse({'type': 'full', 'town': layout_data})
+
+        return {
+            "status": "success",
+            "message": f"Town '{town_data.get('name')}' loaded from Django",
+            "data": layout_data,
+            "town_info": {
+                "id": town_data.get('id'),
+                "name": town_data.get('name'),
+                "description": town_data.get('description'),
+                "latitude": town_data.get('latitude'),
+                "longitude": town_data.get('longitude')
+            }
+        }
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error loading town from Django: {e}")
+        error_detail = str(e)
+        if hasattr(e, 'response') and e.response is not None:
+            try:
+                error_detail = e.response.json()
+            except ValueError:
+                error_detail = e.response.text
+        raise HTTPException(
+            status_code=500,
+            detail={"status": "error", "message": f"Failed to load town from Django: {error_detail}"}
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error loading town: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"status": "error", "message": str(e)}
+        )
 
 
 @router.delete("/town/model")
