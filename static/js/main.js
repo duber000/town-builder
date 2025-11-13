@@ -1,9 +1,10 @@
 import './api-error-handler.js';
-import { initializeScene, animate, loadModelToScene } from './scene.js';
+import { initializeScene, animate, loadModelToScene, placedObjects } from './scene.js';
 import { setupSSE, loadTownFromDjango } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
 import { initPhysicsWasm } from './utils/physics_wasm.js';
+import { applyCategoryStatuses, createStatusLegend } from './category_status.js';
 
 // Wait for Go WASM module to be ready
 async function waitForWasm() {
@@ -100,6 +101,16 @@ async function init() {
                 showNotification(`Town "${result.town_info.name}" loaded successfully`, 'success');
             } else {
                 showNotification(`Town "${result.town_info.name}" loaded (no saved layout)`, 'info');
+            }
+            if (result.town_info && result.town_info.category_statuses) {
+                console.log(`Applying ${result.town_info.category_statuses.length} category statuses...`);
+                applyCategoryStatuses(result.town_info.category_statuses, placedObjects);
+
+                // Create and display status legend
+                const legend = createStatusLegend(result.town_info.category_statuses);
+                document.body.appendChild(legend);
+
+                showNotification('Category statuses applied', 'success');
             }
         } catch (error) {
             console.error("Error auto-loading town:", error);
