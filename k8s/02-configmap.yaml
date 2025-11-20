@@ -3,10 +3,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: town-builder-config
-  namespace: honeyfungus
+  namespace: <YOUR_NAMESPACE>
 data:
   # Replace with the actual URL of your external town API
-  TOWN_API_URL: "http://issues.iribala.org/api/towns/"
+  TOWN_API_URL: "http://<YOUR_EXTERNAL_API_DOMAIN>/api/towns/"
   # Redis URL for SSE and caching
-  REDIS_URL: "redis://valkey.honeyfungus.svc.cluster.local:6379/0"
+  # Format: redis://<service-name>.<namespace>.svc.cluster.local:<port>/<db>
+  REDIS_URL: "redis://valkey.<YOUR_NAMESPACE>.svc.cluster.local:6379/0"
   # Add other configuration here if needed

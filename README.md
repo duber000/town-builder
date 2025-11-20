@@ -92,19 +92,26 @@ Create a `.env` file in the project root with the following variables:
 
 ```env
 # JWT Authentication
-JWT_SECRET_KEY=your-secret-key-change-this-in-production
+# REQUIRED in production! Generate a secure random string (e.g., openssl rand -hex 32)
+JWT_SECRET_KEY=<GENERATE_SECURE_RANDOM_STRING_HERE>
 JWT_ALGORITHM=HS256
-DISABLE_JWT_AUTH=true  # Set to 'false' in production
+DISABLE_JWT_AUTH=true  # Set to 'false' in production (JWT_SECRET_KEY required)
 
 # External Django API (optional)
 TOWN_API_URL=http://localhost:8000/api/towns/
-TOWN_API_JWT_TOKEN=your-api-token
+TOWN_API_JWT_TOKEN=<YOUR_API_JWT_TOKEN_HERE>
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
 # Environment
 ENVIRONMENT=development  # or 'production'
+```
+
+**Security Note:** Never commit your `.env` file or use weak/default secrets in production. Generate strong secrets using:
+```bash
+# Generate a secure JWT secret
+openssl rand -hex 32
 ```
 
 ### Controls
