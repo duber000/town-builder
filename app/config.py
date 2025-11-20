@@ -18,9 +18,18 @@ class Settings(BaseSettings):
     environment: str = os.getenv('ENVIRONMENT', 'development')
 
     # JWT Authentication
-    jwt_secret_key: str = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-this-in-production')
+    jwt_secret_key: str = os.getenv('JWT_SECRET_KEY', '')
     jwt_algorithm: str = os.getenv('JWT_ALGORITHM', 'HS256')
     disable_jwt_auth: bool = os.getenv('DISABLE_JWT_AUTH', '').lower() == 'true'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Fail fast if JWT_SECRET_KEY is not set and JWT auth is enabled
+        if not self.disable_jwt_auth and not self.jwt_secret_key:
+            raise ValueError(
+                "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. "
+                "Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."
+            )
 
     # External API (Django)
     api_url: str = os.getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
