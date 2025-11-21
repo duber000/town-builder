@@ -1,6 +1,8 @@
 # Simple Town Builder
 
-A web-based 3D town building application using FastAPI and Three.js, with **Go 1.24 WASM** for high-performance distance calculations.
+A web-based 3D town building application using FastAPI and Three.js, with **Go 1.24+ WASM** for high-performance physics calculations.
+
+**Performance**: Physics module leverages Go 1.24 **Swiss Tables** for 30-60% faster map operations, spatial grid collision detection, and optimized memory allocation.
 
 Inspired by [Florian's Room](https://github.com/flo-bit/room)
 
@@ -42,27 +44,48 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
    uv pip install -r pyproject.toml
    ```
 
-## Building WebAssembly Module (Optional)
+## Building WebAssembly Modules
 
-The project includes a Go 1.24 WASM module (`calc.wasm`) for distance calculations. This is **pre-built** and included in the repository, so rebuilding is optional unless you modify the Go source code.
+The project includes Go 1.24+ WASM modules for high-performance physics calculations:
 
-### Rebuilding the WASM Module
+- `physics.wasm` - Spatial grid, collision detection, object queries (Go 1.24+ with Swiss Tables)
+- `calc.wasm` - Legacy distance calculations (backward compatibility)
 
-If you need to rebuild after modifying `calc.go`:
+These are **pre-built** and included in the repository, so rebuilding is optional unless you modify the Go source code.
+
+### Performance Features (Go 1.24+)
+
+The physics WASM module automatically benefits from Go 1.24 optimizations:
+
+- ✅ **Swiss Tables**: 30% faster map access, 35% faster assignments, 10-60% faster iteration
+- ✅ **SpinbitMutex**: Enhanced mutex performance for concurrent operations
+- ✅ **Better allocation**: Improved small object handling, more stack allocations
+- ✅ **Spatial grid**: O(k) collision detection vs O(n²) naive approach
+
+See [Go WASM Performance Documentation](docs/go-wasm-performance.md) for details.
+
+### Rebuilding the WASM Modules
+
+If you need to rebuild after modifying Go source code:
 
 ```bash
-# Build the WASM module
-GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/calc.wasm calc.go
-
-# Copy the WASM runtime
-cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" static/js/wasm_exec.js
-```
-
-Or use the automated build script:
-
-```bash
+# Build all WASM modules (recommended)
 ./build_wasm.sh
+
+# Manual build (advanced)
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/physics.wasm physics_wasm.go
 ```
+
+### WASM API Functions
+
+The physics module exposes these functions to JavaScript:
+
+- `wasmUpdateSpatialGrid(objects)` - Update spatial grid with current objects
+- `wasmCheckCollision(id, bbox)` - Check collisions for a single object
+- `wasmBatchCheckCollisions(checks)` - Batch collision checking (efficient)
+- `wasmFindNearestObject(x, y, category, maxDist)` - Find nearest object by category
+- `wasmFindObjectsInRadius(x, y, radius, category?)` - Radius-based search
+- `wasmGetGridStats()` - Get spatial grid statistics (debugging)
 
 ## Running the Application
 

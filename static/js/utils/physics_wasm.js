@@ -2,18 +2,19 @@
  * Physics WASM Integration
  *
  * Provides high-performance spatial partitioning and collision detection
- * using Go 1.24 WASM with Swiss Tables optimization.
+ * using Go 1.24+ WASM with Swiss Tables and other optimizations.
  *
  * Features:
- * - Spatial grid for O(n log n) collision detection (vs O(n²))
+ * - Spatial grid for O(k) collision detection (vs O(n²))
  * - Batch collision checking
  * - Fast nearest-object search
  * - Radius-based queries
  *
- * Performance improvements from Go 1.24:
- * - 30% faster map access
- * - 35% faster map assignment
- * - 10-60% faster iteration
+ * Go 1.24 Performance Improvements (enabled by default):
+ * - Swiss Tables: 30% faster map access, 35% faster assignment, 10-60% faster iteration
+ * - SpinbitMutex: Enhanced mutex performance
+ * - Better stack allocation for small slices (reduced heap pressure)
+ * - Improved small object allocation
  */
 
 let physicsWasmReady = false;
@@ -36,12 +37,12 @@ export async function initPhysicsWasm() {
         if (typeof window.wasmUpdateSpatialGrid === 'function') {
             physicsWasmReady = true;
             physicsWasmEnabled = true;
-            console.log('✓ Physics WASM module ready (Go 1.24 optimized)');
+            console.log('✓ Physics WASM module ready (Go 1.24+ with Swiss Tables)');
 
             // Log grid stats for debugging
             if (typeof window.wasmGetGridStats === 'function') {
                 const stats = window.wasmGetGridStats();
-                console.log('Spatial grid initialized:', stats);
+                console.log('  Spatial grid initialized:', stats);
             }
 
             return true;
