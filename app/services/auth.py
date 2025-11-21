@@ -3,9 +3,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict
 
+from authlib.jose import jwt
+from authlib.jose.errors import JoseError
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
 
 from app.config import settings
 
@@ -29,12 +30,17 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     """
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        # Decode and validate the JWT token
+        claims = jwt.decode(token, settings.jwt_secret_key)
+        claims.validate()
+
+        # Convert claims to dict for easier access
+        payload = dict(claims)
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
         return {"username": username, "payload": payload}
-    except JWTError:
+    except JoseError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 
@@ -78,10 +84,19 @@ def create_access_token(username: str, expires_hours: int = 24) -> Dict[str, any
     if settings.environment.lower() == 'production':
         raise HTTPException(status_code=404, detail="Not found")
 
-    # Create token with expiration
+    # Create JWT header with algorithm
+    header = {"alg": settings.jwt_algorithm}
+
+    # Create token payload with expiration
     expire = datetime.utcnow() + timedelta(hours=expires_hours)
-    to_encode = {"sub": username, "exp": expire}
-    encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    payload = {"sub": username, "exp": expire}
+
+    # Encode and sign the JWT
+    encoded_jwt = jwt.encode(header, payload, settings.jwt_secret_key)
+
+    # authlib returns bytes, decode to string
+    if isinstance(encoded_jwt, bytes):
+        encoded_jwt = encoded_jwt.decode('utf-8')
 
     return {
         "access_token": encoded_jwt,
