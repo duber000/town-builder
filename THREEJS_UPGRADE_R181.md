@@ -200,3 +200,46 @@ The upgrade from r176 to r181 brings significant improvements to:
 - **Features**: New capabilities like loader abort and enhanced texture support
 
 All changes are backward compatible with the current codebase. No code modifications required for basic functionality, but several new features are available for future enhancements.
+
+---
+
+## UPDATE: Enhancements Implemented ✨
+
+Following the upgrade, we've implemented several enhancements to take full advantage of r181 features:
+
+### Implemented Features
+
+1. **✅ Loader Abort Support** (r179 feature)
+   - Cancel pending model loads when switching categories
+   - Better UX when users change selections quickly
+   - See `static/js/models/loader.js`
+
+2. **✅ Timer Class Integration** (r179 feature)
+   - Frame-independent animation timing
+   - Consistent physics across different frame rates
+   - See `static/js/scene.js`
+
+3. **✅ Environment Mapping** (r181 enhanced)
+   - Realistic reflections on vehicles and buildings
+   - Procedural sky cube texture
+   - Leverages improved GGX VNDF and DFG LUT
+   - See `static/js/scene/scene.js`
+
+4. **✅ Enhanced PBR Lighting**
+   - Optimized for r181's multi-scattering
+   - Better material definition and contrast
+
+### Documentation
+
+For detailed information about the enhancements, including code examples, migration guide, and technical comparisons, see:
+
+**📄 [THREEJS_R181_ENHANCEMENTS.md](./THREEJS_R181_ENHANCEMENTS.md)**
+
+### Quick Benefits Summary
+
+- **UX**: No more waiting for unwanted model loads
+- **Performance**: Frame-rate independent physics ready
+- **Visuals**: Vehicles and buildings now have realistic reflections
+- **Quality**: Significantly better PBR rendering with r181's improvements
+
+All enhancements are backward compatible and production-ready.
