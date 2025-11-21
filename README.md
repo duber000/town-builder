@@ -21,7 +21,7 @@ Assets from [Kaykit Bits](https://kaylousberg.itch.io/city-builder-bits)
 ## Requirements
 
 ### Backend
-- Python 3.13+
+- Python 3.14+
 - Redis (for multiplayer state sharing via Pub/Sub)
 - [uv](https://github.com/astral-sh/uv) (recommended for dependency management)
 
@@ -220,6 +220,16 @@ static/js/
 
 ## Recent Changes
 
+### November 2025 - Python 3.14 & JWT Library Migration
+Updated to Python 3.14 and modernized dependencies:
+
+- **Python:** Upgraded from 3.13 to 3.14 for latest performance improvements and features
+- **JWT Library:** Migrated from `python-jose` to `authlib` for better security and maintenance
+  - `python-jose` was abandoned for years and had security concerns
+  - `authlib` is actively maintained and recommended by the FastAPI community
+  - No changes required to JWT tokens or authentication flow
+- **Dependencies:** Updated FastAPI (0.119.1+), Uvicorn (0.38.0+), Pydantic (2.12.0+) for Python 3.14 compatibility
+
 ### November 2025 - Code Refactoring
 The codebase underwent a major refactoring for better maintainability:
 
@@ -257,7 +267,7 @@ uv add pydantic-settings
 ## Development
 
 ### Technology Stack
-- **Backend:** Python 3.13+ with FastAPI, Redis for state management
+- **Backend:** Python 3.14+ with FastAPI, Redis for state management
 - **Frontend:** Three.js for 3D rendering, vanilla JavaScript
 - **WASM:** Go 1.24 for performance-critical calculations
 - **Deployment:** Docker, Kubernetes with Gunicorn + Gevent
