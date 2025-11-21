@@ -9,6 +9,7 @@ from pygltflib import GLTF2
 from app.config import settings
 from app.services.auth import get_current_user
 from app.services.model_loader import get_available_models
+from app.utils.security import validate_model_path
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,10 @@ async def get_model_info(
     Returns:
         FileResponse with model file or JSON with metadata
     """
-    model_path = os.path.join(settings.models_path, category, model_name)
+    # Validate category and model_name to prevent path traversal
+    validated_category, validated_model_name = validate_model_path(category, model_name)
+
+    model_path = os.path.join(settings.models_path, validated_category, validated_model_name)
     if not os.path.exists(model_path):
         raise HTTPException(status_code=404, detail="Model not found")
 

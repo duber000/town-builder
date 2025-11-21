@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     models_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'models')
     static_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
     templates_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+    data_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+
+    # Allowed origins for CORS (comma-separated)
+    allowed_origins: str = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5001,http://127.0.0.1:5001')
+
+    # Allowed API URL patterns for SSRF prevention
+    allowed_api_domains: list = ['localhost', '127.0.0.1', 'api.yourdomain.com']
 
     class Config:
         case_sensitive = False
