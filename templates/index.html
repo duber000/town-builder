@@ -195,11 +195,12 @@
     <!-- Load Go WASM runtime -->
     <script src="/static/js/wasm_exec.js"></script>
     <script>
-      // Load physics WASM module (Go 1.24 optimized with Swiss Tables)
+      // Load physics WASM module (Go 1.24+ with Swiss Tables enabled)
       const go = new Go();
       WebAssembly.instantiateStreaming(fetch("/static/wasm/physics.wasm"), go.importObject).then(result => {
         go.run(result.instance);
-        console.log("✓ Physics WASM loaded (Go 1.24 optimized)");
+        console.log("✓ Physics WASM loaded (Go 1.24+ with Swiss Tables)");
+        console.log("  Performance: 30-60% faster map operations");
       }).catch(err => {
         console.error("Failed to load physics WASM:", err);
       });

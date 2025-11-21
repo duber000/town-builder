@@ -2,13 +2,14 @@
 
 # ============================================================================
 # WASM Build Script - Town Builder Physics Module
-# Optimized for Go 1.24 (Swiss Tables) and Go 1.25 (Green Tea GC)
+# Optimized for Go 1.24+ with Swiss Tables (enabled by default)
 # ============================================================================
 
 set -e  # Exit on error
 
 echo "================================================"
 echo "Town Builder WASM Build Script"
+echo "Go 1.24+ Swiss Tables Enabled"
 echo "================================================"
 echo ""
 
@@ -19,16 +20,23 @@ echo ""
 
 # Create output directory
 mkdir -p static/wasm
+mkdir -p static/js
 
 # ============================================================================
-# Build 1: Standard Go 1.24 Build (Recommended for Production)
+# Build Physics WASM Module (Swiss Tables enabled by default in Go 1.24)
 # ============================================================================
 
-echo "Building standard WASM module (Go 1.24 Swiss Tables)..."
-echo "Features:"
-echo "  - Swiss Tables map optimization (30-60% faster)"
-echo "  - Improved small object allocation"
-echo "  - Better mutex performance"
+echo "Building physics WASM module with Go 1.24+ optimizations..."
+echo ""
+echo "Enabled Features:"
+echo "  ✓ Swiss Tables (default in Go 1.24+)"
+echo "    - 30% faster map access"
+echo "    - 35% faster map assignment"
+echo "    - 10-60% faster map iteration"
+echo "  ✓ Improved small object allocation"
+echo "  ✓ Better stack allocation for slices"
+echo "  ✓ Enhanced mutex performance (SpinbitMutex)"
+echo "  ✓ Optimized for WASM runtime"
 echo ""
 
 GOOS=js GOARCH=wasm go build \
@@ -36,33 +44,9 @@ GOOS=js GOARCH=wasm go build \
   -o static/wasm/physics.wasm \
   physics_wasm.go
 
-STANDARD_SIZE=$(du -h static/wasm/physics.wasm | cut -f1)
-echo "✓ Standard build complete: static/wasm/physics.wasm ($STANDARD_SIZE)"
+PHYSICS_SIZE=$(du -h static/wasm/physics.wasm | cut -f1)
+echo "✓ Physics WASM build complete: static/wasm/physics.wasm ($PHYSICS_SIZE)"
 echo ""
-
-# ============================================================================
-# Build 2: Experimental Go 1.25 Green Tea GC Build (Optional)
-# ============================================================================
-
-if [[ "$1" == "--experimental" ]] || [[ "$1" == "--greentea" ]]; then
-    echo "Building experimental WASM module (Go 1.25 Green Tea GC)..."
-    echo "Features:"
-    echo "  - Green Tea GC (optimized for small objects)"
-    echo "  - Improved stack allocation for slices"
-    echo "  - Lower GC latency"
-    echo ""
-    echo "WARNING: This is experimental. Test thoroughly before production use."
-    echo ""
-
-    GOEXPERIMENT=greenteagc GOOS=js GOARCH=wasm go build \
-      -ldflags="-s -w" \
-      -o static/wasm/physics_greentea.wasm \
-      physics_wasm.go
-
-    GREENTEA_SIZE=$(du -h static/wasm/physics_greentea.wasm | cut -f1)
-    echo "✓ Green Tea GC build complete: static/wasm/physics_greentea.wasm ($GREENTEA_SIZE)"
-    echo ""
-fi
 
 # ============================================================================
 # Build 3: Legacy Distance Calculator (Backward Compatibility)
@@ -116,33 +100,39 @@ echo "================================================"
 echo "Build Summary"
 echo "================================================"
 echo ""
-echo "Standard Build (Recommended):"
+echo "Physics WASM Module:"
 echo "  File: static/wasm/physics.wasm"
-echo "  Size: $STANDARD_SIZE"
-echo "  Features: Go 1.24 Swiss Tables, improved allocation"
+echo "  Size: $PHYSICS_SIZE"
+echo "  Go Version: $GO_VERSION"
+echo ""
+echo "Optimizations (enabled by default in Go 1.24+):"
+echo "  ✓ Swiss Tables - 30-60% faster map operations"
+echo "  ✓ SpinbitMutex - Enhanced lock performance"
+echo "  ✓ Improved allocation - Better small object handling"
+echo "  ✓ Stack optimization - Reduced heap pressure"
 echo ""
 
-if [[ "$1" == "--experimental" ]] || [[ "$1" == "--greentea" ]]; then
-    echo "Experimental Build:"
-    echo "  File: static/wasm/physics_greentea.wasm"
-    echo "  Size: $GREENTEA_SIZE"
-    echo "  Features: Go 1.25 Green Tea GC (experimental)"
-    echo ""
-    echo "To use experimental build, modify wasm.js to load:"
-    echo "  /static/wasm/physics_greentea.wasm"
+if [ -f "static/wasm/calc.wasm" ]; then
+    CALC_SIZE=$(du -h static/wasm/calc.wasm | cut -f1)
+    echo "Legacy Calculator:"
+    echo "  File: static/wasm/calc.wasm"
+    echo "  Size: $CALC_SIZE"
     echo ""
 fi
 
-echo "Usage in JavaScript:"
-echo "  await wasmUpdateSpatialGrid(objects)"
-echo "  const collisions = wasmCheckCollision(id, bbox)"
-echo "  const nearest = wasmFindNearestObject(x, y, category, maxDist)"
+echo "JavaScript API Functions:"
+echo "  • wasmUpdateSpatialGrid(objects)      - Update spatial grid"
+echo "  • wasmCheckCollision(id, bbox)        - Single collision check"
+echo "  • wasmBatchCheckCollisions(checks)    - Batch collision check"
+echo "  • wasmFindNearestObject(x, y, cat, d) - Find nearest by category"
+echo "  • wasmFindObjectsInRadius(x, y, r, c) - Radius-based search"
+echo "  • wasmGetGridStats()                  - Debug statistics"
 echo ""
-
-echo "To enable experimental Green Tea GC build:"
-echo "  ./build_wasm.sh --experimental"
+echo "Performance Tips:"
+echo "  • Pre-size maps to reduce rehashing (already optimized in code)"
+echo "  • Use batch operations for multiple collision checks"
+echo "  • Spatial grid auto-optimizes for O(k) collision detection"
 echo ""
-
 echo "================================================"
-echo "Build complete!"
+echo "Build complete! 🚀"
 echo "================================================"
