@@ -33,7 +33,8 @@ No critical security vulnerabilities were identified in the external JavaScript 
 - **Status:** Using a relatively recent version (5 releases behind latest)
 
 **Recommendations:**
-- ⚠️ **Medium Priority:** Update to r181 (latest as of Nov 2025) to benefit from bug fixes and improvements
+- ✅ **Low Priority:** Update to r181 (latest as of Nov 2025) for bug fixes and performance improvements
+- **Note:** No security fixes were released between r176 and r181 - update is optional
 - Monitor the [Three.js releases page](https://github.com/mrdoob/three.js/releases) for security advisories
 - Consider setting up automated dependency update notifications
 
@@ -290,9 +291,11 @@ The Town Builder application demonstrates **good security practices** for client
 
 ### Priority Actions:
 
-1. **Optional (Low Priority):** Update Three.js from r176 to r181
+1. **Optional (Low Priority):** Update Three.js from r176 to r181 (no security fixes, only feature/bug improvements)
 2. **Recommended (Medium Priority):** Implement Content Security Policy headers
 3. **Good Practice:** Set up quarterly security review schedule
+
+**Note:** Releases r177-r181 contain no security patches. Current version r176 is secure.
 
 ### Maintenance:
 
