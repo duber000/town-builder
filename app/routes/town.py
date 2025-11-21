@@ -21,6 +21,8 @@ from app.services.django_client import (
     create_town,
     update_town
 )
+from app.utils.security import get_safe_filepath
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -125,12 +127,17 @@ async def save_town(
         # Save to local file (optional)
         local_save_message = ""
         if filename:
+            # Add .json extension if not present
             if not filename.endswith('.json'):
                 filename += '.json'
-            with open(filename, 'w') as f:
+
+            # Get safe filepath (prevents path traversal)
+            safe_path = get_safe_filepath(filename, settings.data_path, allowed_extensions=['.json'])
+
+            with open(safe_path, 'w') as f:
                 json.dump(town_data_to_save, f, indent=2)
-            logger.info(f"Town saved locally to {filename}")
-            local_save_message = f"Town saved locally to {filename}."
+            logger.info(f"Town saved locally to {safe_path}")
+            local_save_message = f"Town saved locally to {safe_path.name}."
         else:
             local_save_message = "Local save skipped (no filename)."
 
@@ -231,21 +238,24 @@ async def load_town(
         if not filename.endswith('.json'):
             filename += '.json'
 
+        # Get safe filepath (prevents path traversal)
+        safe_path = get_safe_filepath(filename, settings.data_path, allowed_extensions=['.json'])
+
         # Check if the file exists
-        if not os.path.exists(filename):
+        if not safe_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail={"status": "error", "message": f"File {filename} not found"}
+                detail={"status": "error", "message": f"File {safe_path.name} not found"}
             )
 
         # Load the town data from the file
-        with open(filename, 'r') as f:
+        with open(safe_path, 'r') as f:
             town_data = json.load(f)
             set_town_data(town_data)
 
-        logger.info(f"Town loaded from {filename}")
+        logger.info(f"Town loaded from {safe_path}")
         broadcast_sse({'type': 'full', 'town': town_data})
-        return {"status": "success", "message": f"Town loaded from {filename}", "data": town_data}
+        return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": town_data}
     except Exception as e:
         logger.error(f"Error loading town: {e}")
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})

@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional
 import requests
 
 from app.config import settings
+from app.utils.security import validate_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,20 @@ def _get_base_url() -> str:
 
     Returns:
         Base URL string
+
+    Raises:
+        ValueError: If the API URL is not in the allowed domains list
     """
-    return settings.api_url if settings.api_url.endswith('/') else settings.api_url + '/'
+    base_url = settings.api_url if settings.api_url.endswith('/') else settings.api_url + '/'
+
+    # Validate URL to prevent SSRF attacks
+    if not validate_api_url(base_url):
+        logger.error(f"API URL '{base_url}' is not in the allowed domains list")
+        raise ValueError(
+            f"API URL is not allowed. Allowed domains: {settings.allowed_api_domains}"
+        )
+
+    return base_url
 
 
 def search_town_by_name(town_name: str) -> Optional[int]:
