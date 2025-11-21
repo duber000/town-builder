@@ -132,7 +132,7 @@ This application includes security fixes for:
 - **CORS Protection**: Configure `ALLOWED_ORIGINS` to restrict which domains can access your API
 - **SSRF Prevention**: API URL validation prevents internal network scanning
 
-See `SECURITY_FIXES.md` for detailed information about security improvements.
+See [`docs/SECURITY_FIXES.md`](docs/SECURITY_FIXES.md) for detailed information about security improvements.
 
 **Production Checklist:**
 - ✅ Set `ALLOWED_ORIGINS` to your actual domain(s) - never use wildcard `*`
@@ -235,7 +235,7 @@ static/js/
 - `data/` - Town save files (gitignored, created automatically)
 - `Dockerfile` - Production container setup (uses Gunicorn with gevent for SSE support)
 - `k8s/` - Kubernetes deployment manifests
-- `SECURITY_FIXES.md` - Security vulnerability documentation and fixes
+- `docs/` - Documentation files (security, three.js upgrades, etc.)
 
 ## Multiplayer & State Sharing
 
@@ -245,6 +245,17 @@ static/js/
 - Users are tracked and displayed in the online users list.
 
 ## Recent Changes
+
+### November 2025 - Three.js r181 Upgrade & Advanced Features
+Upgraded three.js from r176 to r181 with comprehensive enhancements for film-quality rendering:
+
+- **Upgrade:** Updated to three.js r181 with 5 releases worth of improvements
+- **Visual Quality:** HDR environment mapping with PMREM generator, ACESFilmic tone mapping for film-grade rendering
+- **User Experience:** Real-time loading indicators, loader abort support for better responsiveness
+- **Performance:** Timer class for frame-independent physics, renderer optimizations, zero runtime cost
+- **PBR Improvements:** Enhanced lighting, GGX VNDF importance sampling, multi-scattering energy compensation
+
+See [`docs/THREEJS_UPGRADE_R181.md`](docs/THREEJS_UPGRADE_R181.md) for complete upgrade details and [`docs/THREEJS_ADVANCED_FEATURES.md`](docs/THREEJS_ADVANCED_FEATURES.md) for advanced features documentation.
 
 ### November 2025 - Python 3.14 & JWT Library Migration
 Updated to Python 3.14 and modernized dependencies:

@@ -1,12 +1,14 @@
 /**
  * Main scene orchestrator - coordinates all scene components
+ * Enhanced with r181 features:
+ * - Timer class for frame-independent physics
  */
 import { wasmReady } from './utils/wasm.js';
 import * as THREE from './three.module.js';
 import { updateControls } from './controls.js';
-import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI } from './ui.js';
+import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator } from './ui.js';
 import { initScene, setupResizeListener } from './scene/scene.js';
-import { loadModel } from './models/loader.js';
+import { loadModel, abortAllLoaders } from './models/loader.js';
 import { createPlacementIndicator, updatePlacementIndicator, isPlacementValid } from './models/placement.js';
 import { updateMovingCars, updateDrivingCamera } from './physics/car.js';
 import { disposeObject } from './utils/disposal.js';
@@ -17,6 +19,9 @@ import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
 export let scene, camera, renderer, groundPlane, placementIndicator;
 export let placedObjects = [];
 export let movingCars = [];
+
+// Animation timing (Timer moved to core in r179)
+const timer = new THREE.Timer();
 
 // Spatial grid update tracking
 let frameCounter = 0;
@@ -66,10 +71,19 @@ function handleMouseMove(event) {
 
 /**
  * Main animation loop
+ * Enhanced with Timer class for consistent physics regardless of frame rate
  */
 export async function animate() {
     await wasmReady;
     requestAnimationFrame(animate);
+
+    // Update timer - provides delta time for frame-independent physics
+    const deltaTime = timer.getDelta();
+    const elapsedTime = timer.getElapsed();
+
+    // Export timing info for physics updates
+    window.deltaTime = deltaTime;
+    window.elapsedTime = elapsedTime;
 
     // Update keyboard controls (for driving)
     updateControls();
@@ -88,6 +102,9 @@ export async function animate() {
     if (window.drivingCar) {
         updateDrivingCamera(camera, window.drivingCar);
     }
+
+    // Update loading indicator (shows active model loads)
+    updateLoadingIndicator();
 
     renderer.render(scene, camera);
 }
