@@ -118,6 +118,19 @@ ENVIRONMENT=development  # or 'production'
 openssl rand -hex 32
 ```
 
+**⚠️ Important: DISABLE_JWT_AUTH in Production**
+
+Setting `DISABLE_JWT_AUTH=true` disables JWT authentication for the town-builder API. This is **ONLY SAFE** when:
+
+1. **Using a secure ingress layer** like Cloudflare Tunnel, Cloudflare Access, or similar authentication proxy
+2. **NOT exposing town-builder directly to the internet** (e.g., via LoadBalancer or public NodePort)
+3. **User authentication happens upstream** (e.g., Django authenticates users before redirecting to town-builder)
+
+If deploying town-builder without an authentication proxy:
+- Set `DISABLE_JWT_AUTH=false`
+- Configure `JWT_SECRET_KEY` to match Django's `TOWN_BUILDER_JWT_SECRET`
+- Update frontend JavaScript to extract JWT token from URL and include it in API requests
+
 ### Controls
 
 #### General
@@ -268,11 +281,18 @@ The app is designed to run in Kubernetes with multiple replicas:
    kubectl scale deployment town-builder --replicas=3
    ```
 
+**⚠️ Production Security:** When deploying to Kubernetes:
+- Use an authentication proxy (Cloudflare Tunnel, Oauth2-proxy, etc.) if `DISABLE_JWT_AUTH=true`
+- Never expose town-builder via LoadBalancer/public NodePort without authentication
+- Keep `TOWN_BUILDER_REQUIRE_API_AUTH=false` for internal service-to-service calls
+- Use network policies to restrict access to trusted namespaces
+
 ### Environment Variables
 
 - `REDIS_HOST` - Redis/Valkey hostname (default: localhost)
 - `REDIS_PORT` - Redis/Valkey port (default: 6379)
 - `PORT` - Application port (default: 5000)
+- `DISABLE_JWT_AUTH` - Bypass JWT auth (only safe with auth proxy)
 
 
 ## Contributing

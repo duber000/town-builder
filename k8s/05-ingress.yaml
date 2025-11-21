@@ -1,0 +1,31 @@
+# Ingress to expose town-builder externally via Traefik
+# Follows the same pattern as django-ingress and mcp-ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: town-builder-ingress
+  namespace: town-builder
+  annotations:
+    # Use cert-manager to automatically provision TLS certificate from Let's Encrypt
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Configure Traefik to listen on both HTTP and HTTPS
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+  labels:
+    app: town-builder
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: town.iribala.org
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: town-builder
+            port:
+              number: 5000
+  tls:
+  - hosts:
+    - town.iribala.org
+    secretName: town-iribala-org-tls  # cert-manager will create this automatically
