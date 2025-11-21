@@ -1,0 +1,18 @@
+# PersistentVolumeClaim for town save data
+# This is OPTIONAL - only needed if you want to persist town save files across pod restarts
+# If not using this, the deployment will use emptyDir (data lost on pod restart)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: town-builder-data-pvc
+  namespace: <YOUR_NAMESPACE>
+spec:
+  accessModes:
+    - ReadWriteOnce  # Single pod read-write access
+  resources:
+    requests:
+      storage: 1Gi  # Adjust size as needed
+  # Optional: Specify storage class for your cloud provider
+  # storageClassName: standard  # For GKE
+  # storageClassName: gp2       # For AWS EKS
+  # storageClassName: default   # For most clusters

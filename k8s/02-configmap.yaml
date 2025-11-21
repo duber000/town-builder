@@ -7,7 +7,21 @@ metadata:
 data:
   # Replace with the actual URL of your external town API
   TOWN_API_URL: "http://<YOUR_EXTERNAL_API_DOMAIN>/api/towns/"
+
   # Redis URL for SSE and caching
   # Format: redis://<service-name>.<namespace>.svc.cluster.local:<port>/<db>
   REDIS_URL: "redis://valkey.<YOUR_NAMESPACE>.svc.cluster.local:6379/0"
-  # Add other configuration here if needed
+
+  # CORS Security - REQUIRED in production!
+  # Replace with your actual domain(s). Examples:
+  # - Single domain: "https://yourdomain.com"
+  # - Multiple domains: "https://yourdomain.com,https://app.yourdomain.com"
+  # DO NOT use wildcard "*" in production!
+  ALLOWED_ORIGINS: "https://<YOUR_DOMAIN>.com"
+
+  # Environment setting
+  ENVIRONMENT: "production"
+
+  # JWT Configuration (optional - configure in Secret instead if preferred)
+  JWT_ALGORITHM: "HS256"
+  # DISABLE_JWT_AUTH: "false"  # Uncomment only if using authentication proxy

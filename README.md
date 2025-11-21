@@ -110,6 +110,13 @@ REDIS_URL=redis://localhost:6379/0
 
 # Environment
 ENVIRONMENT=development  # or 'production'
+
+# CORS Security (REQUIRED in production)
+# Comma-separated list of allowed origins
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5001,http://127.0.0.1:5001
+
+# In production, set to your actual domains:
+# ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 ```
 
 **Security Note:** Never commit your `.env` file or use weak/default secrets in production. Generate strong secrets using:
@@ -117,6 +124,22 @@ ENVIRONMENT=development  # or 'production'
 # Generate a secure JWT secret
 openssl rand -hex 32
 ```
+
+**🔒 Security Configuration (Important!)**
+
+This application includes security fixes for:
+- **Path Traversal Prevention**: File operations are restricted to designated directories
+- **CORS Protection**: Configure `ALLOWED_ORIGINS` to restrict which domains can access your API
+- **SSRF Prevention**: API URL validation prevents internal network scanning
+
+See `SECURITY_FIXES.md` for detailed information about security improvements.
+
+**Production Checklist:**
+- ✅ Set `ALLOWED_ORIGINS` to your actual domain(s) - never use wildcard `*`
+- ✅ Configure `JWT_SECRET_KEY` with a strong random value
+- ✅ Set `DISABLE_JWT_AUTH=false` unless using an authentication proxy
+- ✅ Review and update `allowed_api_domains` in `app/config.py` for SSRF protection
+- ✅ Ensure `ENVIRONMENT=production`
 
 **⚠️ Important: DISABLE_JWT_AUTH in Production**
 
@@ -179,7 +202,8 @@ app/
 │   ├── django_client.py # External Django API integration
 │   └── model_loader.py  # 3D model discovery
 └── utils/
-    └── static_files.py  # Static file serving with correct MIME types
+    ├── static_files.py  # Static file serving with correct MIME types
+    └── security.py      # Security validation utilities (path traversal, SSRF prevention)
 ```
 
 ### Frontend (JavaScript/Three.js)
@@ -208,8 +232,10 @@ static/js/
 - `templates/` - Jinja2 HTML templates
 - `static/models/` - 3D model files (GLTF format)
 - `static/wasm/` - WebAssembly modules
+- `data/` - Town save files (gitignored, created automatically)
 - `Dockerfile` - Production container setup (uses Gunicorn with gevent for SSE support)
 - `k8s/` - Kubernetes deployment manifests
+- `SECURITY_FIXES.md` - Security vulnerability documentation and fixes
 
 ## Multiplayer & State Sharing
 
@@ -266,17 +292,27 @@ uv add pydantic-settings
 
 The app is designed to run in Kubernetes with multiple replicas:
 
-1. **Deploy Valkey** (Redis-compatible):
+1. **Configure secrets and config** (REQUIRED):
+   - Edit `k8s/01-secret.yaml` - Add your JWT tokens and secrets
+   - Edit `k8s/02-configmap.yaml` - Configure `ALLOWED_ORIGINS` and other settings
+
+2. **Deploy Valkey** (Redis-compatible):
    ```bash
    kubectl apply -f k8s/07-valkey.yaml
    ```
 
-2. **Deploy the application**:
+3. **(Optional) Deploy PersistentVolumeClaim** for town save data:
+   ```bash
+   kubectl apply -f k8s/08-pvc-data.yaml
+   ```
+   Then uncomment the PVC section in `k8s/03-deployment.yaml`
+
+4. **Deploy the application**:
    ```bash
    kubectl apply -f k8s/
    ```
 
-3. **Scale replicas**:
+5. **Scale replicas**:
    ```bash
    kubectl scale deployment town-builder --replicas=3
    ```
@@ -287,12 +323,21 @@ The app is designed to run in Kubernetes with multiple replicas:
 - Keep `TOWN_BUILDER_REQUIRE_API_AUTH=false` for internal service-to-service calls
 - Use network policies to restrict access to trusted namespaces
 
-### Environment Variables
+### Kubernetes Environment Variables
 
-- `REDIS_HOST` - Redis/Valkey hostname (default: localhost)
-- `REDIS_PORT` - Redis/Valkey port (default: 6379)
-- `PORT` - Application port (default: 5000)
-- `DISABLE_JWT_AUTH` - Bypass JWT auth (only safe with auth proxy)
+The following environment variables are configured in `k8s/02-configmap.yaml` and `k8s/01-secret.yaml`:
+
+**ConfigMap (k8s/02-configmap.yaml):**
+- `TOWN_API_URL` - External Django API endpoint
+- `REDIS_URL` - Redis/Valkey connection string
+- `ALLOWED_ORIGINS` - **REQUIRED**: Comma-separated list of allowed CORS origins
+- `ENVIRONMENT` - Set to `production` for production deployments
+
+**Secret (k8s/01-secret.yaml):**
+- `TOWN_API_JWT_TOKEN` - JWT token for external API
+- `JWT_SECRET_KEY` - Secret key for JWT authentication (required if not using auth proxy)
+
+**Security Note:** Always configure `ALLOWED_ORIGINS` in production to your actual domain(s). The default development origins will not work in production.
 
 
 ## Contributing

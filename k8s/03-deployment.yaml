@@ -53,10 +53,14 @@ spec:
           periodSeconds: 20 # How often to probe
           timeoutSeconds: 5
           failureThreshold: 3
-        # Commented out volumeMounts - uncomment if using initContainer
-        # volumeMounts:
+        # Volume mounts
+        volumeMounts:
+        # Uncomment if using initContainer for shape generation
         # - name: static-props-data
         #   mountPath: /app/static/models/props
+        # Town save data persistence (optional but recommended)
+        - name: town-data
+          mountPath: /app/data
         resources:
           requests:
             cpu: "100m"
@@ -64,7 +68,14 @@ spec:
           limits:
             cpu: "1"
             memory: "1Gi"
-      # Commented out volumes - uncomment if using initContainer
-      # volumes:
+      volumes:
+      # Uncomment if using initContainer for shape generation
       # - name: static-props-data
       #   emptyDir: {}
+      # Town save data - use PersistentVolumeClaim for production
+      # For development/testing, emptyDir is acceptable (data lost on pod restart)
+      - name: town-data
+        emptyDir: {}
+        # For production, use a PersistentVolumeClaim instead:
+        # persistentVolumeClaim:
+        #   claimName: town-builder-data-pvc
