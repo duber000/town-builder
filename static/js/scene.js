@@ -6,7 +6,7 @@
 import { wasmReady } from './utils/wasm.js';
 import * as THREE from './three.module.js';
 import { updateControls } from './controls.js';
-import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI } from './ui.js';
+import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator } from './ui.js';
 import { initScene, setupResizeListener } from './scene/scene.js';
 import { loadModel, abortAllLoaders } from './models/loader.js';
 import { createPlacementIndicator, updatePlacementIndicator, isPlacementValid } from './models/placement.js';
@@ -102,6 +102,9 @@ export async function animate() {
     if (window.drivingCar) {
         updateDrivingCamera(camera, window.drivingCar);
     }
+
+    // Update loading indicator (shows active model loads)
+    updateLoadingIndicator();
 
     renderer.render(scene, camera);
 }
