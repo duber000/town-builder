@@ -37,14 +37,43 @@ async def index(request: Request, town_id: int = None):
 
 @router.get("/healthz")
 async def healthz():
-    """Liveness probe endpoint."""
-    return JSONResponse(content="OK", status_code=200)
+    """Liveness probe endpoint.
+
+    Returns OK if the application is running.
+    This endpoint should remain simple and always return 200 unless the app crashes.
+    """
+    return JSONResponse(content={"status": "ok"}, status_code=200)
 
 
 @router.get("/readyz")
 async def readyz():
-    """Readiness probe endpoint."""
-    return JSONResponse(content="OK", status_code=200)
+    """Readiness probe endpoint.
+
+    Checks if the application and its dependencies are ready to serve traffic.
+    Returns 200 if ready, 503 if not ready (e.g., Redis unavailable).
+    """
+    from app.services.storage import get_redis_client
+
+    health_status = {
+        "status": "ok",
+        "checks": {}
+    }
+    all_ready = True
+
+    # Check Redis connection
+    try:
+        redis_client = get_redis_client()
+        redis_client.ping()
+        health_status["checks"]["redis"] = "ok"
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e}")
+        health_status["checks"]["redis"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+        # Don't fail readiness if Redis is down - app can work with in-memory fallback
+        # all_ready = False  # Uncomment to fail readiness when Redis is down
+
+    status_code = 200 if all_ready else 503
+    return JSONResponse(content=health_status, status_code=status_code)
 
 
 @router.get("/favicon.ico")

@@ -71,10 +71,12 @@ Or use the automated build script:
 To run the application in development mode with auto-reload:
 
 ```bash
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload --port 5001
 ```
 
-The application will be available at http://127.0.0.1:8000/
+The application will be available at http://127.0.0.1:5001/
+
+**Note:** Development mode uses port **5001** to avoid conflicts with production deployments.
 
 ### Production Mode
 
@@ -85,6 +87,8 @@ gunicorn -w 4 -k gevent -b 0.0.0.0:5000 app.main:app
 ```
 
 Then open your browser to http://127.0.0.1:5000/
+
+**Note:** Production mode uses port **5000** (matches Kubernetes deployment).
 
 ### Environment Variables
 

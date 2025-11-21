@@ -32,7 +32,7 @@ This document outlines recommended improvements and next steps for the town-buil
 - [ ] Implement rate limiting for API endpoints
 - [ ] Add database migrations system (Alembic if using SQLAlchemy)
 - [ ] Separate dev vs production configuration
-- [ ] Add health check for Redis connection in `/readyz`
+- [x] Add health check for Redis connection in `/readyz`
 
 ### Frontend
 
