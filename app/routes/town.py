@@ -310,7 +310,8 @@ async def load_town_from_django(
                 "name": town_data.get('name'),
                 "description": town_data.get('description'),
                 "latitude": town_data.get('latitude'),
-                "longitude": town_data.get('longitude')
+                "longitude": town_data.get('longitude'),
+                "category_statuses": town_data.get('category_statuses', [])
             }
         }
 

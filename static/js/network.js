@@ -159,7 +159,18 @@ export async function loadTownFromDjango(townId) {
         headers: { 'Content-Type': 'application/json' }
     });
     if (!response.ok) {
-        throw new Error('Failed to load town from Django: ' + response.statusText);
+        let errorMessage = response.statusText;
+        try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+                errorMessage = typeof errorData.detail === 'string'
+                    ? errorData.detail
+                    : (errorData.detail.message || JSON.stringify(errorData.detail));
+            }
+        } catch (e) {
+            // If we can't parse the error response, use statusText
+        }
+        throw new Error('Failed to load town from Django: ' + errorMessage);
     }
     const result = await response.json();
     // Update current town info
