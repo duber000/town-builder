@@ -68,7 +68,7 @@ def _get_headers() -> Dict[str, str]:
     headers = {'Content-Type': 'application/json'}
     # Only add Authorization header if api_token is not None and not empty
     if settings.api_token and settings.api_token.strip():
-        headers['Authorization'] = f"Bearer {settings.api_token}"
+        headers['Authorization'] = f"Token {settings.api_token}"
     return headers
 
 
@@ -233,7 +233,7 @@ def proxy_request(method: str, path: str, headers: Dict[str, str], params: Dict[
 
     # Add authorization if we have a token
     if settings.api_token:
-        headers['Authorization'] = f"Bearer {settings.api_token}"
+        headers['Authorization'] = f"Token {settings.api_token}"
 
     logger.debug(f"Proxying {method} request to {url}")
 

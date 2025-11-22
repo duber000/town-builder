@@ -285,7 +285,7 @@ async def load_town_from_django(
 
         headers = {'Content-Type': 'application/json'}
         if settings.api_token and settings.api_token.strip():
-            headers['Authorization'] = f"Bearer {settings.api_token}"
+            headers['Authorization'] = f"Token {settings.api_token}"
 
         logger.info(f"Loading town from Django: {url}")
         response = requests.get(url, headers=headers, timeout=10)
