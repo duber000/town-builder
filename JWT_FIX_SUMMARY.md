@@ -26,16 +26,17 @@ uv run python manage.py migrate
 ```
 
 ### 4. Token Generation
-Generated DRF token for user 'tnluker':
+Generated DRF token for user 'tivon':
 ```
-Token: 1546cc7e02e536ba2e86ef5a11b42a91f176babc
+Token: <REDACTED_FOR_SECURITY>
 ```
+Note: Actual token stored in Kubernetes secret `town-builder-secrets` in namespace `town-builder`
 
 ### 5. Kubernetes Secret Update
 Updated the town-builder secret with the new token:
 ```bash
 kubectl -n town-builder patch secret town-builder-secrets \
-  -p '{"stringData":{"TOWN_API_JWT_TOKEN":"1546cc7e02e536ba2e86ef5a11b42a91f176babc"}}'
+  -p '{"stringData":{"TOWN_API_JWT_TOKEN":"<YOUR_ACTUAL_TOKEN_HERE>"}}'
 ```
 
 ### 6. Deployment Restart
@@ -63,7 +64,7 @@ uv run python manage.py shell -c "
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 User = get_user_model()
-user = User.objects.get(username='tnluker')
+user = User.objects.get(username='tivon')
 token = Token.objects.get(user=user)
 print(f'Token: {token.key}')
 "
@@ -75,7 +76,7 @@ uv run python manage.py shell -c "
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 User = get_user_model()
-user = User.objects.get(username='tnluker')
+user = User.objects.get(username='tivon')
 Token.objects.filter(user=user).delete()
 token = Token.objects.create(user=user)
 print(f'New Token: {token.key}')

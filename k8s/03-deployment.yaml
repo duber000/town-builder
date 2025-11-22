@@ -27,7 +27,7 @@ spec:
       #     mountPath: /app/static/models/props
       containers:
       - name: town-builder
-        image: duber000/town-builder:latest # Updated to match production image
+        image: duber000/town-builder:v1.0.3
         imagePullPolicy: Always # Or IfNotPresent
         ports:
         - name: http
