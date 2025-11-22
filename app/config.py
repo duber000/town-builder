@@ -2,6 +2,7 @@
 import os
 from typing import Optional
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 import dotenv
 
 # Load environment variables
@@ -10,6 +11,8 @@ dotenv.load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings."""
+
+    model_config = ConfigDict(extra='allow')
 
     # Server settings
     app_title: str = "Town Builder API"
@@ -21,15 +24,6 @@ class Settings(BaseSettings):
     jwt_secret_key: str = os.getenv('JWT_SECRET_KEY', '')
     jwt_algorithm: str = os.getenv('JWT_ALGORITHM', 'HS256')
     disable_jwt_auth: bool = os.getenv('DISABLE_JWT_AUTH', '').lower() == 'true'
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Fail fast if JWT_SECRET_KEY is not set and JWT auth is enabled
-        if not self.disable_jwt_auth and not self.jwt_secret_key:
-            raise ValueError(
-                "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. "
-                "Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."
-            )
 
     # External API (Django)
     api_url: str = os.getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
@@ -48,11 +42,19 @@ class Settings(BaseSettings):
     # Allowed origins for CORS (comma-separated)
     allowed_origins: str = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5001,http://127.0.0.1:5001')
 
-    # Allowed API URL patterns for SSRF prevention
-    allowed_api_domains: list = ['localhost', '127.0.0.1', 'api.yourdomain.com']
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    class Config:
-        case_sensitive = False
+        # Parse allowed_api_domains from environment variable (using ALLOWED_DOMAINS to avoid Pydantic auto-mapping)
+        allowed_domains_env = os.getenv('ALLOWED_DOMAINS', 'localhost,127.0.0.1')
+        self.allowed_api_domains = [domain.strip() for domain in allowed_domains_env.split(',')]
+
+        # Fail fast if JWT_SECRET_KEY is not set and JWT auth is enabled
+        if not self.disable_jwt_auth and not self.jwt_secret_key:
+            raise ValueError(
+                "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. "
+                "Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."
+            )
 
 
 # Global settings instance

@@ -19,6 +19,11 @@ data:
   # DO NOT use wildcard "*" in production!
   ALLOWED_ORIGINS: "https://<YOUR_DOMAIN>.com"
 
+  # SSRF Protection - Allowed API domains (comma-separated)
+  # Only these domains will be allowed for external API calls (prevents SSRF attacks)
+  # Example: "localhost,127.0.0.1,api.yourdomain.com,django-service.namespace.svc.cluster.local"
+  ALLOWED_DOMAINS: "localhost,127.0.0.1,<YOUR_DJANGO_SERVICE_DOMAIN>"
+
   # Environment setting
   ENVIRONMENT: "production"
 
