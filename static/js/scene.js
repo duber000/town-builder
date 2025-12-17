@@ -14,6 +14,8 @@ import { updateMovingCars, updateDrivingCamera } from './physics/car.js';
 import { disposeObject } from './utils/disposal.js';
 import { getMouseCoordinates, findRootObject } from './utils/raycaster.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
+import { animateCursors, cleanupInactiveCursors } from './collaborative-cursors.js';
+import { sendCursorUpdate } from './network.js';
 
 // Scene state
 export let scene, camera, renderer, groundPlane, placementIndicator;
@@ -26,6 +28,14 @@ const timer = new THREE.Timer();
 // Spatial grid update tracking
 let frameCounter = 0;
 const SPATIAL_GRID_UPDATE_INTERVAL = 10; // Update every 10 frames
+
+// Cursor tracking
+let lastCursorUpdate = 0;
+const CURSOR_UPDATE_INTERVAL = 100; // Send cursor updates every 100ms
+let lastMousePosition = { x: 0, y: 0 };
+let cursorWorldPosition = new THREE.Vector3();
+let cursorCleanupCounter = 0;
+const CURSOR_CLEANUP_INTERVAL = 300; // Cleanup inactive cursors every 5 seconds (300 frames at 60fps)
 
 // Initialize scene on module load
 export function initializeScene() {
@@ -50,23 +60,60 @@ export function initializeScene() {
 }
 
 /**
- * Handle mouse movement for placement indicator
+ * Handle mouse movement for placement indicator and cursor tracking
  */
 function handleMouseMove(event) {
     const mode = getCurrentMode();
+    
+    // Update placement indicator
     if (mode !== 'place' || !groundPlane) {
         if (placementIndicator) placementIndicator.visible = false;
-        return;
+    } else {
+        updatePlacementIndicator(
+            event,
+            placementIndicator,
+            groundPlane,
+            camera,
+            renderer.domElement,
+            placedObjects
+        );
     }
+    
+    // Track cursor position for collaborative cursors
+    lastMousePosition.x = event.clientX;
+    lastMousePosition.y = event.clientY;
+    
+    // Send cursor updates (throttled)
+    const now = Date.now();
+    if (now - lastCursorUpdate >= CURSOR_UPDATE_INTERVAL) {
+        sendCursorPositionUpdate(event);
+        lastCursorUpdate = now;
+    }
+}
 
-    updatePlacementIndicator(
-        event,
-        placementIndicator,
-        groundPlane,
-        camera,
-        renderer.domElement,
-        placedObjects
-    );
+/**
+ * Send cursor position update to server
+ */
+function sendCursorPositionUpdate(event) {
+    if (!window.myName || !groundPlane) return;
+    
+    // Raycast to find cursor position in 3D world
+    const mouse = getMouseCoordinates(event, renderer.domElement);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    
+    const intersects = raycaster.intersectObject(groundPlane, false);
+    if (intersects.length > 0) {
+        const point = intersects[0].point;
+        cursorWorldPosition.copy(point);
+        
+        // Send update to server
+        sendCursorUpdate(
+            window.myName,
+            { x: point.x, y: point.y, z: point.z },
+            { x: camera.position.x, y: camera.position.y, z: camera.position.z }
+        );
+    }
 }
 
 /**
@@ -101,6 +148,16 @@ export async function animate() {
     // Update camera if driving
     if (window.drivingCar) {
         updateDrivingCamera(camera, window.drivingCar);
+    }
+
+    // Animate collaborative cursors (pulsing effect)
+    animateCursors(deltaTime);
+    
+    // Periodically cleanup inactive cursors
+    cursorCleanupCounter++;
+    if (cursorCleanupCounter >= CURSOR_CLEANUP_INTERVAL) {
+        cleanupInactiveCursors(scene);
+        cursorCleanupCounter = 0;
     }
 
     // Update loading indicator (shows active model loads)

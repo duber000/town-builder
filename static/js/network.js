@@ -1,5 +1,6 @@
 import { showNotification, updateOnlineUsersList } from './ui.js';
 import { loadModel, scene, placedObjects, movingCars } from './scene.js';
+import { updateCursor } from './collaborative-cursors.js';
 
 export function setupSSE() {
     // Setup SSE connection with automatic reconnection and backoff
@@ -25,6 +26,11 @@ export function setupSSE() {
                         // Handle full town updates - render new buildings
                         loadTownData(msg.town);
                         showNotification('Town updated', 'success');
+                    } else if (msg.type === 'cursor') {
+                        // Handle cursor position updates from other users
+                        if (msg.username && msg.username !== myName) {
+                            updateCursor(scene, msg.username, msg.position, msg.camera_position);
+                        }
                     } else {
                         // Pass the whole message to showNotification for more context if needed
                         // For now, keeping it simple as before, but logging the full message might be useful for debugging other events
@@ -182,4 +188,27 @@ export async function loadTownFromDjango(townId) {
         window.currentTownLongitude = result.town_info.longitude;
     }
     return result;
+}
+
+/**
+ * Send cursor position update to server
+ * @param {string} username - Current user's name
+ * @param {Object} position - {x, y, z} world position where cursor is pointing
+ * @param {Object} cameraPosition - {x, y, z} camera position
+ */
+export async function sendCursorUpdate(username, position, cameraPosition) {
+    try {
+        await fetch('/api/cursor/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username,
+                position: { x: position.x, y: position.y, z: position.z },
+                camera_position: { x: cameraPosition.x, y: cameraPosition.y, z: cameraPosition.z }
+            })
+        });
+    } catch (err) {
+        // Silently fail - cursor updates are non-critical
+        console.debug('Failed to send cursor update:', err);
+    }
 }
