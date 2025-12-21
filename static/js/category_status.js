@@ -283,7 +283,7 @@ export function createStatusLegend(categoryStatuses) {
     legend.id = 'category-status-legend';
     legend.style.cssText = `
         position: fixed;
-        top: 10px;
+        top: 160px;
         right: 10px;
         background: rgba(0, 0, 0, 0.8);
         color: white;
