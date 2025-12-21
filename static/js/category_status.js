@@ -128,6 +128,14 @@ export const CATEGORY_MODEL_MAPPING = {
             { category: 'props', name: 'trafficlight_A.gltf' }
         ],
         priority: 9
+    },
+
+    // 10. Healthcare access
+    'Access to Healthcare': {
+        models: [
+            { category: 'buildings', name: 'medical_facility.gltf' }
+        ],
+        priority: 10
     }
 };
 
