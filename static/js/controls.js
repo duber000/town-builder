@@ -103,6 +103,26 @@ export function updateControls() {
     const cameraRotateSpeed = 0.02;
     const moveSpeed = 0.15;
 
+    // Handle Z key zoom
+    if (keysPressed['z']) {
+        // Zoom in (decrease FOV)
+        let newFov = camera.fov - 2; // Zoom speed for keyboard
+        newFov = Math.max(10, Math.min(120, newFov));
+        if (camera.fov !== newFov) {
+            camera.fov = newFov;
+            camera.updateProjectionMatrix();
+        }
+    }
+    if (keysPressed['x']) {
+        // Zoom out (increase FOV)
+        let newFov = camera.fov + 2; // Zoom speed for keyboard
+        newFov = Math.max(10, Math.min(120, newFov));
+        if (camera.fov !== newFov) {
+            camera.fov = newFov;
+            camera.updateProjectionMatrix();
+        }
+    }
+
     if (window.drivingCar) {
         const car = window.drivingCar;
 
