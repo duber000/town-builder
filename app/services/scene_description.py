@@ -2,6 +2,7 @@
 import logging
 from typing import Dict, Any, List
 from collections import Counter
+from app.services.model_display_names import get_model_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -10,16 +11,12 @@ def get_model_name_friendly(model_filename: str) -> str:
     """Convert model filename to friendly name.
 
     Args:
-        model_filename: Model filename (e.g., "house.glb", "oak_tree.glb")
+        model_filename: Model filename (e.g., "house.glb", "building_A.gltf")
 
     Returns:
-        Friendly name (e.g., "house", "oak tree")
+        Friendly name (e.g., "Residential Housing", "Elementary School")
     """
-    # Remove file extension
-    name = model_filename.replace('.glb', '').replace('.gltf', '')
-    # Replace underscores with spaces
-    name = name.replace('_', ' ')
-    return name
+    return get_model_display_name(model_filename)
 
 
 def analyze_category(category_data: List[Dict[str, Any]], category_name: str) -> Dict[str, Any]:

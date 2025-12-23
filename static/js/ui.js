@@ -252,10 +252,11 @@ function onModelItemClick(event) {
     const target = event.currentTarget; // Use currentTarget to get the element with the event listener
     const category = target.dataset.category;
     const modelName = target.dataset.model;
+    const displayName = target.textContent.trim(); // Get the display name from the element text
 
     window.pendingPlacementModelDetails = { category, modelName };
     setCurrentMode('place'); // Switch to place mode
-    showNotification(`Click on the ground to place ${modelName}`, 'info');
+    showNotification(`Click on the ground to place ${displayName}`, 'info');
     // The actual model loading will now happen in scene.js's onCanvasClick when in 'place' mode
 }
 

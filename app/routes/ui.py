@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.services.model_loader import get_available_models
+from app.services.model_display_names import get_model_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,11 @@ async def index(request: Request, town_id: int = None):
     models = get_available_models()
     logger.info(f"Rendering index with {sum(len(models[cat]) for cat in models)} models")
     logger.info(f"Town ID from URL: {town_id}")
+
+    # Add display names for models
+    # Create a custom filter for Jinja2 template
+    templates.env.filters['get_display_name'] = get_model_display_name
+
     return templates.TemplateResponse("index.html", {
         "request": request,
         "models": models,
