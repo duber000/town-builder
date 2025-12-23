@@ -1,9 +1,13 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
 import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject, movingCars } from './scene.js'; // Added movingCars
+import { getActiveLoaderCount } from './models/loader.js'; // Import loader count tracker
 
 let currentMode = 'place';
 window.selectedObject = null; // For edit mode
 window.drivingCar = null; // The car object currently being driven
+
+// Loading indicator element
+let loadingIndicator = null;
 
 export function getCurrentMode() { return currentMode; }
 
@@ -118,6 +122,79 @@ function createToastContainer() {
     container.style.zIndex = '2000';
     document.body.appendChild(container);
     return container;
+}
+
+/**
+ * Create and initialize the loading indicator
+ * Uses r179 loader tracking for accurate state
+ */
+function createLoadingIndicator() {
+    if (loadingIndicator) return loadingIndicator;
+
+    const indicator = document.createElement('div');
+    indicator.id = 'loading-indicator';
+    indicator.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: rgba(0, 123, 255, 0.95);
+        color: white;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 3000;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
+        animation: pulse 1.5s ease-in-out infinite;
+    `;
+
+    // Add pulse animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    const spinner = document.createElement('span');
+    spinner.textContent = '⏳ ';
+    spinner.style.marginRight = '8px';
+
+    const text = document.createElement('span');
+    text.id = 'loading-text';
+    text.textContent = 'Loading models...';
+
+    indicator.appendChild(spinner);
+    indicator.appendChild(text);
+    document.body.appendChild(indicator);
+
+    loadingIndicator = indicator;
+    return indicator;
+}
+
+/**
+ * Update loading indicator based on active loaders
+ * Should be called periodically in animation loop
+ */
+export function updateLoadingIndicator() {
+    const count = getActiveLoaderCount();
+    const indicator = loadingIndicator || createLoadingIndicator();
+    const text = document.getElementById('loading-text');
+
+    if (count > 0) {
+        indicator.style.display = 'block';
+        if (text) {
+            text.textContent = count === 1
+                ? 'Loading 1 model...'
+                : `Loading ${count} models...`;
+        }
+    } else {
+        indicator.style.display = 'none';
+    }
 }
 
 // Other UI-related functions...

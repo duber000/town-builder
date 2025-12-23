@@ -9,43 +9,13 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        /* Navigation styling matching bene.iribala.org */
-        .navbar {
-            background-color: var(--bs-body-bg) !important;
-            border-bottom: 1px solid var(--bs-border-color);
-        }
-
-        .nav-link {
-            padding: 0.5rem 1rem !important;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-            margin: 0 0.25rem;
-        }
-
-        .nav-link:hover {
-            background-color: rgba(13, 110, 253, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        [data-bs-theme="dark"] .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        #canvas-container {
-            width: 100%;
-            height: calc(100% - 56px);
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #canvas-container { width: 100%; height: 100%; display: block; }
+        #canvas-container canvas {
             display: block;
-            margin-top: 56px;
+            width: 100%;
+            height: 100%;
         }
-
         #town-name-display {
             position: absolute;
             top: 66px;
@@ -315,14 +285,41 @@
         }
     </script>
 
-    <script type="module" src="/static/js/main.js"></script>
-    <script src="static/js/wasm_exec.js"></script>
+    <!-- Embed town_id from server -->
     <script>
-        const go = new Go();
-
-        WebAssembly.instantiateStreaming(fetch("static/wasm/calc.wasm"), go.importObject).then(result => {
-            go.run(result.instance);
-        });
+      // Set initial town_id if provided from URL parameter
+      {% if town_id %}
+      window.currentTownId = {{ town_id }};
+      console.log("Town ID from URL:", window.currentTownId);
+      {% else %}
+      window.currentTownId = null;
+      {% endif %}
     </script>
+
+    <!-- Import map for Three.js modules -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "/static/js/three.module.js"
+      }
+    }
+    </script>
+
+    <!-- Load Go WASM runtime -->
+    <script src="/static/js/wasm_exec.js"></script>
+    <script>
+      // Load physics WASM module (Go 1.24+ with Swiss Tables enabled)
+      const go = new Go();
+      WebAssembly.instantiateStreaming(fetch("/static/wasm/physics.wasm"), go.importObject).then(result => {
+        go.run(result.instance);
+        console.log("✓ Physics WASM loaded (Go 1.24+ with Swiss Tables)");
+        console.log("  Performance: 30-60% faster map operations");
+      }).catch(err => {
+        console.error("Failed to load physics WASM:", err);
+      });
+    </script>
+
+    <!-- Load main application after WASM -->
+    <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

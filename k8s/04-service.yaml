@@ -2,16 +2,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: town-builder-service
+  name: town-builder # Changed from town-builder-service to match production
   namespace: town-builder # Make sure this matches your namespace
   labels:
     app: town-builder
 spec:
   selector:
-    app: town-builder # Selects Pods managed by the town-builder-app Deployment
+    app: town-builder # Selects Pods managed by the town-builder Deployment
   ports:
   - name: http
     protocol: TCP
-    port: 80 # Port the Service listens on internally
-    targetPort: http # Target the 'http' port (5000) defined in the Deployment's container
+    port: 5000 # Port the Service listens on internally (changed from 80 to match production)
+    targetPort: 5000 # Target port 5000 in the container (FastAPI/Uvicorn default production port)
   type: ClusterIP # Default type, only reachable within the cluster

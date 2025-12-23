@@ -16,3 +16,10 @@ static/wasm/
 *.json
 
 repomix-output.xml
+
+# Town save data files (keep directory structure, ignore content)
+data/*.json
+!data/README.md
+
+# Backup files
+*.bak

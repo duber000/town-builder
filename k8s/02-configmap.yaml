@@ -3,8 +3,30 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: town-builder-config
-  namespace: town-builder # Make sure this matches your namespace
+  namespace: <YOUR_NAMESPACE>
 data:
   # Replace with the actual URL of your external town API
-  TOWN_API_URL: "http://your-production-api-url.com/api/towns/"
-  # Add other configuration here if needed
+  TOWN_API_URL: "http://<YOUR_EXTERNAL_API_DOMAIN>/api/towns/"
+
+  # Redis URL for SSE and caching
+  # Format: redis://<service-name>.<namespace>.svc.cluster.local:<port>/<db>
+  REDIS_URL: "redis://valkey.<YOUR_NAMESPACE>.svc.cluster.local:6379/0"
+
+  # CORS Security - REQUIRED in production!
+  # Replace with your actual domain(s). Examples:
+  # - Single domain: "https://yourdomain.com"
+  # - Multiple domains: "https://yourdomain.com,https://app.yourdomain.com"
+  # DO NOT use wildcard "*" in production!
+  ALLOWED_ORIGINS: "https://<YOUR_DOMAIN>.com"
+
+  # SSRF Protection - Allowed API domains (comma-separated)
+  # Only these domains will be allowed for external API calls (prevents SSRF attacks)
+  # Example: "localhost,127.0.0.1,api.yourdomain.com,django-service.namespace.svc.cluster.local"
+  ALLOWED_DOMAINS: "localhost,127.0.0.1,<YOUR_DJANGO_SERVICE_DOMAIN>"
+
+  # Environment setting
+  ENVIRONMENT: "production"
+
+  # JWT Configuration (optional - configure in Secret instead if preferred)
+  JWT_ALGORITHM: "HS256"
+  # DISABLE_JWT_AUTH: "false"  # Uncomment only if using authentication proxy

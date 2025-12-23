@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: town-builder-app
+  name: town-builder # Changed from town-builder-app to match production
   namespace: town-builder # Make sure this matches your namespace
   labels:
     app: town-builder
 spec:
-  replicas: 2 # Adjust the number of instances as needed
+  replicas: 1 # Reduced from 2 to match production deployment
   selector:
     matchLabels:
       app: town-builder
@@ -16,23 +16,22 @@ spec:
       labels:
         app: town-builder
     spec:
-      # Optional: initContainer to generate shapes before the app starts
-      # This requires a shared volume between the initContainer and the main container.
-      initContainers:
-      - name: generate-shapes
-        image: YOUR_REGISTRY/town-builder:latest # Replace with your actual image path
-        command: ["uv", "run", "flask", "generate-shapes"]
-        volumeMounts:
-        - name: static-props-data
-          # Mount only the specific subdirectory where shapes are generated
-          mountPath: /app/static/models/props
+      # Note: initContainer removed - shapes are included in the image
+      # If you need to generate shapes, uncomment this section
+      # initContainers:
+      # - name: generate-shapes
+      #   image: duber000/town-builder:latest
+      #   command: ["python", "-m", "app.generate_shapes"]
+      #   volumeMounts:
+      #   - name: static-props-data
+      #     mountPath: /app/static/models/props
       containers:
       - name: town-builder
-        image: YOUR_REGISTRY/town-builder:latest # Replace with your actual image path
+        image: duber000/town-builder:latest
         imagePullPolicy: Always # Or IfNotPresent
         ports:
         - name: http
-          containerPort: 5000 # Port exposed by uWSGI in the container
+          containerPort: 5000 # Port exposed by FastAPI/Uvicorn in the container
         envFrom:
         - secretRef:
             name: town-builder-secrets
@@ -40,7 +39,7 @@ spec:
             name: town-builder-config
         readinessProbe:
           httpGet:
-            path: /readyz # Use the readiness endpoint added to app.py
+            path: /readyz # Readiness endpoint implemented in app/routes/ui.py
             port: http
           initialDelaySeconds: 10 # Time before first probe
           periodSeconds: 15 # How often to probe
@@ -48,24 +47,35 @@ spec:
           failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /healthz # Use the liveness endpoint added to app.py
+            path: /healthz # Liveness endpoint implemented in app/routes/ui.py
             port: http
           initialDelaySeconds: 20 # Time before first probe
           periodSeconds: 20 # How often to probe
           timeoutSeconds: 5
           failureThreshold: 3
+        # Volume mounts
         volumeMounts:
-        # Mount the volume for the generated shapes (if using initContainer)
-        - name: static-props-data
-          mountPath: /app/static/models/props
-        resources: {} # Optional: Define resource requests and limits
-          # requests:
-          #   cpu: "100m"
-          #   memory: "128Mi"
-          # limits:
-          #   cpu: "500m"
-          #   memory: "512Mi"
+        # Uncomment if using initContainer for shape generation
+        # - name: static-props-data
+        #   mountPath: /app/static/models/props
+        # Town save data persistence (optional but recommended)
+        - name: town-data
+          mountPath: /app/data
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
       volumes:
-      # Define the volume shared between initContainer and main container
-      - name: static-props-data
-        emptyDir: {} # Simple ephemeral volume within the Pod
+      # Uncomment if using initContainer for shape generation
+      # - name: static-props-data
+      #   emptyDir: {}
+      # Town save data - use PersistentVolumeClaim for production
+      # For development/testing, emptyDir is acceptable (data lost on pod restart)
+      - name: town-data
+        emptyDir: {}
+        # For production, use a PersistentVolumeClaim instead:
+        # persistentVolumeClaim:
+        #   claimName: town-builder-data-pvc
