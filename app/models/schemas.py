@@ -107,6 +107,11 @@ class BatchOperation(BaseModel):
     id: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     position: Optional[Position] = None
+class BuildingCreateRequest(BaseModel):
+    """Request to create a new building programmatically."""
+    model: str  # Model filename (e.g., "house.glb")
+    category: str = "buildings"  # Category: buildings, vehicles, trees, props, street, park
+    position: Position
     rotation: Optional[Rotation] = None
     scale: Optional[Scale] = None
 
@@ -222,3 +227,21 @@ class HistoryResponse(BaseModel):
     history: List[HistoryEntry]
     can_undo: bool
     can_redo: bool
+class BuildingUpdateRequest(BaseModel):
+    """Request to update a building programmatically."""
+    position: Optional[Position] = None
+    rotation: Optional[Rotation] = None
+    scale: Optional[Scale] = None
+    model: Optional[str] = None
+    category: Optional[str] = None
+
+
+class BuildingResponse(BaseModel):
+    """Response with building data."""
+    id: str
+    model: str
+    category: str
+    position: Position
+    rotation: Rotation
+    scale: Scale
+    driver: Optional[str] = None
