@@ -54,8 +54,8 @@ export const CATEGORY_MODEL_MAPPING = {
     // 2. Access to stores/markets
     'Access to a store or market that sells fruits and vegetables': {
         models: [
-            { category: 'buildings', name: 'building_E.gltf' },
-            { category: 'buildings', name: 'building_G.gltf' }
+            { category: 'buildings', name: 'building_E.gltf' }, // Market/Grocery Store
+            { category: 'buildings', name: 'building_G.gltf' }  // Convenience Store
         ],
         priority: 2
     },
@@ -63,8 +63,8 @@ export const CATEGORY_MODEL_MAPPING = {
     // 3. Library access
     'Access to a library': {
         models: [
-            { category: 'buildings', name: 'building_B.gltf' },
-            { category: 'buildings', name: 'building_F.gltf' }
+            { category: 'buildings', name: 'building_B.gltf' }, // Public Library
+            { category: 'buildings', name: 'building_F.gltf' }  // Library Branch
         ],
         priority: 3
     },
@@ -72,8 +72,8 @@ export const CATEGORY_MODEL_MAPPING = {
     // 4. Good schools
     'Good schools': {
         models: [
-            { category: 'buildings', name: 'building_A.gltf' },
-            { category: 'buildings', name: 'building_D.gltf' }
+            { category: 'buildings', name: 'building_A.gltf' }, // Elementary School
+            { category: 'buildings', name: 'building_D.gltf' }  // High School
         ],
         priority: 4
     },
@@ -95,7 +95,7 @@ export const CATEGORY_MODEL_MAPPING = {
             { category: 'park', name: 'park_base_decorated_bushes.gltf' },
             { category: 'trees', name: 'tree_C.gltf' },
             { category: 'trees', name: 'tree_D.gltf' },
-            { category: 'buildings', name: 'bench.gltf' }
+            { category: 'buildings', name: 'bench.gltf' } // Park Seating
         ],
         priority: 6
     },
@@ -103,8 +103,8 @@ export const CATEGORY_MODEL_MAPPING = {
     // 7. Employment
     'Local or remote employment': {
         models: [
-            { category: 'buildings', name: 'building_C.gltf' },
-            { category: 'buildings', name: 'building_H.gltf' }
+            { category: 'buildings', name: 'building_C.gltf' }, // Warehouse/Storage
+            { category: 'buildings', name: 'building_H.gltf' }  // Corporate Office Building
         ],
         priority: 7
     },
@@ -112,9 +112,9 @@ export const CATEGORY_MODEL_MAPPING = {
     // 8. Affordable housing
     'Affordable Housing': {
         models: [
-            { category: 'buildings', name: 'house.gltf' },
-            { category: 'buildings', name: 'building_A.gltf' },
-            { category: 'buildings', name: 'building_B.gltf' }
+            { category: 'buildings', name: 'house.gltf' },       // Residential Housing
+            { category: 'buildings', name: 'building_A.gltf' },  // Elementary School
+            { category: 'buildings', name: 'building_B.gltf' }   // Public Library
         ],
         priority: 8
     },
@@ -133,7 +133,7 @@ export const CATEGORY_MODEL_MAPPING = {
     // 10. Healthcare access
     'Access to Healthcare': {
         models: [
-            { category: 'buildings', name: 'medical_facility.gltf' }
+            { category: 'buildings', name: 'medical_facility.gltf' } // Hospital/Health Center
         ],
         priority: 10
     }

@@ -198,7 +198,7 @@
                     <div class="list-group list-group-flush">
                         {% for model in model_list %}
                         <a href="#" class="list-group-item list-group-item-action model-item py-2" data-category="{{ category }}" data-model="{{ model }}">
-                            <i class="bi bi-box me-2"></i>{{ model.split('.')[0]|title }}
+                            <i class="bi bi-box me-2"></i>{{ model|get_display_name }}
                         </a>
                         {% endfor %}
                     </div>
