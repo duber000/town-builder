@@ -7,8 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots
-from app.routes import ui, auth, models, town, proxy, events, cursor, buildings, scene
+from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots, buildings, scene
 from app.utils.static_files import serve_js_files, serve_wasm_files
 
 # Configure logging
