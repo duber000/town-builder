@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routes import ui, auth, models, town, proxy, events, cursor
+from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots
 from app.utils.static_files import serve_js_files, serve_wasm_files
 
 # Configure logging
@@ -60,6 +60,11 @@ app.include_router(town.router)
 app.include_router(proxy.router)
 app.include_router(events.router)
 app.include_router(cursor.router)
+# New programmatic API routers
+app.include_router(batch.router)
+app.include_router(query.router)
+app.include_router(history.router)
+app.include_router(snapshots.router)
 
 if __name__ == '__main__':
     # This block will only run when you execute the file directly

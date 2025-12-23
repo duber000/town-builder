@@ -96,3 +96,129 @@ class ApiResponse(BaseModel):
     message: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     town_id: Optional[str] = None
+
+
+# ===== Batch Operations =====
+
+class BatchOperation(BaseModel):
+    """Single operation in a batch request."""
+    op: str  # create, update, delete, edit
+    category: Optional[str] = None
+    id: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    position: Optional[Position] = None
+    rotation: Optional[Rotation] = None
+    scale: Optional[Scale] = None
+
+
+class BatchOperationRequest(BaseModel):
+    """Request to execute multiple operations in a single transaction."""
+    operations: List[BatchOperation]
+    validate: bool = True
+
+
+class BatchOperationResult(BaseModel):
+    """Result of a single batch operation."""
+    success: bool
+    op: str
+    message: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+
+
+class BatchOperationResponse(BaseModel):
+    """Response from batch operations."""
+    status: str
+    results: List[BatchOperationResult]
+    successful: int
+    failed: int
+
+
+# ===== Spatial Queries =====
+
+class SpatialQueryRadius(BaseModel):
+    """Query objects within a radius."""
+    type: str = "radius"
+    center: Position
+    radius: float
+    category: Optional[str] = None
+    limit: Optional[int] = None
+
+
+class SpatialQueryBounds(BaseModel):
+    """Query objects within a bounding box."""
+    type: str = "bounds"
+    min: Position
+    max: Position
+    category: Optional[str] = None
+    limit: Optional[int] = None
+
+
+class SpatialQueryNearest(BaseModel):
+    """Find nearest objects to a point."""
+    type: str = "nearest"
+    point: Position
+    category: Optional[str] = None
+    count: int = 1
+    max_distance: Optional[float] = None
+
+
+# ===== Advanced Filtering =====
+
+class FilterCondition(BaseModel):
+    """Single filter condition."""
+    field: str
+    operator: str  # eq, ne, gt, lt, gte, lte, contains, in
+    value: Any
+
+
+class QueryRequest(BaseModel):
+    """Advanced query/filter request."""
+    category: Optional[str] = None
+    filters: Optional[List[FilterCondition]] = None
+    sort_by: Optional[str] = None
+    sort_order: str = "asc"  # asc or desc
+    limit: Optional[int] = None
+    offset: int = 0
+
+
+# ===== Snapshots =====
+
+class SnapshotCreate(BaseModel):
+    """Create a new snapshot."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class SnapshotInfo(BaseModel):
+    """Snapshot information."""
+    id: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    timestamp: float
+    size: int  # Number of objects
+
+
+class SnapshotListResponse(BaseModel):
+    """List of snapshots."""
+    status: str
+    snapshots: List[SnapshotInfo]
+
+
+# ===== History/Undo =====
+
+class HistoryEntry(BaseModel):
+    """Single history entry."""
+    id: str
+    timestamp: float
+    operation: str
+    category: Optional[str] = None
+    object_id: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+
+
+class HistoryResponse(BaseModel):
+    """Operation history response."""
+    status: str
+    history: List[HistoryEntry]
+    can_undo: bool
+    can_redo: bool
