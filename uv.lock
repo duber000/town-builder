@@ -473,6 +473,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pygltflib" },
     { name = "python-dotenv" },
+    { name = "python-jose", extra = ["cryptography"] },
     { name = "redis" },
     { name = "requests" },
     { name = "uvicorn", extra = ["standard"] },

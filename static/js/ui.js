@@ -75,35 +75,53 @@ export function deactivateDriveModeUI() {
 }
 
 export function showNotification(message, type = 'info') {
-    const notification = document.createElement('div') || document.createElement('span');
-    notification.textContent = message;
-    notification.style.position = 'fixed';
-    notification.style.bottom = '20px';
-    notification.style.left = '50%';
-    notification.style.transform = 'translateX(-50%)';
-    notification.style.padding = '10px 20px';
-    notification.style.borderRadius = '5px';
-    notification.style.color = 'white';
-    notification.style.zIndex = '2000';
-    notification.style.maxWidth = '300px';
+    // Create Bootstrap toast
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
 
-    // Set color based on type
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    // Set color based on type using Bootstrap classes
     if (type === 'success') {
-        notification.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
+        toast.classList.add('text-bg-success');
     } else if (type === 'error') {
-        notification.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+        toast.classList.add('text-bg-danger');
     } else {
-        notification.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
+        toast.classList.add('text-bg-primary');
     }
 
-    document.body.appendChild(notification);
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
 
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (document.body.contains(notification)) {
-            document.body.removeChild(notification);
-        }
-    }, 3000);
+    toastContainer.appendChild(toast);
+
+    // Initialize and show Bootstrap toast
+    const bsToast = new bootstrap.Toast(toast, {
+        autohide: true,
+        delay: 3000
+    });
+    bsToast.show();
+
+    // Remove from DOM after hidden
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container position-fixed bottom-0 start-50 translate-middle-x p-3';
+    container.style.zIndex = '2000';
+    document.body.appendChild(container);
+    return container;
 }
 
 /**
@@ -230,8 +248,10 @@ export function initUI() {
 
 // Handler stubs
 function onModelItemClick(event) {
-    const category = event.target.dataset.category;
-    const modelName = event.target.dataset.model;
+    event.preventDefault(); // Prevent default anchor behavior
+    const target = event.currentTarget; // Use currentTarget to get the element with the event listener
+    const category = target.dataset.category;
+    const modelName = target.dataset.model;
 
     window.pendingPlacementModelDetails = { category, modelName };
     setCurrentMode('place'); // Switch to place mode
@@ -338,7 +358,8 @@ export function updateOnlineUsersList(users) {
     ul.innerHTML = '';
     users.forEach(u => {
         const li = document.createElement('li');
-        li.textContent = u;
+        li.className = 'py-1';
+        li.innerHTML = `<i class="bi bi-person-circle me-2 text-primary"></i>${u}`;
         ul.appendChild(li);
     });
 }
