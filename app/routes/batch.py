@@ -50,6 +50,11 @@ async def execute_batch_operations(
                     "op": "delete",
                     "category": "vehicles",
                     "id": "abc-123"
+                },
+                {
+                    "op": "delete",
+                    "category": "props",
+                    "position": {"x": 5, "y": 0, "z": 3}
                 }
             ],
             "validate": true

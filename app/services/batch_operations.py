@@ -112,6 +112,7 @@ class BatchOperationsManager:
             elif op_type == "delete":
                 return self._delete_object(town_data, op_data, validate)
             elif op_type == "edit":
+                # Convert edit operations to update operations for consistency
                 return self._edit_object(town_data, op_data, validate)
             else:
                 return {
@@ -201,29 +202,64 @@ class BatchOperationsManager:
         op_data: Dict[str, Any],
         validate: bool
     ) -> Dict[str, Any]:
-        """Delete an object."""
+        """Delete an object by ID or by position."""
         category = op_data.get("category")
         object_id = op_data.get("id")
+        position = op_data.get("position")
 
-        if not category or not object_id:
-            return {"success": False, "op": "delete", "message": "Missing category or id"}
+        if not category:
+            return {"success": False, "op": "delete", "message": "Missing category"}
+
+        if not object_id and not position:
+            return {"success": False, "op": "delete", "message": "Missing both id and position"}
 
         if category not in town_data:
             return {"success": False, "op": "delete", "message": f"Category {category} not found"}
 
-        # Find and delete object
-        for i, obj in enumerate(town_data[category]):
-            if obj.get("id") == object_id:
-                deleted = town_data[category].pop(i)
+        # Delete by ID
+        if object_id:
+            for i, obj in enumerate(town_data[category]):
+                if obj.get("id") == object_id:
+                    deleted = town_data[category].pop(i)
+                    return {
+                        "success": True,
+                        "op": "delete",
+                        "message": f"Deleted object {object_id} from {category}",
+                        "data": {"id": object_id, "category": category}
+                    }
+            return {"success": False, "op": "delete", "message": f"Object {object_id} not found"}
 
+        # Delete by position (find closest model)
+        elif position:
+            closest_model_index = -1
+            closest_distance = float('inf')
+            closest_id = None
+
+            for i, obj in enumerate(town_data[category]):
+                if not isinstance(obj, dict):
+                    continue
+                model_pos = obj.get("position", {})
+                dx = model_pos.get("x", 0) - position.get("x", 0)
+                dy = model_pos.get("y", 0) - position.get("y", 0)
+                dz = model_pos.get("z", 0) - position.get("z", 0)
+
+                distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+
+                if distance < closest_distance:
+                    closest_distance = distance
+                    closest_model_index = i
+                    closest_id = obj.get("id")
+
+            if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
+                deleted_model = town_data[category].pop(closest_model_index)
                 return {
                     "success": True,
                     "op": "delete",
-                    "message": f"Deleted object {object_id} from {category}",
-                    "data": {"id": object_id, "category": category}
+                    "message": f"Deleted model at position ({position.get('x')}, {position.get('y')}, {position.get('z')})",
+                    "data": {"id": closest_id, "category": category, "distance": closest_distance}
                 }
-
-        return {"success": False, "op": "delete", "message": f"Object {object_id} not found"}
+            else:
+                return {"success": False, "op": "delete", "message": f"No model found within range at position ({position.get('x')}, {position.get('y')}, {position.get('z')})"}
 
     def _edit_object(
         self,
@@ -247,18 +283,24 @@ class BatchOperationsManager:
         # Find and edit object
         for i, obj in enumerate(town_data[category]):
             if obj.get("id") == object_id:
-                if position:
+                # Track what was actually changed
+                changes_made = []
+                
+                if position is not None:
                     town_data[category][i]["position"] = position
-                if rotation:
+                    changes_made.append("position")
+                if rotation is not None:
                     town_data[category][i]["rotation"] = rotation
-                if scale:
+                    changes_made.append("rotation")
+                if scale is not None:
                     town_data[category][i]["scale"] = scale
+                    changes_made.append("scale")
 
                 return {
                     "success": True,
                     "op": "edit",
-                    "message": f"Edited object {object_id} in {category}",
-                    "data": {"id": object_id, "category": category}
+                    "message": f"Edited object {object_id} in {category} ({', '.join(changes_made)} changed)",
+                    "data": {"id": object_id, "category": category, "changes": changes_made}
                 }
 
         return {"success": False, "op": "edit", "message": f"Object {object_id} not found"}

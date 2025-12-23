@@ -57,6 +57,11 @@ Execute multiple create, update, delete, or edit operations in a single atomic t
       "id": "prop-456"
     },
     {
+      "op": "delete",
+      "category": "trees",
+      "position": {"x": 15, "y": 0, "z": 8}
+    },
+    {
       "op": "edit",
       "category": "buildings",
       "id": "building-789",
@@ -100,12 +105,17 @@ Execute multiple create, update, delete, or edit operations in a single atomic t
   - Required: `category`, `id`, `data`
   - Merges `data` with existing object
 
-- `delete`: Delete an object
-  - Required: `category`, `id`
+- `delete`: Delete an object by ID or position
+  - Option 1: Delete by ID
+    - Required: `category`, `id`
+  - Option 2: Delete by position (finds closest model within 2.0 unit radius)
+    - Required: `category`, `position`
+  - Returns distance to deleted object when using position
 
 - `edit`: Edit object properties (position, rotation, scale)
   - Required: `category`, `id`
   - Optional: `position`, `rotation`, `scale`
+  - Returns list of fields that were actually changed
 
 **Features:**
 
