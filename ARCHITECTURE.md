@@ -60,13 +60,21 @@ app/
 │   ├── town.py         # Town CRUD operations
 │   ├── proxy.py        # Django API proxy
 │   ├── events.py       # Server-Sent Events (SSE)
-│   └── cursor.py       # Multiplayer cursor positions
+│   ├── cursor.py       # Multiplayer cursor positions
+│   ├── batch.py        # Batch operations (programmatic API)
+│   ├── query.py        # Spatial queries & filtering (programmatic API)
+│   ├── history.py      # Undo/redo operations (programmatic API)
+│   └── snapshots.py    # Town snapshots (programmatic API)
 ├── services/            # Business logic layer
 │   ├── auth.py         # JWT token generation/validation
 │   ├── storage.py      # Redis + in-memory storage abstraction
 │   ├── events.py       # Event publishing/subscription
 │   ├── django_client.py # External Django API client
-│   └── model_loader.py  # 3D model file discovery
+│   ├── model_loader.py  # 3D model file discovery
+│   ├── batch_operations.py # Batch operations manager
+│   ├── query.py        # Spatial queries & filtering
+│   ├── history.py      # Operation history management
+│   └── snapshots.py    # Snapshot versioning
 └── utils/
     ├── static_files.py  # Static file serving with MIME types
     └── security.py      # Path traversal & SSRF prevention
@@ -374,6 +382,36 @@ data/
 - `GET /docs` - Swagger UI
 - `GET /redoc` - ReDoc documentation
 - `GET /openapi.json` - OpenAPI schema
+
+### Programmatic APIs (Claude Integration)
+
+New medium-level APIs for programmatic interaction and AI-driven automation:
+
+**Batch Operations:**
+- `POST /api/batch/operations` - Execute multiple create/update/delete/edit operations atomically
+
+**Spatial Queries:**
+- `POST /api/query/spatial/radius` - Find objects within radius from center point
+- `POST /api/query/spatial/bounds` - Find objects within bounding box
+- `POST /api/query/spatial/nearest` - Find N nearest objects to a point
+
+**Advanced Filtering:**
+- `POST /api/query/advanced` - Execute complex queries with filters, sorting, and pagination
+
+**History & Undo/Redo:**
+- `GET /api/history` - Get operation history
+- `POST /api/history/undo` - Undo last operation
+- `POST /api/history/redo` - Redo last undone operation
+- `DELETE /api/history` - Clear history
+
+**Snapshots:**
+- `POST /api/snapshots` - Create snapshot of current town state
+- `GET /api/snapshots` - List all snapshots
+- `GET /api/snapshots/{id}` - Get snapshot data
+- `POST /api/snapshots/{id}/restore` - Restore town to snapshot state
+- `DELETE /api/snapshots/{id}` - Delete snapshot
+
+See `PROGRAMMATIC_API.md` for detailed documentation and examples.
 
 ## Configuration
 
