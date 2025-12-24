@@ -105,6 +105,7 @@ export function setCurrentMode(mode) {
     const contextHelp = document.getElementById('context-help');
     const townNameContainer = document.getElementById('town-name-container');
     const themeToggleContainer = document.getElementById('theme-toggle-container');
+    const categoryStatusLegend = document.getElementById('category-status-legend');
 
     // Default UI states
     if (joystickContainer) joystickContainer.style.display = 'none';
@@ -114,6 +115,7 @@ export function setCurrentMode(mode) {
     if (contextHelp) contextHelp.style.display = 'block';
     if (townNameContainer) townNameContainer.style.display = 'block';
     if (themeToggleContainer) themeToggleContainer.style.display = 'block';
+    if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
 
     if (mode === 'drive') {
         if (window.drivingCar) { // Actively driving a car
@@ -124,6 +126,7 @@ export function setCurrentMode(mode) {
             if (contextHelp) contextHelp.style.display = 'none';
             if (townNameContainer) townNameContainer.style.display = 'none';
             if (themeToggleContainer) themeToggleContainer.style.display = 'none';
+            if (categoryStatusLegend) categoryStatusLegend.style.display = 'none';
             showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
             
             // Re-initialize joystick when it becomes visible
@@ -140,6 +143,7 @@ export function setCurrentMode(mode) {
             if (contextHelp) contextHelp.style.display = 'block';
             if (townNameContainer) townNameContainer.style.display = 'block';
             if (themeToggleContainer) themeToggleContainer.style.display = 'block';
+            if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
             showNotification('Drive Mode: Click on a car in the scene to drive it.', 'info');
         }
     } else { // Not in drive mode
@@ -148,6 +152,7 @@ export function setCurrentMode(mode) {
         if (contextHelp) contextHelp.style.display = 'block';
         if (townNameContainer) townNameContainer.style.display = 'block';
         if (themeToggleContainer) themeToggleContainer.style.display = 'block';
+        if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
         window.drivingCar = null; // Ensure drivingCar is cleared if mode changes from drive
     }
 

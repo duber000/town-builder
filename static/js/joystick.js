@@ -106,9 +106,10 @@ function updateJoystickPosition(touch) {
         limitedY = (dy / distance) * joystickRadius;
     }
 
-    // Update stick position
-    const stickX = joystickCenterX + limitedX - joystickStickRadius;
-    const stickY = joystickCenterY + limitedY - joystickStickRadius;
+    // Update stick position (relative to parent)
+    // Center of base is at (joystickRadius, joystickRadius) in parent coordinates
+    const stickX = joystickRadius + limitedX - joystickStickRadius;
+    const stickY = joystickRadius + limitedY - joystickStickRadius;
 
     joystickStick.style.left = stickX + 'px';
     joystickStick.style.top = stickY + 'px';
@@ -130,9 +131,9 @@ function updateJoystickPosition(touch) {
 function resetJoystickPosition() {
     if (!joystickStick) return;
 
-    // Reset stick to center
-    joystickStick.style.left = (joystickCenterX - joystickStickRadius) + 'px';
-    joystickStick.style.top = (joystickCenterY - joystickStickRadius) + 'px';
+    // Reset stick to center (relative to parent)
+    joystickStick.style.left = (joystickRadius - joystickStickRadius) + 'px';
+    joystickStick.style.top = (joystickRadius - joystickStickRadius) + 'px';
 
     // Reset input values
     joystickInput.forward = 0;
