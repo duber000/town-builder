@@ -1,6 +1,6 @@
 module github.com/duber000/town-builder
 
-go 1.24
+go 1.25
 
 // This module leverages Go 1.24 and Go 1.25 features:
 // - Swiss Tables: 30-60% faster map operations

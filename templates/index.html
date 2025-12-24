@@ -373,11 +373,11 @@
     <!-- Load Go WASM runtime -->
     <script src="/static/js/wasm_exec.js"></script>
     <script>
-      // Load physics WASM module (Go 1.25+ with GreenTea GC and car physics)
+      // Load physics WASM module (Go 1.25+ with GreenTea GC experimental and car physics)
       const go = new Go();
       WebAssembly.instantiateStreaming(fetch("/static/wasm/physics_greentea.wasm"), go.importObject).then(result => {
         go.run(result.instance);
-        console.log("✓ Physics WASM loaded (Go 1.25+ with GreenTea GC)");
+        console.log("✓ Physics WASM loaded (Go 1.25+ with GreenTea GC experimental)");
         console.log("  Features: Spatial grid, collision detection, car physics");
         console.log("  Performance: 30-60% faster map operations, reduced GC pauses");
       }).catch(err => {

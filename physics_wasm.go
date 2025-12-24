@@ -611,8 +611,8 @@ func registerCallbacks() {
 func main() {
 	c := make(chan struct{}, 0)
 	registerCallbacks()
-	println("Physics WASM module loaded (Go 1.24+ with GreenTea GC)")
-	println("Optimizations: Swiss Tables, SpinbitMutex, GreenTea GC")
+	println("Physics WASM module loaded (Go 1.25+ with GreenTea GC)")
+	println("Optimizations: Swiss Tables, SpinbitMutex, GreenTea GC (experimental)")
 	println("Performance: 30-60% faster map operations, reduced GC pauses")
 	println("Car physics: Acceleration, steering, friction (WASM-powered)")
 	<-c // Keep Go running

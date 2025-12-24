@@ -1,6 +1,18 @@
+# Build Physics WASM Module (Swiss Tables enabled by default in Go 1.24)
+# ============================================================================
+=======
+# ============================================================================
+# Build Physics WASM Module (Swiss Tables + GreenTea GC in Go 1.25+)
+# ============================================================================WASM Build Script - Town Builder Physics Module
+# Optimized for Go 1.24+ with Swiss Tables (enabled by default)
+# ============================================================================
+=======
 #!/bin/bash
 
 # ============================================================================
+# WASM Build Script - Town Builder Physics Module
+# Optimized for Go 1.25+ with Swiss Tables and GreenTea GC (experimental)
+# ========================================================================================================================================================
 # WASM Build Script - Town Builder Physics Module
 # Optimized for Go 1.24+ with Swiss Tables (enabled by default)
 # ============================================================================
@@ -16,7 +28,13 @@ echo ""
 # Check Go version
 GO_VERSION=$(go version | awk '{print $3}')
 echo "Go version: $GO_VERSION"
-echo ""
+
+# Verify Go 1.25+ for GreenTea GC
+if [[ ! $GO_VERSION =~ go1\.(2[5-9]|[3-9][0-9]) ]]; then
+    echo "⚠ Warning: GreenTea GC requires Go 1.25+. Current version: $GO_VERSION"
+    echo "  The build will continue but GreenTea GC will not be enabled."
+    echo ""
+fi
 
 # Create output directory
 mkdir -p static/wasm
@@ -26,16 +44,17 @@ mkdir -p static/js
 # Build Physics WASM Module (Swiss Tables enabled by default in Go 1.24)
 # ============================================================================
 
-echo "Building physics WASM module with Go 1.24+ optimizations..."
+echo "Building physics WASM module with Go 1.25+ optimizations..."
 echo ""
 echo "Enabled Features:"
 echo "  ✓ Swiss Tables (default in Go 1.24+)"
 echo "    - 30% faster map access"
 echo "    - 35% faster map assignment"
 echo "    - 10-60% faster map iteration"
-echo "  ✓ GreenTea Garbage Collector (experimental)"
-echo "    - Reduced GC pause times for WASM"
-echo "    - Better memory efficiency"
+echo "  ✓ GreenTea Garbage Collector (experimental, Go 1.25+)"
+echo "    - 10-40% reduction in GC overhead"
+echo "    - Better locality and CPU scalability"
+echo "    - Reduced pause times for WASM"
 echo "  ✓ Improved small object allocation"
 echo "  ✓ Better stack allocation for slices"
 echo "  ✓ Enhanced mutex performance (SpinbitMutex)"
@@ -43,8 +62,8 @@ echo "  ✓ Car physics (acceleration, steering, friction)"
 echo "  ✓ Optimized for WASM runtime"
 echo ""
 
-# Build with optimized settings (GreenTea GC is default in Go 1.25+)
-GOOS=js GOARCH=wasm go build \
+# Build with optimized settings and GreenTea GC (experimental in Go 1.25+)
+GOEXPERIMENT=greenteagc GOOS=js GOARCH=wasm go build \
   -ldflags="-s -w" \
   -o static/wasm/physics_greentea.wasm \
   physics_wasm.go
@@ -106,15 +125,15 @@ echo "================================================"
 echo "Build Summary"
 echo "================================================"
 echo ""
-echo "Physics WASM Module (GreenTea GC):"
+echo "Physics WASM Module (GreenTea GC experimental):"
 echo "  File: static/wasm/physics_greentea.wasm"
 echo "  Size: $PHYSICS_SIZE"
 echo "  Go Version: $GO_VERSION"
-echo "  GC: GreenTea (experimental, optimized for WASM)"
+echo "  GC: GreenTea (experimental, requires Go 1.25+)"
 echo ""
-echo "Optimizations (enabled in Go 1.24+):"
+echo "Optimizations (enabled in Go 1.25+):"
 echo "  ✓ Swiss Tables - 30-60% faster map operations"
-echo "  ✓ GreenTea GC - Reduced pause times for WASM"
+echo "  ✓ GreenTea GC - 10-40% reduction in GC overhead (experimental)"
 echo "  ✓ SpinbitMutex - Enhanced lock performance"
 echo "  ✓ Improved allocation - Better small object handling"
 echo "  ✓ Stack optimization - Reduced heap pressure"
