@@ -368,6 +368,20 @@ export function initUI() {
 }
 
 // Handler stubs
+/**
+ * Check if a specific model has already been placed in the scene
+ * @param {string} category - The category of the model
+ * @param {string} modelName - The name of the model
+ * @returns {boolean} - True if the model has been placed before, false otherwise
+ */
+export function hasModelBeenPlaced(category, modelName) {
+    return placedObjects.some(obj => 
+        obj.userData && 
+        obj.userData.category === category && 
+        obj.userData.modelName === modelName
+    );
+}
+
 function onModelItemClick(event) {
     event.preventDefault(); // Prevent default anchor behavior
     const target = event.currentTarget; // Use currentTarget to get the element with the event listener
@@ -375,9 +389,14 @@ function onModelItemClick(event) {
     const modelName = target.dataset.model;
     const displayName = target.textContent.trim(); // Get the display name from the element text
 
-    window.pendingPlacementModelDetails = { category, modelName };
+    window.pendingPlacementModelDetails = { category, modelName, displayName };
     setCurrentMode('place'); // Switch to place mode
-    showNotification(`Click on the ground to place ${displayName}`, 'info');
+    
+    // Only show the notification if this model hasn't been placed before
+    if (!hasModelBeenPlaced(category, modelName)) {
+        showNotification(`Click on the ground to place ${displayName}`, 'info');
+    }
+    
     // The actual model loading will now happen in scene.js's onCanvasClick when in 'place' mode
 }
 

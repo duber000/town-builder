@@ -6,7 +6,7 @@
 import { wasmReady } from './utils/wasm.js';
 import * as THREE from './three.module.js';
 import { updateControls } from './controls.js';
-import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator, updateContextHelp } from './ui.js';
+import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator, updateContextHelp, hasModelBeenPlaced } from './ui.js';
 import { initScene, setupResizeListener } from './scene/scene.js';
 import { loadModel, abortAllLoaders } from './models/loader.js';
 import { createPlacementIndicator, updatePlacementIndicator, isPlacementValid } from './models/placement.js';
@@ -325,10 +325,15 @@ function handlePlaceClick() {
             return;
         }
 
-        const { category, modelName } = window.pendingPlacementModelDetails;
+        const { category, modelName, displayName } = window.pendingPlacementModelDetails;
+        const wasAlreadyPlaced = hasModelBeenPlaced(category, modelName);
+        
         loadModel(scene, placedObjects, movingCars, category, modelName, placementIndicator.position)
             .then(() => {
-                showNotification(`Placed ${modelName}`, 'success');
+                // Only show the "Placed" notification if this is the first time placing this model
+                if (!wasAlreadyPlaced) {
+                    showNotification(`Placed ${displayName || modelName}`, 'success');
+                }
             })
             .catch(err => {
                 console.error("Error placing model:", err);
