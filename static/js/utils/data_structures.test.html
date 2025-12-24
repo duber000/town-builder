@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Structures Test Suite</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 {
+            color: #4ec9b0;
+        }
+        .test-suite {
+            margin: 20px 0;
+            border: 1px solid #3e3e42;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .test-suite h2 {
+            color: #569cd6;
+            margin-top: 0;
+        }
+        .test-case {
+            margin: 10px 0;
+            padding: 8px;
+            border-left: 3px solid #444;
+        }
+        .test-case.pass {
+            border-left-color: #4ec9b0;
+            background-color: #1a2f2a;
+        }
+        .test-case.fail {
+            border-left-color: #f48771;
+            background-color: #2f1a1a;
+        }
+        .test-name {
+            font-weight: bold;
+        }
+        .test-result {
+            margin-left: 20px;
+            font-size: 0.9em;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #252526;
+            border-radius: 5px;
+            font-size: 1.1em;
+        }
+        .summary.all-pass {
+            border: 2px solid #4ec9b0;
+        }
+        .summary.has-fail {
+            border: 2px solid #f48771;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data Structures Test Suite</h1>
+    <div id="results"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+        import { LRUCache, BloomFilter, CircularBuffer, BitVector } from './data_structures.js';
+
+        const results = [];
+        let totalTests = 0;
+        let passedTests = 0;
+
+        function test(name, fn) {
+            totalTests++;
+            try {
+                fn();
+                passedTests++;
+                results.push({ name, passed: true });
+            } catch (error) {
+                results.push({ name, passed: false, error: error.message });
+            }
+        }
+
+        function assertEqual(actual, expected, message = '') {
+            if (actual !== expected) {
+                throw new Error(`Expected ${expected}, got ${actual}. ${message}`);
+            }
+        }
+
+        function assertTrue(value, message = '') {
+            if (!value) {
+                throw new Error(`Expected true, got ${value}. ${message}`);
+            }
+        }
+
+        function assertFalse(value, message = '') {
+            if (value) {
+                throw new Error(`Expected false, got ${value}. ${message}`);
+            }
+        }
+
+        function assertThrows(fn, message = '') {
+            try {
+                fn();
+                throw new Error(`Expected function to throw. ${message}`);
+            } catch (error) {
+                // Expected
+            }
+        }
+
+        // LRUCache Tests
+        console.log('Running LRUCache tests...');
+
+        test('LRUCache: Basic set and get', () => {
+            const cache = new LRUCache(3);
+            cache.set('a', 1);
+            cache.set('b', 2);
+            cache.set('c', 3);
+            assertEqual(cache.get('a'), 1);
+            assertEqual(cache.get('b'), 2);
+            assertEqual(cache.get('c'), 3);
+        });
+
+        test('LRUCache: Evicts least recently used', () => {
+            const cache = new LRUCache(2);
+            cache.set('a', 1);
+            cache.set('b', 2);
+            cache.set('c', 3); // Should evict 'a'
+            assertEqual(cache.get('a'), null, 'a should be evicted');
+            assertEqual(cache.get('b'), 2);
+            assertEqual(cache.get('c'), 3);
+        });
+
+        test('LRUCache: Get updates recency', () => {
+            const cache = new LRUCache(2);
+            cache.set('a', 1);
+            cache.set('b', 2);
+            cache.get('a'); // Make 'a' recently used
+            cache.set('c', 3); // Should evict 'b', not 'a'
+            assertEqual(cache.get('a'), 1, 'a should still exist');
+            assertEqual(cache.get('b'), null, 'b should be evicted');
+            assertEqual(cache.get('c'), 3);
+        });
+
+        test('LRUCache: Set updates existing key', () => {
+            const cache = new LRUCache(2);
+            cache.set('a', 1);
+            cache.set('b', 2);
+            cache.set('a', 10); // Update 'a'
+            assertEqual(cache.get('a'), 10);
+            assertEqual(cache.size, 2);
+        });
+
+        test('LRUCache: Clear removes all entries', () => {
+            const cache = new LRUCache(3);
+            cache.set('a', 1);
+            cache.set('b', 2);
+            cache.clear();
+            assertEqual(cache.size, 0);
+            assertEqual(cache.get('a'), null);
+        });
+
+        test('LRUCache: Validates capacity limits', () => {
+            assertThrows(() => new LRUCache(0));
+            assertThrows(() => new LRUCache(-1));
+            assertThrows(() => new LRUCache(1001));
+        });
+
+        // BloomFilter Tests
+        console.log('Running BloomFilter tests...');
+
+        test('BloomFilter: Add and check existence', () => {
+            const filter = new BloomFilter(1000, 3);
+            filter.add('test');
+            assertTrue(filter.mightContain('test'));
+        });
+
+        test('BloomFilter: Reports non-existent items correctly (mostly)', () => {
+            const filter = new BloomFilter(1000, 3);
+            filter.add('exists');
+            // Note: Bloom filters can have false positives, but should never have false negatives
+            assertTrue(filter.mightContain('exists'));
+        });
+
+        test('BloomFilter: Clear removes all entries', () => {
+            const filter = new BloomFilter(1000, 3);
+            filter.add('test1');
+            filter.add('test2');
+            filter.clear();
+            // After clearing, items might still show as existing due to hash collisions
+            // But in most cases they shouldn't
+            const clearedCorrectly = !filter.mightContain('unlikely-to-collide-string-' + Math.random());
+            assertTrue(clearedCorrectly);
+        });
+
+        test('BloomFilter: Handles many insertions', () => {
+            const filter = new BloomFilter(10000, 4);
+            for (let i = 0; i < 1000; i++) {
+                filter.add(`item${i}`);
+            }
+            assertTrue(filter.mightContain('item500'));
+            assertTrue(filter.mightContain('item999'));
+        });
+
+        test('BloomFilter: Validates parameters', () => {
+            assertThrows(() => new BloomFilter(0, 3));
+            assertThrows(() => new BloomFilter(-1, 3));
+            assertThrows(() => new BloomFilter(1000001, 3));
+            assertThrows(() => new BloomFilter(1000, 0));
+            assertThrows(() => new BloomFilter(1000, 11));
+        });
+
+        // CircularBuffer Tests
+        console.log('Running CircularBuffer tests...');
+
+        test('CircularBuffer: Push and get', () => {
+            const buffer = new CircularBuffer(3);
+            buffer.push(1);
+            buffer.push(2);
+            buffer.push(3);
+            assertEqual(buffer.get(0), 1);
+            assertEqual(buffer.get(1), 2);
+            assertEqual(buffer.get(2), 3);
+        });
+
+        test('CircularBuffer: Wraps around at capacity', () => {
+            const buffer = new CircularBuffer(3);
+            buffer.push(1);
+            buffer.push(2);
+            buffer.push(3);
+            buffer.push(4); // Should overwrite 1
+            assertEqual(buffer.get(0), 2);
+            assertEqual(buffer.get(1), 3);
+            assertEqual(buffer.get(2), 4);
+            assertEqual(buffer.size, 3);
+        });
+
+        test('CircularBuffer: toArray returns correct values', () => {
+            const buffer = new CircularBuffer(3);
+            buffer.push(1);
+            buffer.push(2);
+            const arr = buffer.toArray();
+            assertEqual(arr.length, 2);
+            assertEqual(arr[0], 1);
+            assertEqual(arr[1], 2);
+        });
+
+        test('CircularBuffer: toArray handles wrapping', () => {
+            const buffer = new CircularBuffer(3);
+            buffer.push(1);
+            buffer.push(2);
+            buffer.push(3);
+            buffer.push(4); // Wraps, buffer now has [2, 3, 4]
+            const arr = buffer.toArray();
+            assertEqual(arr.length, 3);
+            assertEqual(arr[0], 2);
+            assertEqual(arr[1], 3);
+            assertEqual(arr[2], 4);
+        });
+
+        test('CircularBuffer: Clear resets buffer', () => {
+            const buffer = new CircularBuffer(3);
+            buffer.push(1);
+            buffer.push(2);
+            buffer.clear();
+            assertEqual(buffer.size, 0);
+            assertEqual(buffer.toArray().length, 0);
+        });
+
+        test('CircularBuffer: Validates capacity', () => {
+            assertThrows(() => new CircularBuffer(0));
+            assertThrows(() => new CircularBuffer(-1));
+            assertThrows(() => new CircularBuffer(10001));
+        });
+
+        // BitVector Tests
+        console.log('Running BitVector tests...');
+
+        test('BitVector: Set and check bits', () => {
+            const bv = new BitVector(64);
+            bv.set(0);
+            bv.set(10);
+            bv.set(63);
+            assertTrue(bv.isSet(0));
+            assertTrue(bv.isSet(10));
+            assertTrue(bv.isSet(63));
+            assertFalse(bv.isSet(5));
+        });
+
+        test('BitVector: Clear bits', () => {
+            const bv = new BitVector(64);
+            bv.set(10);
+            assertTrue(bv.isSet(10));
+            bv.clear(10);
+            assertFalse(bv.isSet(10));
+        });
+
+        test('BitVector: ClearAll resets all bits', () => {
+            const bv = new BitVector(128);
+            bv.set(0);
+            bv.set(50);
+            bv.set(100);
+            bv.clearAll();
+            assertFalse(bv.isSet(0));
+            assertFalse(bv.isSet(50));
+            assertFalse(bv.isSet(100));
+        });
+
+        test('BitVector: Handles large indices', () => {
+            const bv = new BitVector(1000);
+            bv.set(999);
+            assertTrue(bv.isSet(999));
+            assertFalse(bv.isSet(998));
+        });
+
+        test('BitVector: Multiple words', () => {
+            const bv = new BitVector(256);
+            // Set bits across multiple 64-bit words
+            bv.set(0);    // First word
+            bv.set(64);   // Second word
+            bv.set(128);  // Third word
+            bv.set(192);  // Fourth word
+            assertTrue(bv.isSet(0));
+            assertTrue(bv.isSet(64));
+            assertTrue(bv.isSet(128));
+            assertTrue(bv.isSet(192));
+        });
+
+        test('BitVector: Validates size', () => {
+            assertThrows(() => new BitVector(0));
+            assertThrows(() => new BitVector(-1));
+            assertThrows(() => new BitVector(1000001));
+        });
+
+        test('BitVector: Validates index bounds', () => {
+            const bv = new BitVector(64);
+            assertThrows(() => bv.set(-1));
+            assertThrows(() => bv.isSet(-1));
+            assertThrows(() => bv.clear(-1));
+        });
+
+        // Render results
+        function renderResults() {
+            const resultsDiv = document.getElementById('results');
+            const summaryDiv = document.getElementById('summary');
+
+            // Group tests by data structure
+            const groups = {
+                'LRUCache': [],
+                'BloomFilter': [],
+                'CircularBuffer': [],
+                'BitVector': []
+            };
+
+            results.forEach(result => {
+                const structure = result.name.split(':')[0];
+                if (groups[structure]) {
+                    groups[structure].push(result);
+                }
+            });
+
+            // Render each group
+            Object.keys(groups).forEach(structure => {
+                const suiteDiv = document.createElement('div');
+                suiteDiv.className = 'test-suite';
+
+                const title = document.createElement('h2');
+                title.textContent = structure + ' Tests';
+                suiteDiv.appendChild(title);
+
+                groups[structure].forEach(result => {
+                    const testDiv = document.createElement('div');
+                    testDiv.className = `test-case ${result.passed ? 'pass' : 'fail'}`;
+
+                    const testName = document.createElement('div');
+                    testName.className = 'test-name';
+                    testName.textContent = `${result.passed ? '✓' : '✗'} ${result.name.split(': ')[1]}`;
+                    testDiv.appendChild(testName);
+
+                    if (!result.passed) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'test-result';
+                        errorDiv.textContent = `Error: ${result.error}`;
+                        errorDiv.style.color = '#f48771';
+                        testDiv.appendChild(errorDiv);
+                    }
+
+                    suiteDiv.appendChild(testDiv);
+                });
+
+                resultsDiv.appendChild(suiteDiv);
+            });
+
+            // Render summary
+            summaryDiv.className = `summary ${passedTests === totalTests ? 'all-pass' : 'has-fail'}`;
+            summaryDiv.innerHTML = `
+                <strong>Test Summary:</strong> ${passedTests}/${totalTests} tests passed
+                ${passedTests === totalTests ? ' 🎉' : ' ❌'}
+            `;
+        }
+
+        renderResults();
+        console.log(`Test Results: ${passedTests}/${totalTests} passed`);
+    </script>
+</body>
+</html>

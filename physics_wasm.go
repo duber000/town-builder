@@ -73,99 +73,6 @@ type GridKey struct {
 }
 
 // ============================================================================
-// Bloom Filter for Collision Pre-filtering
-// ============================================================================
-
-// BloomFilter is a space-efficient probabilistic data structure
-// False positives possible, false negatives impossible
-type BloomFilter struct {
-	bits     []uint64
-	size     uint
-	numHashes uint
-}
-
-// NewBloomFilter creates a new bloom filter
-// size: number of bits, numHashes: number of hash functions
-func NewBloomFilter(size, numHashes uint) *BloomFilter {
-	return &BloomFilter{
-		bits:     make([]uint64, (size+63)/64), // Divide by 64, round up
-		size:     size,
-		numHashes: numHashes,
-	}
-}
-
-// hash1 is the first hash function (FNV-1a variant)
-func (bf *BloomFilter) hash1(id1, id2 int) uint {
-	// Combine two IDs into a unique hash
-	combined := uint(id1 * 31 + id2)
-	hash := uint(2166136261)
-	hash ^= combined
-	hash *= 16777619
-	return hash % bf.size
-}
-
-// hash2 is the second hash function
-func (bf *BloomFilter) hash2(id1, id2 int) uint {
-	// Different hash function for double hashing
-	combined := uint(id1 * 37 + id2 * 41)
-	hash := uint(2166136261)
-	hash ^= combined >> 16
-	hash *= 16777619
-	hash ^= combined & 0xFFFF
-	hash *= 16777619
-	return hash % bf.size
-}
-
-// Add adds an object pair to the bloom filter
-func (bf *BloomFilter) Add(id1, id2 int) {
-	// Ensure consistent ordering (smaller ID first)
-	if id1 > id2 {
-		id1, id2 = id2, id1
-	}
-
-	h1 := bf.hash1(id1, id2)
-	h2 := bf.hash2(id1, id2)
-
-	for i := uint(0); i < bf.numHashes; i++ {
-		pos := (h1 + i*h2) % bf.size
-		wordIdx := pos / 64
-		bitIdx := pos % 64
-		bf.bits[wordIdx] |= (1 << bitIdx)
-	}
-}
-
-// MightContain checks if an object pair might be in the set
-// Returns false: definitely not colliding
-// Returns true: might be colliding (need full AABB check)
-func (bf *BloomFilter) MightContain(id1, id2 int) bool {
-	// Ensure consistent ordering
-	if id1 > id2 {
-		id1, id2 = id2, id1
-	}
-
-	h1 := bf.hash1(id1, id2)
-	h2 := bf.hash2(id1, id2)
-
-	for i := uint(0); i < bf.numHashes; i++ {
-		pos := (h1 + i*h2) % bf.size
-		wordIdx := pos / 64
-		bitIdx := pos % 64
-		if (bf.bits[wordIdx] & (1 << bitIdx)) == 0 {
-			return false // Definitely not colliding
-		}
-	}
-
-	return true // Might be colliding
-}
-
-// Clear resets the bloom filter
-func (bf *BloomFilter) Clear() {
-	for i := range bf.bits {
-		bf.bits[i] = 0
-	}
-}
-
-// ============================================================================
 // Bit Vector for Grid Occupancy
 // ============================================================================
 
@@ -206,22 +113,17 @@ func (bv *BitVector) gridKeyToIndex(key GridKey) uint {
 // Set marks a grid cell as occupied
 func (bv *BitVector) Set(key GridKey) {
 	hash := bv.gridKeyToIndex(key)
+	// Use current size for modulo to ensure consistent hashing
 	idx := hash % uint(len(bv.bits)*64)
 	wordIdx := idx / 64
 	bitIdx := idx % 64
 
-	// Grow if needed, but respect max size
+	// Due to modulo operation above, wordIdx should always be < len(bv.bits)
+	// This is a safety check that should never trigger
 	if int(wordIdx) >= len(bv.bits) {
-		if int(wordIdx) >= bv.maxSize {
-			// At max size - use modulo to wrap around (accept collisions)
-			wordIdx = wordIdx % uint(bv.maxSize)
-		} else {
-			// Grow to accommodate
-			newSize := min(int(wordIdx)+1, bv.maxSize)
-			newBits := make([]uint64, newSize)
-			copy(newBits, bv.bits)
-			bv.bits = newBits
-		}
+		// This indicates a logic error - modulo should prevent this
+		// Default to wrapping to stay safe
+		wordIdx = wordIdx % uint(len(bv.bits))
 	}
 
 	bv.bits[wordIdx] |= (1 << bitIdx)
@@ -230,18 +132,17 @@ func (bv *BitVector) Set(key GridKey) {
 // IsSet checks if a grid cell is occupied
 func (bv *BitVector) IsSet(key GridKey) bool {
 	hash := bv.gridKeyToIndex(key)
+	// Use current size for modulo to ensure consistent hashing
 	idx := hash % uint(len(bv.bits)*64)
 	wordIdx := idx / 64
 	bitIdx := idx % 64
 
-	// Handle out of bounds
+	// Due to modulo operation above, wordIdx should always be < len(bv.bits)
+	// This is a safety check that should never trigger
 	if int(wordIdx) >= len(bv.bits) {
-		// Check if this would wrap around at max size
-		if len(bv.bits) >= bv.maxSize {
-			wordIdx = wordIdx % uint(len(bv.bits))
-		} else {
-			return false
-		}
+		// This indicates a logic error - modulo should prevent this
+		// Default to wrapping to stay safe
+		wordIdx = wordIdx % uint(len(bv.bits))
 	}
 
 	return (bv.bits[wordIdx] & (1 << bitIdx)) != 0
@@ -404,14 +305,8 @@ var (
 	objectCacheMu sync.RWMutex
 )
 
-// Configuration constants for collision bloom filter
-const (
-	collisionBloomFilterSize   = 8192 // Number of bits
-	collisionBloomFilterHashes = 3    // Number of hash functions
-)
-
-// Global bloom filter for collision pre-filtering (lazily populated)
-var collisionBloomFilter = NewBloomFilter(collisionBloomFilterSize, collisionBloomFilterHashes)
+// Note: Collision bloom filter removed as spatial grid already provides O(k) optimization
+// Adding bloom filter on top would add memory/CPU overhead with minimal benefit
 
 // ============================================================================
 // WASM Exported Functions
@@ -443,8 +338,6 @@ func updateSpatialGrid(this js.Value, args []js.Value) interface{} {
 
 	// Clear grid and rebuild
 	spatialGrid.Clear()
-	// Note: Bloom filter is NOT cleared - it's populated lazily during collision checks
-	// This avoids O(n²) overhead on every spatial grid update
 
 	objectCacheMu.Lock()
 	objectCache = make(map[int]GameObject, length)
@@ -522,8 +415,6 @@ func checkCollision(this js.Value, args []js.Value) interface{} {
 		if candidate, exists := objectCache[candidateID]; exists {
 			if checkAABBCollision(bbox, candidate.BBox) {
 				collisions = append(collisions, candidateID)
-				// Lazy populate bloom filter for future optimizations
-				collisionBloomFilter.Add(objID, candidateID)
 			}
 		}
 	}
@@ -569,8 +460,6 @@ func batchCheckCollisions(this js.Value, args []js.Value) interface{} {
 			if candidate, exists := objectCache[candidateID]; exists {
 				if checkAABBCollision(bbox, candidate.BBox) {
 					collisions = append(collisions, candidateID)
-					// Lazy populate bloom filter
-					collisionBloomFilter.Add(objID, candidateID)
 				}
 			}
 		}
