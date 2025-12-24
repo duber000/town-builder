@@ -23,3 +23,6 @@ data/*.json
 
 # Backup files
 *.bak
+
+# Encryption keys
+.encryption-key
