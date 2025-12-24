@@ -70,7 +70,7 @@ async function loadTownData(townData) {
         });
 
         // Process each category of objects
-        const categories = ['buildings', 'terrain', 'roads', 'props'];
+        const categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads'];
         
         for (const category of categories) {
             const objects = townData[category] || [];
