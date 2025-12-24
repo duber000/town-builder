@@ -95,7 +95,7 @@ export const CATEGORY_MODEL_MAPPING = {
             { category: 'park', name: 'park_base_decorated_bushes.gltf' },
             { category: 'trees', name: 'tree_C.gltf' },
             { category: 'trees', name: 'tree_D.gltf' },
-            { category: 'buildings', name: 'bench.gltf' } // Park Seating
+            { category: 'props', name: 'bench.gltf' } // Park Seating
         ],
         priority: 6
     },

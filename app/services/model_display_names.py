@@ -23,7 +23,12 @@ MODEL_DISPLAY_NAMES = {
     # Other Structures
     "house.gltf": "Residential Housing",
     "medical_facility.gltf": "Hospital/Health Center",
+
+    # Props
+    "base.gltf": "Base Platform",
     "bench.gltf": "Park Seating",
+    "box_A.gltf": "Storage Box A",
+    "box_B.gltf": "Storage Box B",
 }
 
 

@@ -101,17 +101,29 @@ export function setCurrentMode(mode) {
     const joystickContainer = document.getElementById('joystick-container');
     const exitDrivingBtn = document.getElementById('exit-driving-btn');
     const modelContainer = document.getElementById('model-container');
+    const toolbar = document.getElementById('toolbar');
+    const contextHelp = document.getElementById('context-help');
+    const townNameContainer = document.getElementById('town-name-container');
+    const themeToggleContainer = document.getElementById('theme-toggle-container');
 
     // Default UI states
     if (joystickContainer) joystickContainer.style.display = 'none';
     if (exitDrivingBtn) exitDrivingBtn.style.display = 'none';
     if (modelContainer) modelContainer.style.display = 'block'; // Show model list by default
+    if (toolbar) toolbar.style.display = 'block';
+    if (contextHelp) contextHelp.style.display = 'block';
+    if (townNameContainer) townNameContainer.style.display = 'block';
+    if (themeToggleContainer) themeToggleContainer.style.display = 'block';
 
     if (mode === 'drive') {
         if (window.drivingCar) { // Actively driving a car
             if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex'
             if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
             if (modelContainer) modelContainer.style.display = 'none';
+            if (toolbar) toolbar.style.display = 'none';
+            if (contextHelp) contextHelp.style.display = 'none';
+            if (townNameContainer) townNameContainer.style.display = 'none';
+            if (themeToggleContainer) themeToggleContainer.style.display = 'none';
             showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
             
             // Re-initialize joystick when it becomes visible
@@ -124,10 +136,18 @@ export function setCurrentMode(mode) {
             if (joystickContainer) joystickContainer.style.display = 'none';
             if (exitDrivingBtn) exitDrivingBtn.style.display = 'none'; // Keep hidden until car selected
             if (modelContainer) modelContainer.style.display = 'block'; // Or 'none' if you prefer
+            if (toolbar) toolbar.style.display = 'block';
+            if (contextHelp) contextHelp.style.display = 'block';
+            if (townNameContainer) townNameContainer.style.display = 'block';
+            if (themeToggleContainer) themeToggleContainer.style.display = 'block';
             showNotification('Drive Mode: Click on a car in the scene to drive it.', 'info');
         }
     } else { // Not in drive mode
         if (modelContainer) modelContainer.style.display = 'block';
+        if (toolbar) toolbar.style.display = 'block';
+        if (contextHelp) contextHelp.style.display = 'block';
+        if (townNameContainer) townNameContainer.style.display = 'block';
+        if (themeToggleContainer) themeToggleContainer.style.display = 'block';
         window.drivingCar = null; // Ensure drivingCar is cleared if mode changes from drive
     }
 
