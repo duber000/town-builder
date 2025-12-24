@@ -8,25 +8,17 @@ instead of generic letter-based names (Building_A, Building_B, etc.).
 MODEL_DISPLAY_NAMES = {
     # School/Education
     "building_A.gltf": "Elementary School",
-    "building_A_withoutBase.gltf": "Elementary School",
     "building_D.gltf": "High School",
-    "building_D_withoutBase.gltf": "High School",
     "building_B.gltf": "Public Library",
-    "building_B_withoutBase.gltf": "Public Library",
     "building_F.gltf": "Library Branch",
-    "building_F_withoutBase.gltf": "Library Branch",
 
     # Commercial/Retail
     "building_E.gltf": "Market/Grocery Store",
-    "building_E_withoutBase.gltf": "Market/Grocery Store",
     "building_G.gltf": "Convenience Store",
-    "building_G_withoutBase.gltf": "Convenience Store",
 
     # Employment/Office
     "building_C.gltf": "Warehouse/Storage",
-    "building_C_withoutBase.gltf": "Warehouse/Storage",
     "building_H.gltf": "Corporate Office Building",
-    "building_H_withoutBase.gltf": "Corporate Office Building",
 
     # Other Structures
     "house.gltf": "Residential Housing",

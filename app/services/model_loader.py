@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 def get_available_models() -> Dict[str, List[str]]:
     """Scan the models directory and return available models by category.
+    
+    For buildings category, filters out models with '_withoutBase' suffix to avoid duplicates.
 
     Returns:
         Dictionary mapping category names to lists of model filenames
@@ -30,6 +32,11 @@ def get_available_models() -> Dict[str, List[str]]:
                 models[category] = []
                 for model_file in os.listdir(category_path):
                     if model_file.endswith('.gltf') or model_file.endswith('.glb'):
+                        # For buildings category, filter out models with '_withoutBase' suffix
+                        if category == 'buildings' and '_withoutBase' in model_file:
+                            logger.debug(f"Skipping building model without base: {category}/{model_file}")
+                            continue
+                        
                         models[category].append(model_file)
                         logger.debug(f"Found model: {category}/{model_file}")
 
