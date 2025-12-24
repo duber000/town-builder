@@ -168,6 +168,21 @@ export function updateControls() {
     if (window.drivingCar) {
         const car = window.drivingCar;
 
+        // Initialize collision cooldown if it doesn't exist
+        if (car.userData.collisionCooldown === undefined) {
+            car.userData.collisionCooldown = 0;
+        }
+
+        // Decrement cooldown each frame
+        if (car.userData.collisionCooldown > 0) {
+            car.userData.collisionCooldown--;
+        }
+
+        // Debug: log cooldown when it's active
+        if (car.userData.collisionCooldown > 0 && car.userData.collisionCooldown % 30 === 0) {
+            console.log(`Collision cooldown: ${car.userData.collisionCooldown} frames remaining`);
+        }
+
         // --- Check if WASM module is loaded ---
         if (window.physicsWasm) {
             // --- WASM-Powered Physics ---
@@ -222,7 +237,11 @@ export function updateControls() {
                     // Only block forward motion; allow backing out
                     if (attemptedMoveVector.dot(forwardDir) > 0) {
                         collisionDetected = true;
-                        showNotification("Bonk!", "error");
+                        // Only show notification if cooldown expired
+                        if (car.userData.collisionCooldown === 0) {
+                            showNotification("Bonk!", "error");
+                            car.userData.collisionCooldown = 90; // ~1.5 seconds at 60 FPS
+                        }
                         car.userData.velocity_x = 0;
                         car.userData.velocity_z = 0;
                     }
@@ -276,7 +295,11 @@ export function updateControls() {
                     if (!otherObject.userData.boundingBox) otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
                     if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
                         collisionDetected = true;
-                        showNotification("Bonk!", "error");
+                        // Only show notification if cooldown expired
+                        if (car.userData.collisionCooldown === 0) {
+                            showNotification("Bonk!", "error");
+                            car.userData.collisionCooldown = 90; // ~1.5 seconds at 60 FPS
+                        }
                         car.userData.velocity.set(0, 0, 0); // Stop the car
                         break;
                     }
