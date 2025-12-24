@@ -15,7 +15,7 @@ const MAX_BIT_VECTOR_SIZE = 1000000; // Maximum bits for bit vector
  * Provides O(1) get and set operations with automatic eviction of least recently used items
  */
 export class LRUCache {
-    constructor(maxSize = 100) {
+    constructor(maxSize = 100, onEvict = null) {
         // Security: Enforce maximum size
         if (maxSize > MAX_LRU_CACHE_SIZE) {
             throw new Error(`LRU cache size ${maxSize} exceeds maximum ${MAX_LRU_CACHE_SIZE}`);
@@ -28,6 +28,7 @@ export class LRUCache {
         this.cache = new Map(); // Maintains insertion order in JS
         this.hits = 0;
         this.misses = 0;
+        this.onEvict = onEvict; // Optional callback for resource cleanup when items are evicted
     }
 
     /**
@@ -50,6 +51,7 @@ export class LRUCache {
 
     /**
      * Set value in cache. Evicts oldest item if at capacity.
+     * Calls onEvict callback for evicted items to allow cleanup.
      */
     set(key, value) {
         // If key exists, delete it first (will re-add at end)
@@ -63,6 +65,17 @@ export class LRUCache {
         // Evict oldest if over capacity
         if (this.cache.size > this.maxSize) {
             const oldestKey = this.cache.keys().next().value;
+            const oldestValue = this.cache.get(oldestKey);
+
+            // Call eviction callback to allow resource cleanup
+            if (this.onEvict && typeof this.onEvict === 'function') {
+                try {
+                    this.onEvict(oldestKey, oldestValue);
+                } catch (error) {
+                    console.error('Error in LRU cache eviction callback:', error);
+                }
+            }
+
             this.cache.delete(oldestKey);
         }
     }
@@ -76,15 +89,42 @@ export class LRUCache {
 
     /**
      * Remove specific key from cache
+     * Calls onEvict callback to allow cleanup.
      */
     delete(key) {
-        return this.cache.delete(key);
+        if (this.cache.has(key)) {
+            const value = this.cache.get(key);
+
+            // Call eviction callback to allow resource cleanup
+            if (this.onEvict && typeof this.onEvict === 'function') {
+                try {
+                    this.onEvict(key, value);
+                } catch (error) {
+                    console.error('Error in LRU cache deletion callback:', error);
+                }
+            }
+
+            return this.cache.delete(key);
+        }
+        return false;
     }
 
     /**
      * Clear all items from cache
+     * Calls onEvict callback for each item to allow cleanup.
      */
     clear() {
+        // Call eviction callback for all items
+        if (this.onEvict && typeof this.onEvict === 'function') {
+            for (const [key, value] of this.cache.entries()) {
+                try {
+                    this.onEvict(key, value);
+                } catch (error) {
+                    console.error('Error in LRU cache clear callback:', error);
+                }
+            }
+        }
+
         this.cache.clear();
         this.hits = 0;
         this.misses = 0;

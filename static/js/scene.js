@@ -46,6 +46,15 @@ let enableFrustumCulling = true; // Can be toggled for debugging
 let visibleObjects = [];
 let culledObjectCount = 0;
 
+// Performance threshold: only use frustum culling when object count exceeds this
+const FRUSTUM_CULLING_THRESHOLD = 100;
+
+// Cache frustum calculations when camera hasn't moved significantly
+let lastCameraPosition = new THREE.Vector3();
+let lastCameraRotation = new THREE.Euler();
+const CAMERA_MOVE_THRESHOLD = 0.01; // Minimum movement to recalculate frustum
+let frustumNeedsUpdate = true;
+
 // Reusable objects for frustum culling to avoid allocations every frame
 const _reusableBox = new THREE.Box3();
 const _reusableMinVector = new THREE.Vector3();
@@ -134,17 +143,42 @@ function sendCursorPositionUpdate(event) {
  * Apply frustum culling to objects (sliding window technique)
  * Only renders objects visible in camera's view frustum
  * Returns count of culled objects
+ *
+ * Performance optimizations:
+ * - Only enabled when object count > FRUSTUM_CULLING_THRESHOLD
+ * - Caches frustum when camera hasn't moved significantly
+ * - Could be further optimized with spatial grid pre-filtering
  */
 function applyFrustumCulling() {
+    // Performance optimization: skip frustum culling for small scenes
+    // For scenes with < threshold objects, the overhead of culling exceeds benefits
+    if (placedObjects.length < FRUSTUM_CULLING_THRESHOLD) {
+        placedObjects.forEach(obj => obj.visible = true);
+        culledObjectCount = 0;
+        visibleObjects = placedObjects.slice(); // Copy array
+        return 0;
+    }
+
     if (!enableFrustumCulling) {
         // Ensure all objects are visible if culling is disabled
         placedObjects.forEach(obj => obj.visible = true);
         return 0;
     }
 
-    // Update frustum from camera
-    frustumMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-    frustum.setFromProjectionMatrix(frustumMatrix);
+    // Check if camera moved significantly
+    const cameraMoved = camera.position.distanceTo(lastCameraPosition) > CAMERA_MOVE_THRESHOLD ||
+                       !camera.rotation.equals(lastCameraRotation);
+
+    // Update frustum only if camera moved
+    if (cameraMoved || frustumNeedsUpdate) {
+        frustumMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        frustum.setFromProjectionMatrix(frustumMatrix);
+
+        // Cache camera state
+        lastCameraPosition.copy(camera.position);
+        lastCameraRotation.copy(camera.rotation);
+        frustumNeedsUpdate = false;
+    }
 
     let culled = 0;
     visibleObjects.length = 0;
@@ -352,11 +386,19 @@ export async function loadModelToScene(category, modelName, position) {
 }
 
 /**
+ * Invalidate frustum cache (call when camera changes abruptly)
+ */
+export function invalidateFrustumCache() {
+    frustumNeedsUpdate = true;
+}
+
+/**
  * Toggle frustum culling on/off
  * @param {boolean} enabled - Whether to enable frustum culling
  */
 export function setFrustumCulling(enabled) {
     enableFrustumCulling = enabled;
+    invalidateFrustumCache();
     console.log(`Frustum culling ${enabled ? 'enabled' : 'disabled'}`);
 }
 
@@ -365,14 +407,20 @@ export function setFrustumCulling(enabled) {
  * @returns {Object} Culling stats
  */
 export function getFrustumCullingStats() {
+    const isActive = enableFrustumCulling && placedObjects.length >= FRUSTUM_CULLING_THRESHOLD;
     return {
         enabled: enableFrustumCulling,
+        active: isActive,
+        threshold: FRUSTUM_CULLING_THRESHOLD,
         totalObjects: placedObjects.length,
         visibleObjects: visibleObjects.length,
         culledObjects: culledObjectCount,
         cullingPercentage: placedObjects.length > 0
             ? ((culledObjectCount / placedObjects.length) * 100).toFixed(1) + '%'
-            : '0%'
+            : '0%',
+        message: isActive ? 'Frustum culling active' :
+                 !enableFrustumCulling ? 'Frustum culling disabled' :
+                 `Frustum culling inactive (object count ${placedObjects.length} < threshold ${FRUSTUM_CULLING_THRESHOLD})`
     };
 }
 

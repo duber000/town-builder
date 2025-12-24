@@ -31,26 +31,50 @@ export function isPhysicsWasmReady() {
 }
 
 /**
+ * Validate that a WASM function exists and is callable
+ * @param {string} funcName - Name of the WASM function to check
+ * @returns {boolean} True if function is available
+ */
+function validateWasmFunction(funcName) {
+    return typeof window[funcName] === 'function';
+}
+
+/**
  * Initialize physics WASM module
  * Falls back gracefully if module isn't available
  */
 export async function initPhysicsWasm() {
     try {
-        // Check if WASM functions are available
-        if (typeof window.wasmUpdateSpatialGrid === 'function') {
+        // Check if required WASM functions are available
+        const requiredFunctions = [
+            'wasmUpdateSpatialGrid',
+            'wasmCheckCollision',
+            'wasmBatchCheckCollisions',
+            'wasmFindNearestObject',
+            'wasmFindObjectsInRadius',
+            'wasmGetGridStats'
+        ];
+
+        const allFunctionsAvailable = requiredFunctions.every(validateWasmFunction);
+
+        if (allFunctionsAvailable) {
             physicsWasmReady = true;
             physicsWasmEnabled = true;
             console.log('✓ Physics WASM module ready (Go 1.24+ with Swiss Tables)');
 
             // Log grid stats for debugging
-            if (typeof window.wasmGetGridStats === 'function') {
+            try {
                 const stats = window.wasmGetGridStats();
                 console.log('  Spatial grid initialized:', stats);
+            } catch (err) {
+                console.warn('  Could not retrieve initial grid stats:', err.message);
             }
 
             return true;
         } else {
-            console.log('Physics WASM not loaded, using JavaScript fallback');
+            const missingFunctions = requiredFunctions.filter(fn => !validateWasmFunction(fn));
+            console.log('Physics WASM not fully loaded, using JavaScript fallback');
+            console.log('  Missing functions:', missingFunctions.join(', '));
             physicsWasmReady = false;
             physicsWasmEnabled = false;
             return false;
@@ -104,12 +128,29 @@ export function updateSpatialGrid(objects) {
         return false;
     }
 
+    // Validate WASM function exists
+    if (!validateWasmFunction('wasmUpdateSpatialGrid')) {
+        console.error('wasmUpdateSpatialGrid function not available');
+        physicsWasmEnabled = false;
+        return false;
+    }
+
     try {
         const serialized = objects.map((obj, idx) => serializeObject(obj, idx));
         const result = window.wasmUpdateSpatialGrid(serialized);
+
+        // Validate result
+        if (result === undefined || result === null) {
+            console.error('wasmUpdateSpatialGrid returned invalid result');
+            return false;
+        }
+
         return result;
     } catch (error) {
         console.error('Error updating spatial grid:', error);
+        console.error('  Stack:', error.stack);
+        // Disable WASM on crash to prevent repeated errors
+        physicsWasmEnabled = false;
         return false;
     }
 }
@@ -119,11 +160,18 @@ export function updateSpatialGrid(objects) {
  * Uses spatial grid for O(k) complexity where k = nearby objects
  *
  * @param {THREE.Object3D} object - Object to check collisions for
- * @returns {Array<number>} Array of colliding object IDs
+ * @returns {Array<number>} Array of colliding object IDs, or null if WASM unavailable
  */
 export function checkCollision(object) {
     if (!physicsWasmEnabled) {
         return null; // Caller should fall back to JavaScript implementation
+    }
+
+    // Validate WASM function exists
+    if (!validateWasmFunction('wasmCheckCollision')) {
+        console.error('wasmCheckCollision function not available');
+        physicsWasmEnabled = false;
+        return null;
     }
 
     try {
@@ -141,9 +189,18 @@ export function checkCollision(object) {
         };
 
         const collisions = window.wasmCheckCollision(object.id, bboxData);
-        return collisions || [];
+
+        // Validate result is an array
+        if (!Array.isArray(collisions)) {
+            console.error('wasmCheckCollision returned non-array result');
+            return [];
+        }
+
+        return collisions;
     } catch (error) {
         console.error('Error checking collision:', error);
+        console.error('  Stack:', error.stack);
+        physicsWasmEnabled = false;
         return [];
     }
 }
@@ -153,10 +210,17 @@ export function checkCollision(object) {
  * More efficient than calling checkCollision multiple times
  *
  * @param {Array<THREE.Object3D>} objects - Objects to check
- * @returns {Array<{id: number, collisions: Array<number>}>} Collision results
+ * @returns {Array<{id: number, collisions: Array<number>}>} Collision results, or null if WASM unavailable
  */
 export function batchCheckCollisions(objects) {
     if (!physicsWasmEnabled) {
+        return null;
+    }
+
+    // Validate WASM function exists
+    if (!validateWasmFunction('wasmBatchCheckCollisions')) {
+        console.error('wasmBatchCheckCollisions function not available');
+        physicsWasmEnabled = false;
         return null;
     }
 
@@ -177,9 +241,18 @@ export function batchCheckCollisions(objects) {
         });
 
         const results = window.wasmBatchCheckCollisions(checks);
-        return results || [];
+
+        // Validate result is an array
+        if (!Array.isArray(results)) {
+            console.error('wasmBatchCheckCollisions returned non-array result');
+            return null;
+        }
+
+        return results;
     } catch (error) {
         console.error('Error in batch collision check:', error);
+        console.error('  Stack:', error.stack);
+        physicsWasmEnabled = false;
         return null;
     }
 }
@@ -199,11 +272,27 @@ export function findNearestObject(x, z, category, maxDistance = Infinity) {
         return null;
     }
 
+    // Validate WASM function exists
+    if (!validateWasmFunction('wasmFindNearestObject')) {
+        console.error('wasmFindNearestObject function not available');
+        physicsWasmEnabled = false;
+        return null;
+    }
+
     try {
         const result = window.wasmFindNearestObject(x, z, category, maxDistance);
+
+        // Result can be null (valid - no object found) or an object
+        if (result !== null && typeof result !== 'object') {
+            console.error('wasmFindNearestObject returned invalid result type');
+            return null;
+        }
+
         return result;
     } catch (error) {
         console.error('Error finding nearest object:', error);
+        console.error('  Stack:', error.stack);
+        physicsWasmEnabled = false;
         return null;
     }
 }
@@ -216,18 +305,34 @@ export function findNearestObject(x, z, category, maxDistance = Infinity) {
  * @param {number} z - Z position (Y in WASM 2D grid)
  * @param {number} radius - Search radius
  * @param {string} category - Optional category filter
- * @returns {Array<{id: number, distance: number}>} Objects within radius
+ * @returns {Array<{id: number, distance: number}>} Objects within radius, or null if WASM unavailable
  */
 export function findObjectsInRadius(x, z, radius, category = null) {
     if (!physicsWasmEnabled) {
         return null;
     }
 
+    // Validate WASM function exists
+    if (!validateWasmFunction('wasmFindObjectsInRadius')) {
+        console.error('wasmFindObjectsInRadius function not available');
+        physicsWasmEnabled = false;
+        return null;
+    }
+
     try {
         const results = window.wasmFindObjectsInRadius(x, z, radius, category);
-        return results || [];
+
+        // Validate result is an array
+        if (!Array.isArray(results)) {
+            console.error('wasmFindObjectsInRadius returned non-array result');
+            return [];
+        }
+
+        return results;
     } catch (error) {
         console.error('Error finding objects in radius:', error);
+        console.error('  Stack:', error.stack);
+        physicsWasmEnabled = false;
         return [];
     }
 }
@@ -235,17 +340,34 @@ export function findObjectsInRadius(x, z, radius, category = null) {
 /**
  * Get spatial grid statistics for debugging
  *
- * @returns {{cellCount: number, objectCount: number, avgObjectsPerCell: number}}
+ * @returns {{cellCount: number, objectCount: number, avgObjectsPerCell: number, boundaryHitCount: number} | null}
  */
 export function getGridStats() {
     if (!physicsWasmEnabled) {
         return null;
     }
 
+    // Validate WASM function exists
+    if (!validateWasmFunction('wasmGetGridStats')) {
+        console.error('wasmGetGridStats function not available');
+        physicsWasmEnabled = false;
+        return null;
+    }
+
     try {
-        return window.wasmGetGridStats();
+        const stats = window.wasmGetGridStats();
+
+        // Validate result is an object
+        if (typeof stats !== 'object' || stats === null) {
+            console.error('wasmGetGridStats returned invalid result');
+            return null;
+        }
+
+        return stats;
     } catch (error) {
         console.error('Error getting grid stats:', error);
+        console.error('  Stack:', error.stack);
+        physicsWasmEnabled = false;
         return null;
     }
 }

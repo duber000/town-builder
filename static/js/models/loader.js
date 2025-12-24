@@ -22,11 +22,63 @@ const BLOOM_FALSE_POSITIVE_RATE = 0.01; // 1% false positive rate
 // Track active loaders for abort functionality (new in three.js r179)
 const activeLoaders = new Map();
 
+/**
+ * Disposal callback for LRU cache eviction
+ * Properly disposes of THREE.js resources when models are evicted from cache
+ * @param {string} key - Cache key (category/modelName)
+ * @param {THREE.Object3D} scene - THREE.js scene to dispose
+ */
+function disposeModelScene(key, scene) {
+    if (!scene || typeof scene.traverse !== 'function') {
+        return;
+    }
+
+    // Traverse the scene and dispose of all geometries, materials, and textures
+    scene.traverse(obj => {
+        // Dispose geometry
+        if (obj.geometry) {
+            obj.geometry.dispose();
+        }
+
+        // Dispose materials
+        if (obj.material) {
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(material => disposeMaterial(material));
+            } else {
+                disposeMaterial(obj.material);
+            }
+        }
+    });
+
+    console.log(`LRU cache evicted and disposed model: ${key}`);
+}
+
+/**
+ * Dispose a single THREE.js material and its textures
+ * @param {THREE.Material} material - Material to dispose
+ */
+function disposeMaterial(material) {
+    // Dispose all texture properties
+    const textureProperties = ['map', 'lightMap', 'bumpMap', 'normalMap', 'specularMap',
+                               'envMap', 'alphaMap', 'aoMap', 'displacementMap',
+                               'emissiveMap', 'gradientMap', 'metalnessMap', 'roughnessMap'];
+
+    textureProperties.forEach(prop => {
+        if (material[prop] && material[prop].dispose) {
+            material[prop].dispose();
+        }
+    });
+
+    // Dispose the material itself
+    material.dispose();
+}
+
 // LRU cache for loaded models (limit to MODEL_CACHE_SIZE to save memory)
 // Each entry stores the ORIGINAL scene from GLTF (not cloned)
 // Cloning happens only when creating instances to avoid double-clone overhead
 // Note: Geometries and materials are shared between instances (THREE.js default behavior)
-const modelCache = new LRUCache(MODEL_CACHE_SIZE);
+// Now includes disposal callback to prevent memory leaks when evicting models
+const modelCache = new LRUCache(MODEL_CACHE_SIZE, disposeModelScene);
 
 // Bloom filter for model existence (reduces failed load attempts)
 // Tracks models that have been successfully loaded
@@ -57,10 +109,11 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
         const cacheKey = `${category}/${modelName}`;
         const loaderId = options.loaderId || `${category}-${modelName}-${Date.now()}`;
 
-        // Bloom filter: Quick check if model definitely doesn't exist
+        // Bloom filter: Use as hint only, not hard rejection
+        // False positives (1% rate) could incorrectly block valid models
+        // Instead, we log a warning and attempt the load anyway
         if (modelNotFoundFilter.has(cacheKey)) {
-            reject(new Error(`Model ${cacheKey} is known to not exist (Bloom filter)`));
-            return;
+            console.warn(`Model ${cacheKey} may not exist (bloom filter hint), attempting load anyway...`);
         }
 
         // LRU Cache: Check if model is already loaded
@@ -148,11 +201,16 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
                 // User intentionally aborted - this is not an error condition
                 reject(new Error('ABORTED'));
             } else {
-                // Add to not-found bloom filter to avoid retrying
+                // Add to not-found bloom filter to reduce retry attempts
+                // Note: Bloom filter is used as a hint only, not a hard rejection
                 if (err.message && (err.message.includes('404') || err.message.includes('Not Found'))) {
                     modelNotFoundFilter.add(cacheKey);
+                    // Provide user-friendly error message
+                    reject(new Error(`Model not found: ${category}/${modelName}`));
+                } else {
+                    // Other error types (network, parsing, etc.)
+                    reject(new Error(`Failed to load model ${category}/${modelName}: ${err.message}`));
                 }
-                reject(err);
             }
         });
     });
@@ -278,6 +336,11 @@ export async function preloadModel(category, modelName) {
         return Promise.resolve();
     }
 
+    // Bloom filter hint (not a hard rejection)
+    if (modelNotFoundFilter.has(cacheKey)) {
+        console.warn(`Preload: Model ${cacheKey} may not exist (bloom filter hint), attempting anyway...`);
+    }
+
     return new Promise((resolve, reject) => {
         const loader = new GLTFLoader();
         const url = `${MODELS_BASE_URL}/${category}/${modelName}`;
@@ -288,10 +351,13 @@ export async function preloadModel(category, modelName) {
             modelExistsFilter.add(cacheKey);
             resolve();
         }, undefined, err => {
+            // Add to bloom filter hint (not a hard rejection for future attempts)
             if (err.message && (err.message.includes('404') || err.message.includes('Not Found'))) {
                 modelNotFoundFilter.add(cacheKey);
+                reject(new Error(`Model not found: ${category}/${modelName}`));
+            } else {
+                reject(new Error(`Failed to preload model ${category}/${modelName}: ${err.message}`));
             }
-            reject(err);
         });
     });
 }

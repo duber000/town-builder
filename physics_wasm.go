@@ -79,8 +79,10 @@ type GridKey struct {
 // BitVector efficiently tracks grid cell occupancy
 // Uses larger bit array to minimize hash collisions
 type BitVector struct {
-	bits    []uint64
-	maxSize int // Maximum size limit for security
+	bits             []uint64
+	maxSize          int // Maximum size limit for security
+	boundaryHitCount int // Track how many times safety check triggers (indicates hash issues)
+	mu               sync.Mutex
 }
 
 const (
@@ -112,6 +114,9 @@ func (bv *BitVector) gridKeyToIndex(key GridKey) uint {
 
 // Set marks a grid cell as occupied
 func (bv *BitVector) Set(key GridKey) {
+	bv.mu.Lock()
+	defer bv.mu.Unlock()
+
 	hash := bv.gridKeyToIndex(key)
 	// Use current size for modulo to ensure consistent hashing
 	idx := hash % uint(len(bv.bits)*64)
@@ -119,10 +124,18 @@ func (bv *BitVector) Set(key GridKey) {
 	bitIdx := idx % 64
 
 	// Due to modulo operation above, wordIdx should always be < len(bv.bits)
-	// This is a safety check that should never trigger
+	// This safety check should never trigger unless there's integer overflow or logic error
 	if int(wordIdx) >= len(bv.bits) {
-		// This indicates a logic error - modulo should prevent this
-		// Default to wrapping to stay safe
+		// Track this anomaly - indicates potential hash distribution issue
+		bv.boundaryHitCount++
+		// Log first few occurrences for debugging
+		if bv.boundaryHitCount <= 10 {
+			println("WARNING: BitVector boundary hit detected!")
+			println("  wordIdx:", int(wordIdx), "len(bits):", len(bv.bits))
+			println("  GridKey:", key.X, key.Y, "hash:", hash, "idx:", idx)
+			println("  Total boundary hits:", bv.boundaryHitCount)
+		}
+		// Wrap to stay safe, but this indicates a problem that should be investigated
 		wordIdx = wordIdx % uint(len(bv.bits))
 	}
 
@@ -131,6 +144,9 @@ func (bv *BitVector) Set(key GridKey) {
 
 // IsSet checks if a grid cell is occupied
 func (bv *BitVector) IsSet(key GridKey) bool {
+	bv.mu.Lock()
+	defer bv.mu.Unlock()
+
 	hash := bv.gridKeyToIndex(key)
 	// Use current size for modulo to ensure consistent hashing
 	idx := hash % uint(len(bv.bits)*64)
@@ -138,10 +154,18 @@ func (bv *BitVector) IsSet(key GridKey) bool {
 	bitIdx := idx % 64
 
 	// Due to modulo operation above, wordIdx should always be < len(bv.bits)
-	// This is a safety check that should never trigger
+	// This safety check should never trigger unless there's integer overflow or logic error
 	if int(wordIdx) >= len(bv.bits) {
-		// This indicates a logic error - modulo should prevent this
-		// Default to wrapping to stay safe
+		// Track this anomaly - indicates potential hash distribution issue
+		bv.boundaryHitCount++
+		// Log first few occurrences for debugging
+		if bv.boundaryHitCount <= 10 {
+			println("WARNING: BitVector boundary hit detected in IsSet!")
+			println("  wordIdx:", int(wordIdx), "len(bits):", len(bv.bits))
+			println("  GridKey:", key.X, key.Y, "hash:", hash, "idx:", idx)
+			println("  Total boundary hits:", bv.boundaryHitCount)
+		}
+		// Wrap to stay safe, but this indicates a problem that should be investigated
 		wordIdx = wordIdx % uint(len(bv.bits))
 	}
 
@@ -158,9 +182,22 @@ func min(a, b int) int {
 
 // Clear resets all bits
 func (bv *BitVector) Clear() {
+	bv.mu.Lock()
+	defer bv.mu.Unlock()
+
 	for i := range bv.bits {
 		bv.bits[i] = 0
 	}
+	// Reset boundary hit count on clear
+	bv.boundaryHitCount = 0
+}
+
+// GetBoundaryHitCount returns the number of times boundary checks triggered
+// Non-zero values indicate potential hash distribution issues
+func (bv *BitVector) GetBoundaryHitCount() int {
+	bv.mu.Lock()
+	defer bv.mu.Unlock()
+	return bv.boundaryHitCount
 }
 
 // ============================================================================
@@ -589,7 +626,7 @@ func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
 }
 
 // getGridStats returns statistics about the spatial grid for debugging
-// JavaScript signature: getGridStats() -> {cellCount, objectCount, avgObjectsPerCell}
+// JavaScript signature: getGridStats() -> {cellCount, objectCount, avgObjectsPerCell, boundaryHitCount}
 func getGridStats(this js.Value, args []js.Value) interface{} {
 	spatialGrid.mu.RLock()
 	defer spatialGrid.mu.RUnlock()
@@ -606,10 +643,14 @@ func getGridStats(this js.Value, args []js.Value) interface{} {
 		avgObjectsPerCell = float64(totalObjects) / float64(cellCount)
 	}
 
+	// Get boundary hit count for hash distribution monitoring
+	boundaryHitCount := spatialGrid.occupancy.GetBoundaryHitCount()
+
 	result := make(map[string]interface{})
 	result["cellCount"] = cellCount
 	result["objectCount"] = totalObjects
 	result["avgObjectsPerCell"] = avgObjectsPerCell
+	result["boundaryHitCount"] = boundaryHitCount
 
 	return js.ValueOf(result)
 }
