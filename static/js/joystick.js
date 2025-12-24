@@ -4,10 +4,9 @@
 let joystickActive = false;
 let joystickBase = null;
 let joystickStick = null;
-let joystickCenterX = 0;
-let joystickCenterY = 0;
 let joystickRadius = 0;
 let joystickStickRadius = 0;
+let isInitialized = false;
 
 // Current joystick input state
 let joystickInput = {
@@ -16,6 +15,21 @@ let joystickInput = {
     left: 0,
     right: 0
 };
+
+// Cleanup function to remove event listeners
+export function cleanupJoystick() {
+    if (!joystickBase) return;
+
+    joystickBase.removeEventListener('touchstart', handleJoystickTouchStart);
+    joystickBase.removeEventListener('touchmove', handleJoystickTouchMove);
+    joystickBase.removeEventListener('touchend', handleJoystickTouchEnd);
+    joystickBase.removeEventListener('touchcancel', handleJoystickTouchEnd);
+    joystickBase.removeEventListener('mousedown', handleJoystickMouseDown);
+    document.removeEventListener('mousemove', handleJoystickMouseMove);
+    document.removeEventListener('mouseup', handleJoystickMouseUp);
+
+    isInitialized = false;
+}
 
 // Initialize joystick when it becomes visible
 export function initJoystick() {
@@ -27,11 +41,13 @@ export function initJoystick() {
 
     if (!joystickBase || !joystickStick) return;
 
-    // Get dimensions and positions
-    const baseRect = joystickBase.getBoundingClientRect();
-    joystickCenterX = baseRect.left + baseRect.width / 2;
-    joystickCenterY = baseRect.top + baseRect.height / 2;
-    joystickRadius = baseRect.width / 2;
+    // Clean up any existing listeners first
+    if (isInitialized) {
+        cleanupJoystick();
+    }
+
+    // Get dimensions (not positions - we'll calculate those on each touch)
+    joystickRadius = joystickBase.offsetWidth / 2;
     joystickStickRadius = joystickStick.offsetWidth / 2;
 
     // Add touch event listeners
@@ -41,10 +57,12 @@ export function initJoystick() {
     joystickBase.addEventListener('touchcancel', handleJoystickTouchEnd, { passive: false });
 
     // Also handle mouse events for testing on desktop
+    // Note: mousemove and mouseup are on document to handle dragging outside the joystick
     joystickBase.addEventListener('mousedown', handleJoystickMouseDown);
     document.addEventListener('mousemove', handleJoystickMouseMove);
     document.addEventListener('mouseup', handleJoystickMouseUp);
 
+    isInitialized = true;
     console.log('Joystick initialized');
 }
 
@@ -88,6 +106,11 @@ function handleJoystickMouseUp(event) {
 
 function updateJoystickPosition(touch) {
     if (!joystickBase || !joystickStick) return;
+
+    // Get fresh center position in case joystick moved or page scrolled
+    const baseRect = joystickBase.getBoundingClientRect();
+    const joystickCenterX = baseRect.left + baseRect.width / 2;
+    const joystickCenterY = baseRect.top + baseRect.height / 2;
 
     const touchX = touch.clientX;
     const touchY = touch.clientY;

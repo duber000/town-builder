@@ -124,8 +124,8 @@ export function initScene(container) {
         antialias: true,
         powerPreference: 'high-performance'
     });
-    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
     // Enable HDR tone mapping (r180+ feature)
     // ACESFilmic provides film-like color and better highlight handling

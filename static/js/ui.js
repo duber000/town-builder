@@ -1,6 +1,7 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
 import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject, movingCars } from './scene.js'; // Added movingCars
 import { getActiveLoaderCount } from './models/loader.js'; // Import loader count tracker
+import { cleanupJoystick } from './joystick.js';
 
 let currentMode = 'place';
 window.selectedObject = null; // For edit mode
@@ -128,13 +129,16 @@ export function setCurrentMode(mode) {
             if (themeToggleContainer) themeToggleContainer.style.display = 'none';
             if (categoryStatusLegend) categoryStatusLegend.style.display = 'none';
             showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
-            
+
             // Re-initialize joystick when it becomes visible
-            setTimeout(() => {
-                if (typeof initJoystick === 'function') {
-                    initJoystick();
-                }
-            }, 100);
+            // Use requestAnimationFrame to ensure DOM has updated
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (typeof initJoystick === 'function') {
+                        initJoystick();
+                    }
+                });
+            });
         } else { // Entered drive mode, waiting for car selection
             if (joystickContainer) joystickContainer.style.display = 'none';
             if (exitDrivingBtn) exitDrivingBtn.style.display = 'none'; // Keep hidden until car selected
@@ -184,6 +188,7 @@ export function activateDriveModeUI(carObject) {
 // Call this function to stop driving
 export function deactivateDriveModeUI() {
     window.drivingCar = null;
+    cleanupJoystick(); // Clean up joystick event listeners
     setCurrentMode('place'); // Or your preferred default mode
 }
 
