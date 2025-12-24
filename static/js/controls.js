@@ -1,6 +1,7 @@
 import { camera, renderer, placedObjects } from './scene.js'; // Added placedObjects
 import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
 import { showNotification, getCurrentMode } from './ui.js'; // Import showNotification and getCurrentMode
+import { getJoystickInput, isJoystickActive } from './joystick.js'; // Import joystick functions
 
 let keysPressed = {};
 let isRightMouseDown = false;
@@ -201,12 +202,13 @@ export function updateControls() {
                 velocity_z: car.userData.velocity_z,
             };
 
-            // Prepare input state
+            // Prepare input state - check both keyboard and joystick
+            const joystickInput = getJoystickInput();
             const inputState = {
-                forward: !!(keysPressed['w'] || keysPressed['arrowup']),
-                backward: !!(keysPressed['s'] || keysPressed['arrowdown']),
-                left: !!(keysPressed['a'] || keysPressed['arrowleft']),
-                right: !!(keysPressed['d'] || keysPressed['arrowright']),
+                forward: !!(keysPressed['w'] || keysPressed['arrowup'] || joystickInput.forward > 0.1),
+                backward: !!(keysPressed['s'] || keysPressed['arrowdown'] || joystickInput.backward > 0.1),
+                left: !!(keysPressed['a'] || keysPressed['arrowleft'] || joystickInput.left > 0.1),
+                right: !!(keysPressed['d'] || keysPressed['arrowright'] || joystickInput.right > 0.1),
             };
 
             // Read old position for collision detection
@@ -271,14 +273,20 @@ export function updateControls() {
 
             const { acceleration, maxSpeed, friction, brakePower, carRotateSpeed } = car.userData;
 
-            if (keysPressed['a'] || keysPressed['arrowleft']) car.rotation.y += carRotateSpeed;
-            if (keysPressed['d'] || keysPressed['arrowright']) car.rotation.y -= carRotateSpeed;
+            // Check both keyboard and joystick for rotation
+            const joystickInput = getJoystickInput();
+            if (keysPressed['a'] || keysPressed['arrowleft'] || joystickInput.left > 0.1) {
+                car.rotation.y += carRotateSpeed;
+            }
+            if (keysPressed['d'] || keysPressed['arrowright'] || joystickInput.right > 0.1) {
+                car.rotation.y -= carRotateSpeed;
+            }
             
             const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
-            if (keysPressed['w'] || keysPressed['arrowup']) {
+            if (keysPressed['w'] || keysPressed['arrowup'] || joystickInput.forward > 0.1) {
                 car.userData.velocity.add(forward.clone().multiplyScalar(acceleration));
             }
-            if (keysPressed['s'] || keysPressed['arrowdown']) {
+            if (keysPressed['s'] || keysPressed['arrowdown'] || joystickInput.backward > 0.1) {
                 // Reverse acceleration when pressing backward
                 car.userData.velocity.add(forward.clone().multiplyScalar(-acceleration));
             }

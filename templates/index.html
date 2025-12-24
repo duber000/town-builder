@@ -145,6 +145,13 @@
             transition: opacity 0.3s ease;
         }
 
+        /* Hide context help on mobile devices */
+        @media (max-width: 768px) {
+            #context-help {
+                display: none !important;
+            }
+        }
+
         #context-help .help-title {
             font-weight: 600;
             margin-bottom: 8px;

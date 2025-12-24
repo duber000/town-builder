@@ -5,6 +5,7 @@ import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
 import { initPhysicsWasm } from './utils/physics_wasm.js';
 import { applyCategoryStatuses, createStatusLegend } from './category_status.js';
+import { initJoystick } from './joystick.js';
 
 // Wait for Go WASM module to be ready
 async function waitForWasm() {
@@ -61,6 +62,9 @@ async function init() {
     // Wire up keyboard listeners
     setupKeyboardControls();
     initUI();
+    
+    // Initialize joystick for mobile controls
+    initJoystick();
 
     // Auto-load town data if town_id is present
     if (window.currentTownId) {

@@ -112,7 +112,14 @@ export function setCurrentMode(mode) {
             if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex'
             if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
             if (modelContainer) modelContainer.style.display = 'none';
-            showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows.`, 'info');
+            showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
+            
+            // Re-initialize joystick when it becomes visible
+            setTimeout(() => {
+                if (typeof initJoystick === 'function') {
+                    initJoystick();
+                }
+            }, 100);
         } else { // Entered drive mode, waiting for car selection
             if (joystickContainer) joystickContainer.style.display = 'none';
             if (exitDrivingBtn) exitDrivingBtn.style.display = 'none'; // Keep hidden until car selected
