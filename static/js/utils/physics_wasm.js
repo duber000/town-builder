@@ -9,6 +9,7 @@
  * - Batch collision checking
  * - Fast nearest-object search
  * - Radius-based queries
+ * - Circular buffer for performance metrics (sliding window)
  *
  * Go 1.24 Performance Improvements (enabled by default):
  * - Swiss Tables: 30% faster map access, 35% faster assignment, 10-60% faster iteration
@@ -16,6 +17,8 @@
  * - Better stack allocation for small slices (reduced heap pressure)
  * - Improved small object allocation
  */
+
+import { CircularBuffer } from './data_structures.js';
 
 let physicsWasmReady = false;
 let physicsWasmEnabled = false;
@@ -249,48 +252,53 @@ export function getGridStats() {
 
 /**
  * Performance monitoring utility
+ * Uses circular buffers for O(1) insertion and efficient memory usage
  */
 export class PerformanceMonitor {
-    constructor() {
+    constructor(capacity = 100) {
         this.metrics = {
-            updateGrid: [],
-            checkCollision: [],
-            batchCollision: [],
-            findNearest: [],
+            updateGrid: new CircularBuffer(capacity),
+            checkCollision: new CircularBuffer(capacity),
+            batchCollision: new CircularBuffer(capacity),
+            findNearest: new CircularBuffer(capacity),
         };
     }
 
+    /**
+     * Record a performance measurement
+     * O(1) operation using circular buffer
+     */
     record(operation, duration) {
         if (this.metrics[operation]) {
             this.metrics[operation].push(duration);
-
-            // Keep only last 100 measurements
-            if (this.metrics[operation].length > 100) {
-                this.metrics[operation].shift();
-            }
         }
     }
 
+    /**
+     * Get statistics for an operation
+     * Uses sliding window of last N measurements
+     */
     getStats(operation) {
-        const data = this.metrics[operation];
-        if (!data || data.length === 0) {
+        const buffer = this.metrics[operation];
+        if (!buffer || buffer.isEmpty()) {
             return null;
         }
 
+        const data = buffer.toArray();
         const sorted = [...data].sort((a, b) => a - b);
-        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        const avg = buffer.average();
         const median = sorted[Math.floor(sorted.length / 2)];
         const p95 = sorted[Math.floor(sorted.length * 0.95)];
         const p99 = sorted[Math.floor(sorted.length * 0.99)];
 
         return {
-            count: data.length,
+            count: buffer.getSize(),
             avg: avg.toFixed(3),
             median: median.toFixed(3),
             p95: p95.toFixed(3),
             p99: p99.toFixed(3),
-            min: Math.min(...data).toFixed(3),
-            max: Math.max(...data).toFixed(3),
+            min: buffer.min().toFixed(3),
+            max: buffer.max().toFixed(3),
         };
     }
 
@@ -301,6 +309,21 @@ export class PerformanceMonitor {
             batchCollision: this.getStats('batchCollision'),
             findNearest: this.getStats('findNearest'),
         };
+    }
+
+    /**
+     * Clear all metrics
+     */
+    clear() {
+        Object.values(this.metrics).forEach(buffer => buffer.clear());
+    }
+
+    /**
+     * Get rolling average for an operation
+     */
+    getRollingAverage(operation) {
+        const buffer = this.metrics[operation];
+        return buffer ? buffer.average() : 0;
     }
 
     logStats() {
