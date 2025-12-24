@@ -57,14 +57,14 @@ async def execute_batch_operations(
                     "position": {"x": 5, "y": 0, "z": 3}
                 }
             ],
-            "validate": true
+            "validate_operations": true
         }
     """
     try:
         operations = [op.model_dump() for op in request_data.operations]
         results, successful, failed = batch_operations_manager.execute_operations(
             operations,
-            request_data.validate
+            request_data.validate_operations
         )
 
         return BatchOperationResponse(

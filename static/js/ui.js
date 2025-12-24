@@ -11,6 +11,79 @@ let loadingIndicator = null;
 
 export function getCurrentMode() { return currentMode; }
 
+/**
+ * Update the context-sensitive help panel based on current mode and state
+ */
+export function updateContextHelp() {
+    const helpTitle = document.getElementById('help-mode-title');
+    const helpContent = document.getElementById('help-content');
+
+    if (!helpTitle || !helpContent) return;
+
+    let title = 'Controls';
+    let controls = [];
+
+    if (window.drivingCar) {
+        // Driving mode
+        title = 'Driving Mode';
+        controls = [
+            '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrow keys to drive',
+            '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
+            'Click "Exit Driving Mode" to stop'
+        ];
+    } else if (currentMode === 'edit' && window.selectedObject) {
+        // Edit mode with selected object
+        title = 'Edit Mode (Object Selected)';
+        controls = [
+            '<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> Move object',
+            '<kbd>Q</kbd><kbd>E</kbd> Move up/down',
+            '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move camera',
+            '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
+            'Right-click drag to orbit'
+        ];
+    } else if (currentMode === 'edit') {
+        // Edit mode without selected object
+        title = 'Edit Mode';
+        controls = [
+            'Click an object to select it',
+            '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move camera',
+            '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
+            'Right-click drag to orbit'
+        ];
+    } else if (currentMode === 'place') {
+        // Place mode
+        title = 'Place Mode';
+        controls = [
+            'Select a model from the sidebar',
+            'Click to place in the scene',
+            '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move camera',
+            '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
+            'Right-click drag to orbit'
+        ];
+    } else if (currentMode === 'delete') {
+        // Delete mode
+        title = 'Delete Mode';
+        controls = [
+            'Click an object to delete it',
+            '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move camera',
+            '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
+            'Right-click drag to orbit'
+        ];
+    } else if (currentMode === 'drive') {
+        // Drive mode waiting for selection
+        title = 'Drive Mode';
+        controls = [
+            'Click a vehicle to start driving',
+            '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move camera',
+            '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
+            'Right-click drag to orbit'
+        ];
+    }
+
+    helpTitle.textContent = title;
+    helpContent.innerHTML = controls.map(c => `<li>${c}</li>`).join('');
+}
+
 export function setCurrentMode(mode) {
     currentMode = mode;
     document.querySelectorAll('.mode-button').forEach(b => {
@@ -19,6 +92,11 @@ export function setCurrentMode(mode) {
             b.classList.add('active');
         }
     });
+
+    // Clear selected object when switching modes (except when staying in edit mode)
+    if (mode !== 'edit') {
+        window.selectedObject = null;
+    }
 
     const joystickContainer = document.getElementById('joystick-container');
     const exitDrivingBtn = document.getElementById('exit-driving-btn');
@@ -60,6 +138,9 @@ export function setCurrentMode(mode) {
     if (!(mode === 'drive')) {
         showNotification(`Mode: ${mode}`, 'info');
     }
+
+    // Update context-sensitive help panel
+    updateContextHelp();
 }
 
 // Call this function when a car is selected to drive
@@ -244,6 +325,9 @@ export function initUI() {
             deactivateDriveModeUI();
         });
     }
+
+    // Initialize context help panel
+    updateContextHelp();
 }
 
 // Handler stubs

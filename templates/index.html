@@ -114,13 +114,57 @@
         }
 
         /* Theme toggle button */
+        #theme-toggle-container {
+            width: fit-content;
+        }
+
         .theme-toggle {
             cursor: pointer;
             transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
         }
 
         .theme-toggle:hover {
             transform: rotate(20deg);
+        }
+
+        .theme-toggle:hover i {
+            transform: scale(1.1);
+        }
+
+        /* Context-sensitive help panel */
+        #context-help {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 280px;
+            transition: opacity 0.3s ease;
+        }
+
+        #context-help .help-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        #context-help ul {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        #context-help li {
+            margin-bottom: 4px;
+        }
+
+        #context-help kbd {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            margin: 0 2px;
         }
 
     </style>
@@ -148,25 +192,27 @@
                         </a>
                     </li>
                 </ul>
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <button class="btn btn-link nav-link theme-toggle" id="themeToggle" title="Toggle theme">
-                            <i class="bi bi-sun-fill" id="themeIcon"></i>
-                        </button>
-                    </li>
-                </ul>
             </div>
         </div>
     </nav>
 
     <!-- Town Name Display -->
     <div id="town-name-container" style="position: absolute; top: 66px; left: 50%; transform: translateX(-50%); z-index: 1000;">
-        <div id="town-name-display" class="badge bg-dark bg-opacity-75 fs-5 px-3 py-2">My Town</div>
+        <div id="town-name-display" class="badge bg-primary fs-5 px-3 py-2">My Town</div>
         <input id="town-name-input" type="text" value="My Town" class="form-control form-control-sm">
     </div>
 
+    <!-- Theme Toggle Button -->
+    <div id="theme-toggle-container" class="position-absolute card shadow-sm" style="top: 76px; right: 10px; z-index: 1001;">
+        <div class="card-body p-2">
+            <button class="btn btn-link theme-toggle p-0 m-0" id="themeToggle" title="Toggle theme">
+                <i class="bi bi-sun-fill fs-4" id="themeIcon"></i>
+            </button>
+        </div>
+    </div>
+
     <!-- User List -->
-    <div id="user-list" class="position-absolute top-0 end-0 m-3 mt-5 card shadow-sm" style="z-index: 1000; min-width: 150px; margin-top: 66px !important;">
+    <div id="user-list" class="position-absolute card shadow-sm" style="top: 132px; right: 10px; z-index: 1000; min-width: 150px;">
         <div class="card-body">
             <h6 class="card-title mb-2"><i class="bi bi-people-fill me-2"></i>Users</h6>
             <ul id="user-list-ul" class="list-unstyled mb-0"></ul>
@@ -244,6 +290,18 @@
     <div id="joystick-container" class="position-absolute" style="display:none; bottom: 60px; left: 50%; transform: translateX(-50%); z-index: 2002;">
         <div id="joystick-base" class="bg-dark bg-opacity-25 rounded-circle position-relative" style="width: 120px; height: 120px;">
             <div id="joystick-stick" class="bg-success bg-opacity-50 rounded-circle position-absolute" style="width: 60px; height: 60px; left: 30px; top: 30px; touch-action: none;"></div>
+        </div>
+    </div>
+
+    <!-- Context-sensitive help panel -->
+    <div id="context-help" class="card shadow-sm">
+        <div class="card-body p-3">
+            <div class="help-title" id="help-mode-title">Controls</div>
+            <ul id="help-content">
+                <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move camera</li>
+                <li><kbd>Z</kbd><kbd>X</kbd> Zoom in/out</li>
+                <li>Right-click drag to orbit</li>
+            </ul>
         </div>
     </div>
 

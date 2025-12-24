@@ -1,6 +1,6 @@
 import { camera, renderer, placedObjects } from './scene.js'; // Added placedObjects
 import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
-import { showNotification } from './ui.js'; // Import showNotification
+import { showNotification, getCurrentMode } from './ui.js'; // Import showNotification and getCurrentMode
 
 let keysPressed = {};
 let isRightMouseDown = false;
@@ -102,6 +102,7 @@ function handleMouseWheel(event) {
 export function updateControls() {
     const cameraRotateSpeed = 0.02;
     const moveSpeed = 0.15;
+    const objectMoveSpeed = 0.1; // Speed for moving objects in edit mode
 
     // Handle Z key zoom
     if (keysPressed['z']) {
@@ -121,6 +122,47 @@ export function updateControls() {
             camera.fov = newFov;
             camera.updateProjectionMatrix();
         }
+    }
+
+    // Handle edit mode - move selected object with arrow keys
+    const currentMode = getCurrentMode();
+    if (currentMode === 'edit' && window.selectedObject) {
+        const obj = window.selectedObject;
+
+        // Arrow keys move the object left/right/forward/back
+        if (keysPressed['arrowup']) {
+            obj.position.z -= objectMoveSpeed; // Move forward (negative Z)
+        }
+        if (keysPressed['arrowdown']) {
+            obj.position.z += objectMoveSpeed; // Move back (positive Z)
+        }
+        if (keysPressed['arrowleft']) {
+            obj.position.x -= objectMoveSpeed; // Move left (negative X)
+        }
+        if (keysPressed['arrowright']) {
+            obj.position.x += objectMoveSpeed; // Move right (positive X)
+        }
+
+        // Q and E keys move object up and down
+        if (keysPressed['q']) {
+            obj.position.y += objectMoveSpeed; // Move up (positive Y)
+        }
+        if (keysPressed['e']) {
+            obj.position.y -= objectMoveSpeed; // Move down (negative Y)
+        }
+
+        // Update bounding box if it exists
+        if (obj.userData.boundingBox) {
+            obj.userData.boundingBox.setFromObject(obj);
+        }
+
+        // WASD still controls camera in edit mode
+        if (keysPressed['w']) camera.translateZ(-moveSpeed);
+        if (keysPressed['s']) camera.translateZ(moveSpeed);
+        if (keysPressed['a']) camera.translateX(-moveSpeed);
+        if (keysPressed['d']) camera.translateX(moveSpeed);
+
+        return; // Skip other controls when in edit mode with selected object
     }
 
     if (window.drivingCar) {

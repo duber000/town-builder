@@ -119,7 +119,7 @@ class BuildingCreateRequest(BaseModel):
 class BatchOperationRequest(BaseModel):
     """Request to execute multiple operations in a single transaction."""
     operations: List[BatchOperation]
-    validate: bool = True
+    validate_operations: bool = True
 
 
 class BatchOperationResult(BaseModel):

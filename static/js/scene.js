@@ -6,7 +6,7 @@
 import { wasmReady } from './utils/wasm.js';
 import * as THREE from './three.module.js';
 import { updateControls } from './controls.js';
-import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator } from './ui.js';
+import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator, updateContextHelp } from './ui.js';
 import { initScene, setupResizeListener } from './scene/scene.js';
 import { loadModel, abortAllLoaders } from './models/loader.js';
 import { createPlacementIndicator, updatePlacementIndicator, isPlacementValid } from './models/placement.js';
@@ -234,6 +234,7 @@ function handleDeleteOrEditClick(raycaster, mode) {
         } else if (mode === 'edit') {
             window.selectedObject = selected;
             showNotification(`Selected for edit: ${selected.userData.modelName}`, 'info');
+            updateContextHelp(); // Update help panel to show edit controls
         }
     }
 }
