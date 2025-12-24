@@ -12,21 +12,28 @@ import { updateBoundingBox } from './collision.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 import { LRUCache, BloomFilter } from '../utils/data_structures.js';
 
+// Configuration constants
 const MODELS_BASE_URL = '/static/models';
+const MODEL_CACHE_SIZE = 50; // Maximum number of models to cache
+const MODEL_EXISTS_BLOOM_SIZE = 200; // Expected number of existing models
+const MODEL_NOT_FOUND_BLOOM_SIZE = 100; // Expected number of 404 models
+const BLOOM_FALSE_POSITIVE_RATE = 0.01; // 1% false positive rate
 
 // Track active loaders for abort functionality (new in three.js r179)
 const activeLoaders = new Map();
 
-// LRU cache for loaded models (limit to 50 models to save memory)
-// Each entry stores the cloned scene from GLTF
-const modelCache = new LRUCache(50);
+// LRU cache for loaded models (limit to MODEL_CACHE_SIZE to save memory)
+// Each entry stores the ORIGINAL scene from GLTF (not cloned)
+// Cloning happens only when creating instances to avoid double-clone overhead
+// Note: Geometries and materials are shared between instances (THREE.js default behavior)
+const modelCache = new LRUCache(MODEL_CACHE_SIZE);
 
 // Bloom filter for model existence (reduces failed load attempts)
 // Tracks models that have been successfully loaded
-const modelExistsFilter = new BloomFilter(200, 0.01); // 200 expected models, 1% false positive rate
+const modelExistsFilter = new BloomFilter(MODEL_EXISTS_BLOOM_SIZE, BLOOM_FALSE_POSITIVE_RATE);
 
 // Bloom filter for known non-existent models (reduces retry attempts)
-const modelNotFoundFilter = new BloomFilter(100, 0.01);
+const modelNotFoundFilter = new BloomFilter(MODEL_NOT_FOUND_BLOOM_SIZE, BLOOM_FALSE_POSITIVE_RATE);
 
 /**
  * Load a 3D model and add it to the scene
@@ -58,10 +65,11 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
 
         // LRU Cache: Check if model is already loaded
         if (!options.bypassCache && modelCache.has(cacheKey)) {
-            const cachedModel = modelCache.get(cacheKey);
+            const cachedScene = modelCache.get(cacheKey);
 
-            // Clone the cached model to create a new instance
-            const modelInstance = cachedModel.clone();
+            // Clone the cached scene to create a new instance
+            // THREE.js clone() shares geometries and materials by default (memory efficient)
+            const modelInstance = cachedScene.clone();
             modelInstance.userData = { category, modelName };
 
             if (position) {
@@ -98,27 +106,31 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             // Remove loader from active tracking
             activeLoaders.delete(loaderId);
 
-            // Cache the loaded model for future use
-            modelCache.set(cacheKey, gltf.scene.clone());
+            // Cache the ORIGINAL scene for reuse
+            // Store a clean copy in cache, use a clone for this instance
+            modelCache.set(cacheKey, gltf.scene);
 
             // Add to existence bloom filter
             modelExistsFilter.add(cacheKey);
 
-            gltf.scene.userData = { category, modelName };
+            // Clone for this instance to avoid modifying the cached version
+            // THREE.js clone() shares geometries/materials (memory efficient)
+            const modelInstance = gltf.scene.clone();
+            modelInstance.userData = { category, modelName };
 
             if (position) {
-                gltf.scene.position.copy(position);
+                modelInstance.position.copy(position);
             }
 
             // Initialize bounding box for the object
-            updateBoundingBox(gltf.scene);
+            updateBoundingBox(modelInstance);
 
-            scene.add(gltf.scene);
-            placedObjects.push(gltf.scene);
+            scene.add(modelInstance);
+            placedObjects.push(modelInstance);
 
             // If it's a vehicle, configure it as a moving car
-            if (gltf.scene.userData.category === 'vehicles') {
-                configureVehicle(gltf.scene, movingCars);
+            if (modelInstance.userData.category === 'vehicles') {
+                configureVehicle(modelInstance, movingCars);
             }
 
             // Update WASM spatial grid with new object
@@ -126,7 +138,7 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
                 updateSpatialGrid(placedObjects);
             }
 
-            resolve(gltf.scene);
+            resolve(modelInstance);
         }, undefined, err => {
             // Remove loader from active tracking
             activeLoaders.delete(loaderId);
@@ -271,7 +283,8 @@ export async function preloadModel(category, modelName) {
         const url = `${MODELS_BASE_URL}/${category}/${modelName}`;
 
         loader.load(url, gltf => {
-            modelCache.set(cacheKey, gltf.scene.clone());
+            // Cache the original scene (not cloned)
+            modelCache.set(cacheKey, gltf.scene);
             modelExistsFilter.add(cacheKey);
             resolve();
         }, undefined, err => {

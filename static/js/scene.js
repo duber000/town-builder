@@ -25,17 +25,19 @@ export let movingCars = [];
 // Animation timing (Timer moved to core in r179)
 const timer = new THREE.Timer();
 
+// Performance and timing constants
+const SPATIAL_GRID_UPDATE_INTERVAL = 10; // Update every N frames
+const CURSOR_UPDATE_INTERVAL = 100; // Send cursor updates every N ms
+const CURSOR_CLEANUP_INTERVAL = 300; // Cleanup inactive cursors every N frames (5s at 60fps)
+
 // Spatial grid update tracking
 let frameCounter = 0;
-const SPATIAL_GRID_UPDATE_INTERVAL = 10; // Update every 10 frames
 
 // Cursor tracking
 let lastCursorUpdate = 0;
-const CURSOR_UPDATE_INTERVAL = 100; // Send cursor updates every 100ms
 let lastMousePosition = { x: 0, y: 0 };
 let cursorWorldPosition = new THREE.Vector3();
 let cursorCleanupCounter = 0;
-const CURSOR_CLEANUP_INTERVAL = 300; // Cleanup inactive cursors every 5 seconds (300 frames at 60fps)
 
 // Frustum culling (sliding window optimization for viewport rendering)
 const frustum = new THREE.Frustum();
@@ -43,6 +45,11 @@ const frustumMatrix = new THREE.Matrix4();
 let enableFrustumCulling = true; // Can be toggled for debugging
 let visibleObjects = [];
 let culledObjectCount = 0;
+
+// Reusable objects for frustum culling to avoid allocations every frame
+const _reusableBox = new THREE.Box3();
+const _reusableMinVector = new THREE.Vector3();
+const _reusableMaxVector = new THREE.Vector3();
 
 // Initialize scene on module load
 export function initializeScene() {
@@ -156,21 +163,20 @@ function applyFrustumCulling() {
         // Check if object's bounding box intersects frustum
         const bbox = obj.userData.boundingBox;
         if (bbox) {
-            // Create world-space bounding box
-            const worldBox = new THREE.Box3(
-                new THREE.Vector3(
-                    obj.position.x + bbox.min.x,
-                    obj.position.y + bbox.min.y,
-                    obj.position.z + bbox.min.z
-                ),
-                new THREE.Vector3(
-                    obj.position.x + bbox.max.x,
-                    obj.position.y + bbox.max.y,
-                    obj.position.z + bbox.max.z
-                )
+            // Update reusable Box3 with world-space bounding box (no allocations)
+            _reusableMinVector.set(
+                obj.position.x + bbox.min.x,
+                obj.position.y + bbox.min.y,
+                obj.position.z + bbox.min.z
             );
+            _reusableMaxVector.set(
+                obj.position.x + bbox.max.x,
+                obj.position.y + bbox.max.y,
+                obj.position.z + bbox.max.z
+            );
+            _reusableBox.set(_reusableMinVector, _reusableMaxVector);
 
-            if (frustum.intersectsBox(worldBox)) {
+            if (frustum.intersectsBox(_reusableBox)) {
                 obj.visible = true;
                 visibleObjects.push(obj);
             } else {

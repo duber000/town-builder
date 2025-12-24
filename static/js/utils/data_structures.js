@@ -3,12 +3,27 @@
  * Implements LRU Cache, Bloom Filter, and Circular Buffer
  */
 
+// Security and configuration constants
+const MAX_LRU_CACHE_SIZE = 1000; // Maximum cache size to prevent memory exhaustion
+const MAX_BLOOM_FILTER_SIZE = 1000000; // Maximum bits for bloom filter
+const MAX_BLOOM_FILTER_HASHES = 10; // Maximum hash functions
+const MAX_CIRCULAR_BUFFER_CAPACITY = 10000; // Maximum buffer capacity
+const MAX_BIT_VECTOR_SIZE = 1000000; // Maximum bits for bit vector
+
 /**
  * LRU (Least Recently Used) Cache
  * Provides O(1) get and set operations with automatic eviction of least recently used items
  */
 export class LRUCache {
     constructor(maxSize = 100) {
+        // Security: Enforce maximum size
+        if (maxSize > MAX_LRU_CACHE_SIZE) {
+            throw new Error(`LRU cache size ${maxSize} exceeds maximum ${MAX_LRU_CACHE_SIZE}`);
+        }
+        if (maxSize < 1) {
+            throw new Error('LRU cache size must be at least 1');
+        }
+
         this.maxSize = maxSize;
         this.cache = new Map(); // Maintains insertion order in JS
         this.hits = 0;
@@ -111,9 +126,27 @@ export class LRUCache {
  */
 export class BloomFilter {
     constructor(expectedItems = 1000, falsePositiveRate = 0.01) {
+        // Security: Validate inputs
+        if (expectedItems < 1 || expectedItems > MAX_BLOOM_FILTER_SIZE) {
+            throw new Error(`Expected items ${expectedItems} out of valid range [1, ${MAX_BLOOM_FILTER_SIZE}]`);
+        }
+        if (falsePositiveRate <= 0 || falsePositiveRate >= 1) {
+            throw new Error('False positive rate must be between 0 and 1');
+        }
+
         // Calculate optimal bit array size and number of hash functions
         this.size = this._optimalSize(expectedItems, falsePositiveRate);
         this.numHashes = this._optimalHashCount(this.size, expectedItems);
+
+        // Security: Enforce maximum hash functions
+        if (this.numHashes > MAX_BLOOM_FILTER_HASHES) {
+            this.numHashes = MAX_BLOOM_FILTER_HASHES;
+        }
+
+        // Security: Enforce maximum size
+        if (this.size > MAX_BLOOM_FILTER_SIZE) {
+            this.size = MAX_BLOOM_FILTER_SIZE;
+        }
 
         // Use Uint8Array for bit storage (8 bits per byte)
         this.bits = new Uint8Array(Math.ceil(this.size / 8));
@@ -249,6 +282,11 @@ export class BloomFilter {
  */
 export class CircularBuffer {
     constructor(capacity) {
+        // Security: Validate capacity
+        if (capacity < 1 || capacity > MAX_CIRCULAR_BUFFER_CAPACITY) {
+            throw new Error(`Circular buffer capacity ${capacity} out of valid range [1, ${MAX_CIRCULAR_BUFFER_CAPACITY}]`);
+        }
+
         this.capacity = capacity;
         this.buffer = new Array(capacity);
         this.head = 0; // Next write position
@@ -400,6 +438,11 @@ export class CircularBuffer {
  */
 export class BitVector {
     constructor(size) {
+        // Security: Validate size
+        if (size < 1 || size > MAX_BIT_VECTOR_SIZE) {
+            throw new Error(`Bit vector size ${size} out of valid range [1, ${MAX_BIT_VECTOR_SIZE}]`);
+        }
+
         this.size = size;
         this.words = new Uint32Array(Math.ceil(size / 32));
     }

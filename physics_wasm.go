@@ -170,37 +170,58 @@ func (bf *BloomFilter) Clear() {
 // ============================================================================
 
 // BitVector efficiently tracks grid cell occupancy
+// Uses larger bit array to minimize hash collisions
 type BitVector struct {
-	bits []uint64
+	bits    []uint64
+	maxSize int // Maximum size limit for security
 }
+
+const (
+	bitVectorInitialSize = 8192  // 524288 bits initially (8x larger)
+	bitVectorMaxSize     = 65536 // 4MB max (security limit)
+)
 
 // NewBitVector creates a new bit vector
 func NewBitVector() *BitVector {
 	return &BitVector{
-		bits: make([]uint64, 1024), // 65536 bits initially
+		bits:    make([]uint64, bitVectorInitialSize),
+		maxSize: bitVectorMaxSize,
 	}
 }
 
 // gridKeyToIndex converts GridKey to a unique index
+// Uses improved spatial hash to minimize collisions
 func (bv *BitVector) gridKeyToIndex(key GridKey) uint {
-	// Hash the grid key to a consistent index
-	// Handle negative coordinates
-	x := uint(key.X + 10000)
-	y := uint(key.Y + 10000)
-	return (x * 73856093) ^ (y * 19349663) // Spatial hashing
+	// Improved spatial hash with better distribution
+	// Offset coordinates to handle negatives
+	const offset = 16384 // Larger offset for better range
+	x := uint(key.X + offset)
+	y := uint(key.Y + offset)
+
+	// Use prime numbers and bit rotation for better distribution
+	hash := x*73856093 ^ y*19349669 ^ (x<<13 | x>>19) ^ (y<<7 | y>>25)
+	return hash
 }
 
 // Set marks a grid cell as occupied
 func (bv *BitVector) Set(key GridKey) {
-	idx := bv.gridKeyToIndex(key) % uint(len(bv.bits)*64)
+	hash := bv.gridKeyToIndex(key)
+	idx := hash % uint(len(bv.bits)*64)
 	wordIdx := idx / 64
 	bitIdx := idx % 64
 
-	// Grow if needed
+	// Grow if needed, but respect max size
 	if int(wordIdx) >= len(bv.bits) {
-		newBits := make([]uint64, wordIdx+1)
-		copy(newBits, bv.bits)
-		bv.bits = newBits
+		if int(wordIdx) >= bv.maxSize {
+			// At max size - use modulo to wrap around (accept collisions)
+			wordIdx = wordIdx % uint(bv.maxSize)
+		} else {
+			// Grow to accommodate
+			newSize := min(int(wordIdx)+1, bv.maxSize)
+			newBits := make([]uint64, newSize)
+			copy(newBits, bv.bits)
+			bv.bits = newBits
+		}
 	}
 
 	bv.bits[wordIdx] |= (1 << bitIdx)
@@ -208,15 +229,30 @@ func (bv *BitVector) Set(key GridKey) {
 
 // IsSet checks if a grid cell is occupied
 func (bv *BitVector) IsSet(key GridKey) bool {
-	idx := bv.gridKeyToIndex(key) % uint(len(bv.bits)*64)
+	hash := bv.gridKeyToIndex(key)
+	idx := hash % uint(len(bv.bits)*64)
 	wordIdx := idx / 64
 	bitIdx := idx % 64
 
+	// Handle out of bounds
 	if int(wordIdx) >= len(bv.bits) {
-		return false
+		// Check if this would wrap around at max size
+		if len(bv.bits) >= bv.maxSize {
+			wordIdx = wordIdx % uint(len(bv.bits))
+		} else {
+			return false
+		}
 	}
 
 	return (bv.bits[wordIdx] & (1 << bitIdx)) != 0
+}
+
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // Clear resets all bits
@@ -368,9 +404,14 @@ var (
 	objectCacheMu sync.RWMutex
 )
 
-// Global bloom filter for collision pre-filtering
-// Reduces expensive AABB checks by 70-90%
-var collisionBloomFilter = NewBloomFilter(8192, 3) // 8192 bits, 3 hash functions
+// Configuration constants for collision bloom filter
+const (
+	collisionBloomFilterSize   = 8192 // Number of bits
+	collisionBloomFilterHashes = 3    // Number of hash functions
+)
+
+// Global bloom filter for collision pre-filtering (lazily populated)
+var collisionBloomFilter = NewBloomFilter(collisionBloomFilterSize, collisionBloomFilterHashes)
 
 // ============================================================================
 // WASM Exported Functions
@@ -402,13 +443,14 @@ func updateSpatialGrid(this js.Value, args []js.Value) interface{} {
 
 	// Clear grid and rebuild
 	spatialGrid.Clear()
-	collisionBloomFilter.Clear()
+	// Note: Bloom filter is NOT cleared - it's populated lazily during collision checks
+	// This avoids O(n²) overhead on every spatial grid update
 
 	objectCacheMu.Lock()
 	objectCache = make(map[int]GameObject, length)
 	objectCacheMu.Unlock()
 
-	// First pass: Build object cache with category bitmasks
+	// Build object cache with category bitmasks
 	for i := 0; i < length; i++ {
 		obj := objectsArray.Index(i)
 
@@ -441,29 +483,12 @@ func updateSpatialGrid(this js.Value, args []js.Value) interface{} {
 		spatialGrid.Insert(id, bbox)
 	}
 
-	// Second pass: Populate bloom filter with actual collision pairs
-	// This allows pre-filtering during collision checks
-	objectCacheMu.RLock()
-	for id1, obj1 := range objectCache {
-		for id2, obj2 := range objectCache {
-			if id1 >= id2 {
-				continue // Avoid duplicates and self-collision
-			}
-
-			// Check if bounding boxes could possibly collide
-			if checkAABBCollision(obj1.BBox, obj2.BBox) {
-				collisionBloomFilter.Add(id1, id2)
-			}
-		}
-	}
-	objectCacheMu.RUnlock()
-
 	return js.ValueOf(true)
 }
 
 // checkCollision checks if a single object collides with any objects in the grid
 // JavaScript signature: checkCollision(objId: number, bbox: {minX, minY, maxX, maxY}) -> number[]
-// Now includes bloom filter pre-filtering to skip 70-90% of AABB checks
+// Uses spatial grid for O(k) complexity where k = nearby objects
 func checkCollision(this js.Value, args []js.Value) interface{} {
 	if len(args) < 2 {
 		return js.ValueOf([]interface{}{})
@@ -487,22 +512,18 @@ func checkCollision(this js.Value, args []js.Value) interface{} {
 	objectCacheMu.RLock()
 	defer objectCacheMu.RUnlock()
 
-	// Go 1.24: Faster iteration over candidate objects
+	// Check each candidate with AABB collision test
+	// Spatial grid already reduced candidates from O(n) to O(k)
 	for _, candidateID := range candidateIDs {
 		if candidateID == objID {
 			continue // Skip self
 		}
 
-		// Bloom filter pre-check: Skip if definitely not colliding
-		// This eliminates 70-90% of expensive AABB checks
-		if !collisionBloomFilter.MightContain(objID, candidateID) {
-			continue // Definitely not colliding
-		}
-
 		if candidate, exists := objectCache[candidateID]; exists {
-			// Only do expensive AABB check if bloom filter says "maybe colliding"
 			if checkAABBCollision(bbox, candidate.BBox) {
 				collisions = append(collisions, candidateID)
+				// Lazy populate bloom filter for future optimizations
+				collisionBloomFilter.Add(objID, candidateID)
 			}
 		}
 	}
@@ -512,7 +533,7 @@ func checkCollision(this js.Value, args []js.Value) interface{} {
 
 // batchCheckCollisions checks multiple objects for collisions in a single call
 // JavaScript signature: batchCheckCollisions(checks: Array<{id, bbox}>) -> Array<{id, collisions}>
-// Now includes bloom filter pre-filtering for better performance
+// Uses spatial grid for efficient O(k) per-object complexity
 func batchCheckCollisions(this js.Value, args []js.Value) interface{} {
 	if len(args) < 1 {
 		return js.ValueOf([]interface{}{})
@@ -545,14 +566,11 @@ func batchCheckCollisions(this js.Value, args []js.Value) interface{} {
 				continue
 			}
 
-			// Bloom filter pre-check
-			if !collisionBloomFilter.MightContain(objID, candidateID) {
-				continue
-			}
-
 			if candidate, exists := objectCache[candidateID]; exists {
 				if checkAABBCollision(bbox, candidate.BBox) {
 					collisions = append(collisions, candidateID)
+					// Lazy populate bloom filter
+					collisionBloomFilter.Add(objID, candidateID)
 				}
 			}
 		}
