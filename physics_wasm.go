@@ -463,6 +463,128 @@ func getGridStats(this js.Value, args []js.Value) interface{} {
 }
 
 // ============================================================================
+// Car Physics
+// ============================================================================
+
+// CarState represents the state of a car for physics simulation
+type CarState struct {
+	X, Z         float64
+	RotationY    float64
+	VelocityX    float64
+	VelocityZ    float64
+}
+
+// InputState represents player input for car control
+type InputState struct {
+	Forward  bool
+	Backward bool
+	Left     bool
+	Right    bool
+}
+
+// updateCarPhysics updates car physics based on input
+// JavaScript signature: updateCarPhysics(carState, inputState) -> carState
+func updateCarPhysics(this js.Value, args []js.Value) interface{} {
+	if len(args) < 2 {
+		return js.ValueOf(nil)
+	}
+
+	// Physics constants
+	const (
+		ACCELERATION  = 0.005
+		MAX_SPEED     = 0.2
+		FRICTION      = 0.98
+		BRAKE_POWER   = 0.01
+		ROTATE_SPEED  = 0.04
+	)
+
+	// Parse car state
+	carJS := args[0]
+	car := CarState{
+		X:         carJS.Get("x").Float(),
+		Z:         carJS.Get("z").Float(),
+		RotationY: carJS.Get("rotation_y").Float(),
+		VelocityX: carJS.Get("velocity_x").Float(),
+		VelocityZ: carJS.Get("velocity_z").Float(),
+	}
+
+	// Parse input state
+	inputJS := args[1]
+	input := InputState{
+		Forward:  inputJS.Get("forward").Bool(),
+		Backward: inputJS.Get("backward").Bool(),
+		Left:     inputJS.Get("left").Bool(),
+		Right:    inputJS.Get("right").Bool(),
+	}
+
+	// Handle steering
+	if input.Left {
+		car.RotationY += ROTATE_SPEED
+	}
+	if input.Right {
+		car.RotationY -= ROTATE_SPEED
+	}
+
+	// Calculate forward vector based on rotation
+	forwardX := math.Sin(car.RotationY)
+	forwardZ := math.Cos(car.RotationY)
+
+	// Handle acceleration
+	if input.Forward {
+		car.VelocityX += forwardX * ACCELERATION
+		car.VelocityZ += forwardZ * ACCELERATION
+	}
+
+	// Handle braking/reverse
+	if input.Backward {
+		// Calculate current speed and dot product
+		speed := math.Sqrt(car.VelocityX*car.VelocityX + car.VelocityZ*car.VelocityZ)
+		dot := car.VelocityX*forwardX + car.VelocityZ*forwardZ
+
+		if dot > 0.0 && speed > 0.0 {
+			// Brake when moving forward
+			car.VelocityX -= (car.VelocityX / speed) * BRAKE_POWER
+			car.VelocityZ -= (car.VelocityZ / speed) * BRAKE_POWER
+		} else {
+			// Accelerate backward
+			car.VelocityX -= forwardX * ACCELERATION
+			car.VelocityZ -= forwardZ * ACCELERATION
+		}
+	}
+
+	// Apply friction
+	car.VelocityX *= FRICTION
+	car.VelocityZ *= FRICTION
+
+	// Clamp speed to max
+	speed := math.Sqrt(car.VelocityX*car.VelocityX + car.VelocityZ*car.VelocityZ)
+	if speed > MAX_SPEED {
+		car.VelocityX = (car.VelocityX / speed) * MAX_SPEED
+		car.VelocityZ = (car.VelocityZ / speed) * MAX_SPEED
+	}
+
+	// Stop tiny movements
+	if speed < 0.001 {
+		car.VelocityX = 0.0
+		car.VelocityZ = 0.0
+	}
+
+	// Update position
+	car.X += car.VelocityX
+	car.Z += car.VelocityZ
+
+	// Return updated state
+	result := make(map[string]interface{})
+	result["x"] = car.X
+	result["z"] = car.Z
+	result["rotation_y"] = car.RotationY
+	result["velocity_x"] = car.VelocityX
+	result["velocity_z"] = car.VelocityZ
+
+	return js.ValueOf(result)
+}
+
+// ============================================================================
 // Registration and Main
 // ============================================================================
 
@@ -479,6 +601,9 @@ func registerCallbacks() {
 	js.Global().Set("wasmFindNearestObject", js.FuncOf(findNearestObject))
 	js.Global().Set("wasmFindObjectsInRadius", js.FuncOf(findObjectsInRadius))
 
+	// Car physics
+	js.Global().Set("wasmUpdateCarPhysics", js.FuncOf(updateCarPhysics))
+
 	// Debugging
 	js.Global().Set("wasmGetGridStats", js.FuncOf(getGridStats))
 }
@@ -486,8 +611,9 @@ func registerCallbacks() {
 func main() {
 	c := make(chan struct{}, 0)
 	registerCallbacks()
-	println("Physics WASM module loaded (Go 1.24+)")
-	println("Optimizations: Swiss Tables, SpinbitMutex, improved allocation")
-	println("Performance: 30-60% faster map operations")
+	println("Physics WASM module loaded (Go 1.24+ with GreenTea GC)")
+	println("Optimizations: Swiss Tables, SpinbitMutex, GreenTea GC")
+	println("Performance: 30-60% faster map operations, reduced GC pauses")
+	println("Car physics: Acceleration, steering, friction (WASM-powered)")
 	<-c // Keep Go running
 }

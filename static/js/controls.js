@@ -183,34 +183,38 @@ export function updateControls() {
             console.log(`Collision cooldown: ${car.userData.collisionCooldown} frames remaining`);
         }
 
-        // --- Check if WASM module is loaded ---
-        if (window.physicsWasm) {
-            // --- WASM-Powered Physics ---
-            const inputState = new window.physicsWasm.InputState(
-                !!(keysPressed['w'] || keysPressed['arrowup']),
-                !!(keysPressed['s'] || keysPressed['arrowdown']),
-                !!(keysPressed['a'] || keysPressed['arrowleft']),
-                !!(keysPressed['d'] || keysPressed['arrowright']),
-            );
-
+        // --- Check if Go WASM module is loaded ---
+        if (typeof window.wasmUpdateCarPhysics === 'function') {
+            // --- Go WASM-Powered Car Physics ---
             // Initialize velocities if they don't exist
             if (car.userData.velocity_x === undefined) {
                 car.userData.velocity_x = 0;
                 car.userData.velocity_z = 0;
             }
 
-            const currentState = new window.physicsWasm.CarState(
-                car.position.x,
-                car.position.z,
-                car.rotation.y,
-                car.userData.velocity_x,
-                car.userData.velocity_z,
-            );
-            // Read old position now; the Rust call will destroy the JS wrapper
-            const oldX = currentState.x;
-            const oldZ = currentState.z;
+            // Prepare car state
+            const carState = {
+                x: car.position.x,
+                z: car.position.z,
+                rotation_y: car.rotation.y,
+                velocity_x: car.userData.velocity_x,
+                velocity_z: car.userData.velocity_z,
+            };
 
-            const newState = window.physicsWasm.update_car_physics(currentState, inputState);
+            // Prepare input state
+            const inputState = {
+                forward: !!(keysPressed['w'] || keysPressed['arrowup']),
+                backward: !!(keysPressed['s'] || keysPressed['arrowdown']),
+                left: !!(keysPressed['a'] || keysPressed['arrowleft']),
+                right: !!(keysPressed['d'] || keysPressed['arrowright']),
+            };
+
+            // Read old position for collision detection
+            const oldX = carState.x;
+            const oldZ = carState.z;
+
+            // Call Go WASM function
+            const newState = window.wasmUpdateCarPhysics(carState, inputState);
 
             // Update the velocity on the JS object for the next frame
             car.userData.velocity_x = newState.velocity_x;
