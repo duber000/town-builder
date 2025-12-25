@@ -281,24 +281,25 @@ export function removeStatusColor(object3D) {
 export function createStatusLegend(categoryStatuses) {
     const legend = document.createElement('div');
     legend.id = 'category-status-legend';
+    legend.className = 'card shadow-sm';
     legend.style.cssText = `
         position: fixed;
-        top: 160px;
+        top: 50%;
         right: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 15px;
-        border-radius: 8px;
-        font-family: monospace;
-        font-size: 12px;
+        transform: translateY(-50%);
         max-width: 300px;
         z-index: 1000;
     `;
 
-    const title = document.createElement('h3');
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    cardBody.style.cssText = 'padding: 15px; font-size: 12px;';
+
+    const title = document.createElement('h6');
+    title.className = 'card-title';
     title.textContent = 'Town Category Status';
-    title.style.cssText = 'margin: 0 0 10px 0; font-size: 14px; border-bottom: 1px solid #555; padding-bottom: 5px;';
-    legend.appendChild(title);
+    title.style.cssText = 'margin: 0 0 10px 0; font-size: 14px; padding-bottom: 5px; border-bottom: 1px solid var(--bs-border-color);';
+    cardBody.appendChild(title);
 
     categoryStatuses.forEach(status => {
         const item = document.createElement('div');
@@ -311,7 +312,7 @@ export function createStatusLegend(categoryStatuses) {
             height: 20px;
             background: #${getStatusColor(status.status_level).toString(16).padStart(6, '0')};
             margin-right: 8px;
-            border: 1px solid #fff;
+            border: 1px solid var(--bs-border-color);
         `;
 
         const text = document.createElement('span');
@@ -319,8 +320,9 @@ export function createStatusLegend(categoryStatuses) {
 
         item.appendChild(colorBox);
         item.appendChild(text);
-        legend.appendChild(item);
+        cardBody.appendChild(item);
     });
 
+    legend.appendChild(cardBody);
     return legend;
 }
