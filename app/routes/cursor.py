@@ -17,7 +17,7 @@ async def update_cursor_position(cursor_data: CursorUpdate):
         Success status
     """
     # Broadcast cursor update to all connected clients via SSE
-    broadcast_sse({
+    await broadcast_sse({
         'type': 'cursor',
         'username': cursor_data.username,
         'position': {

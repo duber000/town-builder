@@ -36,15 +36,15 @@ async def create_snapshot(
         }
     """
     try:
-        town_data = get_town_data()
+        town_data = await get_town_data()
 
-        snapshot_id = snapshot_manager.create_snapshot(
+        snapshot_id = await snapshot_manager.create_snapshot(
             town_data=town_data,
             name=request_data.name,
             description=request_data.description
         )
 
-        metadata = snapshot_manager.get_snapshot_metadata(snapshot_id)
+        metadata = await snapshot_manager.get_snapshot_metadata(snapshot_id)
 
         return {
             "status": "success",
@@ -73,7 +73,7 @@ async def list_snapshots(
         GET /api/snapshots
     """
     try:
-        snapshots = snapshot_manager.list_snapshots()
+        snapshots = await snapshot_manager.list_snapshots()
 
         return SnapshotListResponse(
             status="success",
@@ -103,12 +103,12 @@ async def get_snapshot(
         GET /api/snapshots/abc-123-def-456
     """
     try:
-        snapshot_data = snapshot_manager.get_snapshot(snapshot_id)
+        snapshot_data = await snapshot_manager.get_snapshot(snapshot_id)
 
         if not snapshot_data:
             raise HTTPException(status_code=404, detail="Snapshot not found")
 
-        metadata = snapshot_manager.get_snapshot_metadata(snapshot_id)
+        metadata = await snapshot_manager.get_snapshot_metadata(snapshot_id)
 
         return {
             "status": "success",
@@ -141,18 +141,18 @@ async def restore_snapshot(
         POST /api/snapshots/abc-123-def-456/restore
     """
     try:
-        snapshot_data = snapshot_manager.get_snapshot(snapshot_id)
+        snapshot_data = await snapshot_manager.get_snapshot(snapshot_id)
 
         if not snapshot_data:
             raise HTTPException(status_code=404, detail="Snapshot not found")
 
         # Set the town data to the snapshot state
-        set_town_data(snapshot_data)
+        await set_town_data(snapshot_data)
 
         # Broadcast the change
-        broadcast_sse({'type': 'full', 'town': snapshot_data})
+        await broadcast_sse({'type': 'full', 'town': snapshot_data})
 
-        metadata = snapshot_manager.get_snapshot_metadata(snapshot_id)
+        metadata = await snapshot_manager.get_snapshot_metadata(snapshot_id)
 
         logger.info(f"Restored snapshot: {snapshot_id}")
 
@@ -187,7 +187,7 @@ async def delete_snapshot(
         DELETE /api/snapshots/abc-123-def-456
     """
     try:
-        success = snapshot_manager.delete_snapshot(snapshot_id)
+        success = await snapshot_manager.delete_snapshot(snapshot_id)
 
         if not success:
             raise HTTPException(status_code=404, detail="Snapshot not found")

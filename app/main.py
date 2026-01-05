@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots, buildings, scene
+from app.services.storage import initialize_redis, close_redis
 from app.utils.static_files import serve_js_files, serve_wasm_files
 
 # Configure logging
@@ -25,6 +26,24 @@ app = FastAPI(
     description=settings.app_description,
     version=settings.app_version
 )
+
+
+# Startup and shutdown events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize async resources on startup."""
+    logger.info("Initializing application...")
+    await initialize_redis()
+    logger.info("Application startup complete")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up async resources on shutdown."""
+    logger.info("Shutting down application...")
+    await close_redis()
+    logger.info("Application shutdown complete")
+
 
 # Add CORS middleware
 # Parse allowed origins from settings (comma-separated string)

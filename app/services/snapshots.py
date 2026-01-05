@@ -18,11 +18,10 @@ class SnapshotManager:
     """Manages town snapshots for versioning and save points."""
 
     def __init__(self):
-        self.redis_client = get_redis_client()
         self.snapshots_key = "town_snapshots"
         self.snapshot_data_prefix = "town_snapshot:"
 
-    def create_snapshot(
+    async def create_snapshot(
         self,
         town_data: Dict[str, Any],
         name: Optional[str] = None,
@@ -56,26 +55,31 @@ class SnapshotManager:
             "size": size
         }
 
+        redis_client = get_redis_client()
+        if not redis_client:
+            logger.error("Redis client not available for snapshots")
+            raise Exception("Redis client not available")
+
         try:
             # Store snapshot data
             data_key = f"{self.snapshot_data_prefix}{snapshot_id}"
-            self.redis_client.set(data_key, json.dumps(town_data))
+            await redis_client.set(data_key, json.dumps(town_data))
 
             # Add metadata to snapshots list
-            self.redis_client.rpush(self.snapshots_key, json.dumps(metadata))
+            await redis_client.rpush(self.snapshots_key, json.dumps(metadata))
 
             # Trim to max snapshots
-            snapshots_length = self.redis_client.llen(self.snapshots_key)
+            snapshots_length = await redis_client.llen(self.snapshots_key)
             if snapshots_length > MAX_SNAPSHOTS:
                 # Get oldest snapshot to delete its data
-                oldest = self.redis_client.lindex(self.snapshots_key, 0)
+                oldest = await redis_client.lindex(self.snapshots_key, 0)
                 if oldest:
                     oldest_data = json.loads(oldest)
                     old_data_key = f"{self.snapshot_data_prefix}{oldest_data['id']}"
-                    self.redis_client.delete(old_data_key)
+                    await redis_client.delete(old_data_key)
 
                 # Trim the list
-                self.redis_client.ltrim(self.snapshots_key, -MAX_SNAPSHOTS, -1)
+                await redis_client.ltrim(self.snapshots_key, -MAX_SNAPSHOTS, -1)
 
             logger.info(f"Created snapshot: {snapshot_id} ({name})")
             return snapshot_id
@@ -84,14 +88,19 @@ class SnapshotManager:
             logger.error(f"Failed to create snapshot: {e}")
             raise
 
-    def list_snapshots(self) -> List[Dict[str, Any]]:
+    async def list_snapshots(self) -> List[Dict[str, Any]]:
         """List all available snapshots.
 
         Returns:
             List of snapshot metadata (newest first)
         """
+        redis_client = get_redis_client()
+        if not redis_client:
+            logger.warning("Redis client not available for listing snapshots")
+            return []
+
         try:
-            entries = self.redis_client.lrange(self.snapshots_key, 0, -1)
+            entries = await redis_client.lrange(self.snapshots_key, 0, -1)
             snapshots = [json.loads(entry) for entry in entries]
             snapshots.reverse()  # Newest first
             return snapshots
@@ -100,7 +109,7 @@ class SnapshotManager:
             logger.error(f"Failed to list snapshots: {e}")
             return []
 
-    def get_snapshot(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
+    async def get_snapshot(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
         """Get snapshot data by ID.
 
         Args:
@@ -109,9 +118,14 @@ class SnapshotManager:
         Returns:
             Snapshot data or None if not found
         """
+        redis_client = get_redis_client()
+        if not redis_client:
+            logger.warning("Redis client not available for getting snapshot")
+            return None
+
         try:
             data_key = f"{self.snapshot_data_prefix}{snapshot_id}"
-            data = self.redis_client.get(data_key)
+            data = await redis_client.get(data_key)
 
             if data:
                 return json.loads(data)
@@ -122,7 +136,7 @@ class SnapshotManager:
             logger.error(f"Failed to get snapshot {snapshot_id}: {e}")
             return None
 
-    def delete_snapshot(self, snapshot_id: str) -> bool:
+    async def delete_snapshot(self, snapshot_id: str) -> bool:
         """Delete a snapshot.
 
         Args:
@@ -131,13 +145,18 @@ class SnapshotManager:
         Returns:
             True if deleted, False if not found
         """
+        redis_client = get_redis_client()
+        if not redis_client:
+            logger.warning("Redis client not available for deleting snapshot")
+            return False
+
         try:
             # Delete snapshot data
             data_key = f"{self.snapshot_data_prefix}{snapshot_id}"
-            self.redis_client.delete(data_key)
+            await redis_client.delete(data_key)
 
             # Remove from metadata list
-            entries = self.redis_client.lrange(self.snapshots_key, 0, -1)
+            entries = await redis_client.lrange(self.snapshots_key, 0, -1)
             new_entries = []
 
             for entry in entries:
@@ -146,9 +165,9 @@ class SnapshotManager:
                     new_entries.append(entry)
 
             # Replace the list
-            self.redis_client.delete(self.snapshots_key)
+            await redis_client.delete(self.snapshots_key)
             if new_entries:
-                self.redis_client.rpush(self.snapshots_key, *new_entries)
+                await redis_client.rpush(self.snapshots_key, *new_entries)
 
             logger.info(f"Deleted snapshot: {snapshot_id}")
             return True
@@ -157,7 +176,7 @@ class SnapshotManager:
             logger.error(f"Failed to delete snapshot {snapshot_id}: {e}")
             return False
 
-    def get_snapshot_metadata(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
+    async def get_snapshot_metadata(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
         """Get snapshot metadata by ID.
 
         Args:
@@ -166,8 +185,13 @@ class SnapshotManager:
         Returns:
             Snapshot metadata or None if not found
         """
+        redis_client = get_redis_client()
+        if not redis_client:
+            logger.warning("Redis client not available for getting snapshot metadata")
+            return None
+
         try:
-            entries = self.redis_client.lrange(self.snapshots_key, 0, -1)
+            entries = await redis_client.lrange(self.snapshots_key, 0, -1)
 
             for entry in entries:
                 metadata = json.loads(entry)

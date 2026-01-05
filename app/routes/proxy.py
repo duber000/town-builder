@@ -32,7 +32,7 @@ async def _handle_proxy_request(request: Request, method: str, path: str = "", d
     }
 
     try:
-        resp = proxy_request(
+        resp = await proxy_request(
             method=method,
             path=path,
             headers=headers,

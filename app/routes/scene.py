@@ -27,7 +27,7 @@ async def get_scene_description(
     Returns:
         Dictionary with description and analysis data
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
     result = generate_scene_description(town_data)
 
     logger.info(f"Scene description requested by {current_user.get('username', 'unknown')}")
@@ -50,7 +50,7 @@ async def get_scene_stats(
     Returns:
         Dictionary with scene statistics
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Count objects in each category
     stats = {

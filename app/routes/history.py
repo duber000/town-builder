@@ -32,13 +32,13 @@ async def get_history(
         GET /api/history?limit=20
     """
     try:
-        history = history_manager.get_history(limit)
+        history = await history_manager.get_history(limit)
 
         return HistoryResponse(
             status="success",
             history=[HistoryEntry(**entry) for entry in history],
-            can_undo=history_manager.can_undo(),
-            can_redo=history_manager.can_redo()
+            can_undo=await history_manager.can_undo(),
+            can_redo=await history_manager.can_redo()
         )
 
     except Exception as e:
@@ -62,11 +62,11 @@ async def undo_operation(
         POST /api/history/undo
     """
     try:
-        if not history_manager.can_undo():
+        if not await history_manager.can_undo():
             raise HTTPException(status_code=400, detail="Nothing to undo")
 
         # Get the last operation
-        last_entry = history_manager.pop_last_entry()
+        last_entry = await history_manager.pop_last_entry()
 
         if not last_entry:
             raise HTTPException(status_code=400, detail="Failed to get last operation")
@@ -78,21 +78,21 @@ async def undo_operation(
             raise HTTPException(status_code=400, detail="Cannot undo: no previous state")
 
         # Set the town data to the before state
-        set_town_data(before_state)
+        await set_town_data(before_state)
 
         # Add to redo stack
-        history_manager.push_redo_entry(last_entry)
+        await history_manager.push_redo_entry(last_entry)
 
         # Broadcast the change
-        broadcast_sse({'type': 'full', 'town': before_state})
+        await broadcast_sse({'type': 'full', 'town': before_state})
 
         logger.info(f"Undid operation: {last_entry.get('operation')}")
 
         return {
             "status": "success",
             "message": f"Undid {last_entry.get('operation')} operation",
-            "can_undo": history_manager.can_undo(),
-            "can_redo": history_manager.can_redo()
+            "can_undo": await history_manager.can_undo(),
+            "can_redo": await history_manager.can_redo()
         }
 
     except HTTPException:
@@ -118,11 +118,11 @@ async def redo_operation(
         POST /api/history/redo
     """
     try:
-        if not history_manager.can_redo():
+        if not await history_manager.can_redo():
             raise HTTPException(status_code=400, detail="Nothing to redo")
 
         # Get the last undone operation
-        redo_entry = history_manager.pop_redo_entry()
+        redo_entry = await history_manager.pop_redo_entry()
 
         if not redo_entry:
             raise HTTPException(status_code=400, detail="Failed to get redo operation")
@@ -134,10 +134,10 @@ async def redo_operation(
             raise HTTPException(status_code=400, detail="Cannot redo: no after state")
 
         # Set the town data to the after state
-        set_town_data(after_state)
+        await set_town_data(after_state)
 
         # Add back to history stack
-        history_manager.add_entry(
+        await history_manager.add_entry(
             operation=redo_entry.get("operation"),
             category=redo_entry.get("category"),
             object_id=redo_entry.get("object_id"),
@@ -146,15 +146,15 @@ async def redo_operation(
         )
 
         # Broadcast the change
-        broadcast_sse({'type': 'full', 'town': after_state})
+        await broadcast_sse({'type': 'full', 'town': after_state})
 
         logger.info(f"Redid operation: {redo_entry.get('operation')}")
 
         return {
             "status": "success",
             "message": f"Redid {redo_entry.get('operation')} operation",
-            "can_undo": history_manager.can_undo(),
-            "can_redo": history_manager.can_redo()
+            "can_undo": await history_manager.can_undo(),
+            "can_redo": await history_manager.can_redo()
         }
 
     except HTTPException:

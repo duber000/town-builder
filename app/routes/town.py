@@ -3,8 +3,8 @@ import json
 import logging
 import os
 
+import aiofiles
 from fastapi import APIRouter, Depends, HTTPException
-import requests
 
 from app.models.schemas import (
     TownUpdateRequest,
@@ -36,7 +36,7 @@ async def get_town(current_user: dict = Depends(get_current_user)):
     Returns:
         Dictionary containing town data (buildings, terrain, roads, props)
     """
-    return get_town_data()
+    return await get_town_data()
 
 
 @router.post("/town")
@@ -59,14 +59,14 @@ async def update_town_endpoint(
         Success status
     """
     data = request_data.model_dump(exclude_unset=True)
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Update town name only
     if 'townName' in data and len(data) == 1:
         town_data['townName'] = data['townName']
-        set_town_data(town_data)
+        await set_town_data(town_data)
         logger.info(f"Updated town name to: {data['townName']}")
-        broadcast_sse({'type': 'name', 'townName': data['townName']})
+        await broadcast_sse({'type': 'name', 'townName': data['townName']})
 
     # Update driver for a vehicle/model
     elif 'driver' in data and 'id' in data and 'category' in data:
@@ -79,9 +79,9 @@ async def update_town_endpoint(
             if model.get('id') == model_id:
                 town_data[category][i]['driver'] = driver
                 updated = True
-                set_town_data(town_data)
+                await set_town_data(town_data)
                 logger.info(f"Updated driver for {category} id={model_id} to {driver}")
-                broadcast_sse({'type': 'driver', 'category': category, 'id': model_id, 'driver': driver})
+                await broadcast_sse({'type': 'driver', 'category': category, 'id': model_id, 'driver': driver})
                 break
 
         if not updated:
@@ -89,8 +89,8 @@ async def update_town_endpoint(
 
     # Full town data update
     else:
-        set_town_data(data)
-        broadcast_sse({'type': 'full', 'town': data})
+        await set_town_data(data)
+        await broadcast_sse({'type': 'full', 'town': data})
 
     return {"status": "success"}
 
@@ -134,8 +134,8 @@ async def save_town(
             # Get safe filepath (prevents path traversal)
             safe_path = get_safe_filepath(filename, settings.data_path, allowed_extensions=['.json'])
 
-            with open(safe_path, 'w') as f:
-                json.dump(town_data_to_save, f, indent=2)
+            async with aiofiles.open(safe_path, 'w') as f:
+                await f.write(json.dumps(town_data_to_save, indent=2))
             logger.info(f"Town saved locally to {safe_path}")
             local_save_message = f"Town saved locally to {safe_path.name}."
         else:
@@ -145,14 +145,14 @@ async def save_town(
         if town_id is not None:
             # Update existing town (PATCH)
             try:
-                update_town(town_id, request_payload, town_data_to_save, town_name_from_payload)
-                broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                await update_town(town_id, request_payload, town_data_to_save, town_name_from_payload)
+                await broadcast_sse({'type': 'full', 'town': town_data_to_save})
                 return {
                     "status": "success",
                     "message": f"{local_save_message} Town updated in Django backend (ID: {town_id}).",
                     "town_id": town_id
                 }
-            except requests.exceptions.RequestException as e:
+            except Exception as e:
                 logger.error(f"Error updating town layout in Django backend for town_id {town_id}: {e}")
                 error_detail = str(e)
                 if e.response is not None:
@@ -175,13 +175,13 @@ async def save_town(
 
             existing_town_id = None
             if town_name_for_search:
-                existing_town_id = search_town_by_name(town_name_for_search)
+                existing_town_id = await search_town_by_name(town_name_for_search)
 
             try:
                 if existing_town_id:
                     # Update existing town by name
-                    update_town(existing_town_id, request_payload, town_data_to_save, town_name_from_payload)
-                    broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                    await update_town(existing_town_id, request_payload, town_data_to_save, town_name_from_payload)
+                    await broadcast_sse({'type': 'full', 'town': town_data_to_save})
                     return {
                         "status": "success",
                         "message": f"{local_save_message} Town updated in Django backend (ID: {existing_town_id}).",
@@ -189,14 +189,14 @@ async def save_town(
                     }
                 else:
                     # Create new town
-                    result = create_town(request_payload, town_data_to_save, town_name_from_payload)
-                    broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                    result = await create_town(request_payload, town_data_to_save, town_name_from_payload)
+                    await broadcast_sse({'type': 'full', 'town': town_data_to_save})
                     return {
                         "status": "success",
                         "message": f"{local_save_message} Town created in Django backend (ID: {result['town_id']}).",
                         "town_id": result['town_id']
                     }
-            except requests.exceptions.RequestException as e:
+            except Exception as e:
                 logger.error(f"Error saving town layout in Django backend: {e}")
                 error_detail = str(e)
                 if getattr(e, 'response', None) is not None:
@@ -249,12 +249,13 @@ async def load_town(
             )
 
         # Load the town data from the file
-        with open(safe_path, 'r') as f:
-            town_data = json.load(f)
-            set_town_data(town_data)
+        async with aiofiles.open(safe_path, 'r') as f:
+            content = await f.read()
+            town_data = json.loads(content)
+            await set_town_data(town_data)
 
         logger.info(f"Town loaded from {safe_path}")
-        broadcast_sse({'type': 'full', 'town': town_data})
+        await broadcast_sse({'type': 'full', 'town': town_data})
         return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": town_data}
     except Exception as e:
         logger.error(f"Error loading town: {e}")
@@ -298,8 +299,8 @@ async def load_town_from_django(
         layout_data = town_data.get('layout_data', [])
 
         # Store in Redis/memory for multiplayer sync
-        set_town_data(layout_data if layout_data else [])
-        broadcast_sse({'type': 'full', 'town': layout_data})
+        await set_town_data(layout_data if layout_data else [])
+        await broadcast_sse({'type': 'full', 'town': layout_data})
 
         return {
             "status": "success",
@@ -358,7 +359,7 @@ async def delete_model(
     if not category or (not model_id and not position):
         raise HTTPException(status_code=400, detail={"error": "Missing required parameters"})
 
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Delete by ID
     if model_id is not None:
@@ -366,8 +367,8 @@ async def delete_model(
             for i, model in enumerate(town_data[category]):
                 if isinstance(model, dict) and model.get('id') == model_id:
                     town_data[category].pop(i)
-                    set_town_data(town_data)
-                    broadcast_sse({'type': 'delete', 'category': category, 'id': model_id})
+                    await set_town_data(town_data)
+                    await broadcast_sse({'type': 'delete', 'category': category, 'id': model_id})
                     return {"status": "success", "message": f"Deleted model with ID {model_id}"}
 
     # Delete by position (find closest model)
@@ -392,8 +393,8 @@ async def delete_model(
 
             if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
                 deleted_model = town_data[category].pop(closest_model_index)
-                set_town_data(town_data)
-                broadcast_sse({
+                await set_town_data(town_data)
+                await broadcast_sse({
                     'type': 'delete',
                     'category': category,
                     'position': position.model_dump(),
@@ -427,7 +428,7 @@ async def edit_model(
     if not category or not model_id:
         raise HTTPException(status_code=400, detail={"error": "Missing required parameters"})
 
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     if category in town_data and isinstance(town_data[category], list):
         for i, model in enumerate(town_data[category]):
@@ -440,8 +441,8 @@ async def edit_model(
                 if request_data.scale is not None:
                     town_data[category][i]['scale'] = request_data.scale.model_dump()
 
-                set_town_data(town_data)
-                broadcast_sse({
+                await set_town_data(town_data)
+                await broadcast_sse({
                     'type': 'edit',
                     'category': category,
                     'id': model_id,
