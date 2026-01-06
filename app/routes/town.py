@@ -4,6 +4,7 @@ import logging
 import os
 
 import aiofiles
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.schemas import (
@@ -277,10 +278,6 @@ async def load_town_from_django(
         Status, message, and town data with layout_data
     """
     try:
-        # Fetch town data from Django API
-        from app.config import settings
-        import requests
-
         base_url = settings.api_url if settings.api_url.endswith('/') else settings.api_url + '/'
         url = f"{base_url}{town_id}/"
 
@@ -289,8 +286,9 @@ async def load_town_from_django(
             headers['Authorization'] = f"Token {settings.api_token}"
 
         logger.info(f"Loading town from Django: {url}")
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
 
         town_data = response.json()
         logger.info(f"Successfully loaded town {town_id} from Django: {town_data.get('name')}")
@@ -316,13 +314,13 @@ async def load_town_from_django(
             }
         }
 
-    except requests.exceptions.RequestException as e:
+    except httpx.HTTPError as e:
         logger.error(f"Error loading town from Django: {e}")
         error_detail = str(e)
         if hasattr(e, 'response') and e.response is not None:
             try:
                 error_detail = e.response.json()
-            except ValueError:
+            except (ValueError, json.JSONDecodeError):
                 error_detail = e.response.text
         raise HTTPException(
             status_code=500,

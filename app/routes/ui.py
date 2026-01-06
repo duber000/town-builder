@@ -69,7 +69,8 @@ async def readyz():
     # Check Redis connection
     try:
         redis_client = get_redis_client()
-        redis_client.ping()
+        if redis_client:
+            await redis_client.ping()
         health_status["checks"]["redis"] = "ok"
     except Exception as e:
         logger.warning(f"Redis health check failed: {e}")
