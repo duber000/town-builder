@@ -1,6 +1,7 @@
 """Main FastAPI application entry point."""
 import logging
 import mimetypes
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots, buildings, scene
+from app.services.storage import initialize_redis, close_redis
 from app.utils.static_files import serve_js_files, serve_wasm_files
 
 # Configure logging
@@ -19,12 +21,27 @@ mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('text/javascript', '.js')
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application startup and shutdown."""
+    logger.info("Initializing application...")
+    await initialize_redis()
+    logger.info("Application startup complete")
+    yield
+    logger.info("Shutting down application...")
+    await close_redis()
+    logger.info("Application shutdown complete")
+
+
 # Create FastAPI application
 app = FastAPI(
     title=settings.app_title,
     description=settings.app_description,
-    version=settings.app_version
+    version=settings.app_version,
+    lifespan=lifespan
 )
+
 
 # Add CORS middleware
 # Parse allowed origins from settings (comma-separated string)

@@ -6,8 +6,6 @@ import uuid
 from typing import Dict, List, Any, Optional
 from collections import deque
 
-import redis
-
 from app.config import settings
 from app.services.storage import get_redis_client
 
@@ -25,12 +23,11 @@ class HistoryManager:
     """Manages operation history for undo/redo functionality."""
 
     def __init__(self):
-        self.redis_client = get_redis_client()
         self.history_key = "town_history"
         self.redo_key = "town_redo"
         self.current_index_key = "town_history_index"
 
-    def add_entry(
+    async def add_entry(
         self,
         operation: str,
         category: Optional[str] = None,
@@ -61,27 +58,32 @@ class HistoryManager:
             "after_state": after_state
         }
 
-        try:
-            # Add to Redis
-            self.redis_client.rpush(self.history_key, json.dumps(entry))
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                # Add to Redis
+                await redis_client.rpush(self.history_key, json.dumps(entry))
 
-            # Trim to max size
-            history_length = self.redis_client.llen(self.history_key)
-            if history_length > MAX_HISTORY_SIZE:
-                self.redis_client.ltrim(self.history_key, -MAX_HISTORY_SIZE, -1)
+                # Trim to max size
+                history_length = await redis_client.llen(self.history_key)
+                if history_length > MAX_HISTORY_SIZE:
+                    await redis_client.ltrim(self.history_key, -MAX_HISTORY_SIZE, -1)
 
-            # Clear redo stack when new action is performed
-            self.redis_client.delete(self.redo_key)
+                # Clear redo stack when new action is performed
+                await redis_client.delete(self.redo_key)
 
-        except Exception as e:
-            logger.warning(f"Redis history add failed, using in-memory storage: {e}")
+            except Exception as e:
+                logger.warning(f"Redis history add failed, using in-memory storage: {e}")
+                _history_stack.append(entry)
+                _redo_stack.clear()
+        else:
             _history_stack.append(entry)
             _redo_stack.clear()
 
         logger.info(f"Added history entry: {operation} on {category}/{object_id}")
         return entry_id
 
-    def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+    async def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Get recent history entries.
 
         Args:
@@ -90,115 +92,138 @@ class HistoryManager:
         Returns:
             List of history entries (newest first)
         """
-        try:
-            # Get from Redis
-            entries = self.redis_client.lrange(self.history_key, -limit, -1)
-            history = [json.loads(entry) for entry in entries]
-            history.reverse()  # Newest first
-            return history
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                # Get from Redis
+                entries = await redis_client.lrange(self.history_key, -limit, -1)
+                history = [json.loads(entry) for entry in entries]
+                history.reverse()  # Newest first
+                return history
 
-        except Exception as e:
-            logger.warning(f"Redis history get failed, using in-memory storage: {e}")
-            return list(reversed(list(_history_stack)[:limit]))
+            except Exception as e:
+                logger.warning(f"Redis history get failed, using in-memory storage: {e}")
 
-    def can_undo(self) -> bool:
+        return list(reversed(list(_history_stack)[:limit]))
+
+    async def can_undo(self) -> bool:
         """Check if undo is possible.
 
         Returns:
             True if there are operations to undo
         """
-        try:
-            return self.redis_client.llen(self.history_key) > 0
-        except Exception:
-            return len(_history_stack) > 0
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                return await redis_client.llen(self.history_key) > 0
+            except Exception:
+                pass
 
-    def can_redo(self) -> bool:
+        return len(_history_stack) > 0
+
+    async def can_redo(self) -> bool:
         """Check if redo is possible.
 
         Returns:
             True if there are operations to redo
         """
-        try:
-            return self.redis_client.llen(self.redo_key) > 0
-        except Exception:
-            return len(_redo_stack) > 0
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                return await redis_client.llen(self.redo_key) > 0
+            except Exception:
+                pass
 
-    def get_last_entry(self) -> Optional[Dict[str, Any]]:
+        return len(_redo_stack) > 0
+
+    async def get_last_entry(self) -> Optional[Dict[str, Any]]:
         """Get the last history entry without removing it.
 
         Returns:
             Last history entry or None
         """
-        try:
-            entry = self.redis_client.lindex(self.history_key, -1)
-            if entry:
-                return json.loads(entry)
-            return None
-        except Exception as e:
-            logger.warning(f"Redis get last entry failed: {e}")
-            if _history_stack:
-                return _history_stack[-1]
-            return None
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                entry = await redis_client.lindex(self.history_key, -1)
+                if entry:
+                    return json.loads(entry)
+            except Exception as e:
+                logger.warning(f"Redis get last entry failed: {e}")
 
-    def pop_last_entry(self) -> Optional[Dict[str, Any]]:
+        if _history_stack:
+            return _history_stack[-1]
+        return None
+
+    async def pop_last_entry(self) -> Optional[Dict[str, Any]]:
         """Remove and return the last history entry.
 
         Returns:
             Last history entry or None
         """
-        try:
-            entry = self.redis_client.rpop(self.history_key)
-            if entry:
-                return json.loads(entry)
-            return None
-        except Exception as e:
-            logger.warning(f"Redis pop failed, using in-memory storage: {e}")
-            if _history_stack:
-                return _history_stack.pop()
-            return None
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                entry = await redis_client.rpop(self.history_key)
+                if entry:
+                    return json.loads(entry)
+            except Exception as e:
+                logger.warning(f"Redis pop failed, using in-memory storage: {e}")
 
-    def push_redo_entry(self, entry: Dict[str, Any]) -> None:
+        if _history_stack:
+            return _history_stack.pop()
+        return None
+
+    async def push_redo_entry(self, entry: Dict[str, Any]) -> None:
         """Add an entry to the redo stack.
 
         Args:
             entry: History entry to add to redo stack
         """
-        try:
-            self.redis_client.rpush(self.redo_key, json.dumps(entry))
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                await redis_client.rpush(self.redo_key, json.dumps(entry))
 
-            # Trim to max size
-            redo_length = self.redis_client.llen(self.redo_key)
-            if redo_length > MAX_HISTORY_SIZE:
-                self.redis_client.ltrim(self.redo_key, -MAX_HISTORY_SIZE, -1)
+                # Trim to max size
+                redo_length = await redis_client.llen(self.redo_key)
+                if redo_length > MAX_HISTORY_SIZE:
+                    await redis_client.ltrim(self.redo_key, -MAX_HISTORY_SIZE, -1)
 
-        except Exception as e:
-            logger.warning(f"Redis redo push failed, using in-memory storage: {e}")
+            except Exception as e:
+                logger.warning(f"Redis redo push failed, using in-memory storage: {e}")
+                _redo_stack.append(entry)
+        else:
             _redo_stack.append(entry)
 
-    def pop_redo_entry(self) -> Optional[Dict[str, Any]]:
+    async def pop_redo_entry(self) -> Optional[Dict[str, Any]]:
         """Remove and return the last redo entry.
 
         Returns:
             Last redo entry or None
         """
-        try:
-            entry = self.redis_client.rpop(self.redo_key)
-            if entry:
-                return json.loads(entry)
-            return None
-        except Exception as e:
-            logger.warning(f"Redis redo pop failed, using in-memory storage: {e}")
-            if _redo_stack:
-                return _redo_stack.pop()
-            return None
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                entry = await redis_client.rpop(self.redo_key)
+                if entry:
+                    return json.loads(entry)
+            except Exception as e:
+                logger.warning(f"Redis redo pop failed, using in-memory storage: {e}")
 
-    def clear_history(self) -> None:
+        if _redo_stack:
+            return _redo_stack.pop()
+        return None
+
+    async def clear_history(self) -> None:
         """Clear all history and redo stacks."""
-        try:
-            self.redis_client.delete(self.history_key)
-            self.redis_client.delete(self.redo_key)
-        except Exception as e:
-            logger.warning(f"Redis clear failed: {e}")
+        redis_client = get_redis_client()
+        if redis_client:
+            try:
+                await redis_client.delete(self.history_key)
+                await redis_client.delete(self.redo_key)
+            except Exception as e:
+                logger.warning(f"Redis clear failed: {e}")
 
         _history_stack.clear()
         _redo_stack.clear()

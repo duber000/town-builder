@@ -17,7 +17,8 @@ async def sse_events(name: str = Query(None)):
     Returns:
         StreamingResponse with SSE event stream
     """
-    def generate():
-        return event_stream(name)
+    async def generate():
+        async for msg in event_stream(name):
+            yield msg
 
     return StreamingResponse(generate(), media_type='text/event-stream')

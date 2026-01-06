@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-import requests
+import httpx
 
 from app.services.auth import get_current_user
 from app.services.django_client import proxy_request
@@ -32,7 +32,7 @@ async def _handle_proxy_request(request: Request, method: str, path: str = "", d
     }
 
     try:
-        resp = proxy_request(
+        resp = await proxy_request(
             method=method,
             path=path,
             headers=headers,
@@ -49,10 +49,10 @@ async def _handle_proxy_request(request: Request, method: str, path: str = "", d
                 if k.lower() not in ['content-length', 'transfer-encoding', 'connection', 'content-encoding']
             }
         )
-    except requests.exceptions.Timeout:
+    except httpx.TimeoutException:
         logger.error(f"Timeout proxying request")
         raise HTTPException(status_code=504, detail="Request to upstream service timed out")
-    except requests.exceptions.ConnectionError:
+    except httpx.ConnectError:
         logger.error(f"Connection error proxying request")
         raise HTTPException(status_code=503, detail="Could not connect to upstream service")
     except Exception as e:

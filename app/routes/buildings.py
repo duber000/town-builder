@@ -36,7 +36,7 @@ async def create_building(
     Returns:
         BuildingResponse with created building data including ID
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Generate unique ID
     building_id = f"obj_{uuid.uuid4().hex[:8]}"
@@ -62,10 +62,10 @@ async def create_building(
     town_data[category].append(building)
 
     # Save to storage
-    set_town_data(town_data)
+    await set_town_data(town_data)
 
     # Broadcast to all connected clients
-    broadcast_sse({'type': 'full', 'town': town_data})
+    await broadcast_sse({'type': 'full', 'town': town_data})
 
     logger.info(f"Created building: {building_id} ({request_data.model}) in category {category}")
 
@@ -93,7 +93,7 @@ async def list_buildings(
     Returns:
         List of BuildingResponse objects
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
     buildings = []
 
     # Determine which categories to include
@@ -140,7 +140,7 @@ async def get_building(
     Raises:
         HTTPException: If building not found
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Search all categories for the building
     for category in ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']:
@@ -179,7 +179,7 @@ async def update_building(
     Raises:
         HTTPException: If building not found
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Search all categories for the building
     for category in ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']:
@@ -210,10 +210,10 @@ async def update_building(
                         building = town_data[category][i]
 
                     # Save to storage
-                    set_town_data(town_data)
+                    await set_town_data(town_data)
 
                     # Broadcast to all connected clients
-                    broadcast_sse({
+                    await broadcast_sse({
                         'type': 'edit',
                         'category': category,
                         'id': building_id,
@@ -252,7 +252,7 @@ async def delete_building(
     Raises:
         HTTPException: If building not found
     """
-    town_data = get_town_data()
+    town_data = await get_town_data()
 
     # Search all categories for the building
     for category in ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']:
@@ -263,10 +263,10 @@ async def delete_building(
                     town_data[category].pop(i)
 
                     # Save to storage
-                    set_town_data(town_data)
+                    await set_town_data(town_data)
 
                     # Broadcast to all connected clients
-                    broadcast_sse({
+                    await broadcast_sse({
                         'type': 'delete',
                         'category': category,
                         'id': building_id

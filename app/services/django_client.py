@@ -2,7 +2,7 @@
 import logging
 from typing import Dict, Any, Optional
 
-import requests
+import httpx
 
 from app.config import settings
 from app.utils.security import validate_api_url
@@ -93,7 +93,7 @@ def _get_base_url() -> str:
     return base_url
 
 
-def search_town_by_name(town_name: str) -> Optional[int]:
+async def search_town_by_name(town_name: str) -> Optional[int]:
     """Search for a town by name in Django API.
 
     Args:
@@ -108,7 +108,8 @@ def search_town_by_name(town_name: str) -> Optional[int]:
 
     try:
         logger.debug(f"Searching for town by name: {search_url}")
-        resp = requests.get(search_url, headers=headers, timeout=5)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(search_url, headers=headers, timeout=5.0)
 
         if resp.status_code == 200:
             search_data = resp.json()
@@ -134,7 +135,7 @@ def search_town_by_name(town_name: str) -> Optional[int]:
         else:
             logger.warning(f"Failed to search for town by name (status {resp.status_code})")
             return None
-    except requests.exceptions.RequestException as e:
+    except (httpx.HTTPError, httpx.RequestError) as e:
         logger.error(f"Error searching for town by name: {e}")
         return None
     except ValueError:
@@ -142,7 +143,7 @@ def search_town_by_name(town_name: str) -> Optional[int]:
         return None
 
 
-def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any], town_name: Optional[str]) -> Dict[str, Any]:
+async def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any], town_name: Optional[str]) -> Dict[str, Any]:
     """Create a new town in Django API.
 
     Args:
@@ -154,14 +155,15 @@ def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any], town
         Dictionary with status, message, and town_id
 
     Raises:
-        requests.exceptions.RequestException: If the request fails
+        httpx.HTTPError: If the request fails
     """
     base_url = _get_base_url()
     headers = _get_headers()
     django_payload = _prepare_django_payload(request_payload, town_data, town_name, is_update_operation=False)
 
     logger.debug(f"Creating town via Django API: {base_url} with payload keys: {list(django_payload.keys())}")
-    resp = requests.post(base_url, headers=headers, json=django_payload, timeout=10)
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(base_url, headers=headers, json=django_payload, timeout=10.0)
     resp.raise_for_status()
 
     response_data = resp.json()
@@ -175,7 +177,7 @@ def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any], town
     }
 
 
-def update_town(
+async def update_town(
     town_id: int,
     request_payload: Dict[str, Any],
     town_data: Dict[str, Any],
@@ -193,7 +195,7 @@ def update_town(
         Dictionary with status, message, and town_id
 
     Raises:
-        requests.exceptions.RequestException: If the request fails
+        httpx.HTTPError: If the request fails
     """
     base_url = _get_base_url()
     url = f"{base_url}{town_id}/"
@@ -201,7 +203,8 @@ def update_town(
     django_payload = _prepare_django_payload(request_payload, town_data, town_name, is_update_operation=True)
 
     logger.debug(f"Updating town (PATCH) via Django API: {url} with payload keys: {list(django_payload.keys())}")
-    resp = requests.patch(url, headers=headers, json=django_payload, timeout=10)
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(url, headers=headers, json=django_payload, timeout=10.0)
     resp.raise_for_status()
 
     logger.info(f"Town layout successfully updated via PATCH to Django backend for town_id: {town_id}")
@@ -212,7 +215,7 @@ def update_town(
     }
 
 
-def proxy_request(method: str, path: str, headers: Dict[str, str], params: Dict[str, Any] = None, data: Dict[str, Any] = None) -> requests.Response:
+async def proxy_request(method: str, path: str, headers: Dict[str, str], params: Dict[str, Any] = None, data: Dict[str, Any] = None) -> httpx.Response:
     """Proxy a request to the Django API.
 
     Args:
@@ -226,7 +229,7 @@ def proxy_request(method: str, path: str, headers: Dict[str, str], params: Dict[
         Response from the Django API
 
     Raises:
-        requests.exceptions.RequestException: If the request fails
+        httpx.HTTPError: If the request fails
     """
     base_url = _get_base_url()
     url = f"{base_url}{path.lstrip('/')}"
@@ -237,18 +240,19 @@ def proxy_request(method: str, path: str, headers: Dict[str, str], params: Dict[
 
     logger.debug(f"Proxying {method} request to {url}")
 
-    if method == 'GET':
-        return requests.get(url, headers=headers, params=params, timeout=10)
-    elif method == 'POST':
-        logger.debug(f"POST data: {str(data)[:200] if data else 'None'}...")
-        return requests.post(url, headers=headers, json=data, timeout=10)
-    elif method == 'PUT':
-        logger.debug(f"PUT data: {str(data)[:200] if data else 'None'}...")
-        return requests.put(url, headers=headers, json=data, timeout=10)
-    elif method == 'PATCH':
-        logger.debug(f"PATCH data: {str(data)[:200] if data else 'None'}...")
-        return requests.patch(url, headers=headers, json=data, timeout=10)
-    elif method == 'DELETE':
-        return requests.delete(url, headers=headers, timeout=10)
-    else:
-        raise ValueError(f"Unsupported HTTP method: {method}")
+    async with httpx.AsyncClient() as client:
+        if method == 'GET':
+            return await client.get(url, headers=headers, params=params, timeout=10.0)
+        elif method == 'POST':
+            logger.debug(f"POST data: {str(data)[:200] if data else 'None'}...")
+            return await client.post(url, headers=headers, json=data, timeout=10.0)
+        elif method == 'PUT':
+            logger.debug(f"PUT data: {str(data)[:200] if data else 'None'}...")
+            return await client.put(url, headers=headers, json=data, timeout=10.0)
+        elif method == 'PATCH':
+            logger.debug(f"PATCH data: {str(data)[:200] if data else 'None'}...")
+            return await client.patch(url, headers=headers, json=data, timeout=10.0)
+        elif method == 'DELETE':
+            return await client.delete(url, headers=headers, timeout=10.0)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
