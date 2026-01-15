@@ -5,6 +5,12 @@ import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
 import { initPhysicsWasm } from './utils/physics_wasm.js';
 import { applyCategoryStatuses, createStatusLegend } from './category_status.js';
+// Mobile modules
+import { isMobile } from './utils/device-detect.js';
+import mobileUI from './mobile/mobile-ui.js';
+import mobileSettings from './mobile/settings.js';
+import tutorial from './mobile/tutorial.js';
+import mobileIntegration from './mobile/integration.js';
 
 // Wait for Go WASM module to be ready
 async function waitForWasm() {
@@ -61,6 +67,18 @@ async function init() {
     // Wire up keyboard listeners
     setupKeyboardControls();
     initUI();
+
+    // Initialize mobile modules if on mobile device
+    if (isMobile()) {
+        console.log('Mobile device detected - initializing mobile UI');
+        mobileUI.init();
+        mobileSettings.init();
+        tutorial.init();
+        mobileIntegration.init();
+
+        // Touch controls and interactions are initialized in scene.js
+        // after camera and canvas are available
+    }
 
     // Joystick will be initialized when entering drive mode (see ui.js)
 

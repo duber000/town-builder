@@ -16,6 +16,10 @@ import { getMouseCoordinates, findRootObject } from './utils/raycaster.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
 import { animateCursors, cleanupInactiveCursors } from './collaborative-cursors.js';
 import { sendCursorUpdate } from './network.js';
+// Mobile touch controls
+import { isMobile } from './utils/device-detect.js';
+import touchControls from './mobile/controls-touch.js';
+import touchInteractions from './mobile/interactions-touch.js';
 
 // Scene state
 export let scene, camera, renderer, groundPlane, placementIndicator;
@@ -77,6 +81,36 @@ export function initializeScene() {
     setupResizeListener(camera, renderer);
     renderer.domElement.addEventListener('click', onCanvasClick);
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
+
+    // Initialize touch controls for mobile
+    if (isMobile()) {
+        console.log('Initializing touch controls for mobile');
+        touchControls.init(camera, renderer.domElement);
+
+        // Create raycaster for touch interactions
+        const raycaster = new THREE.Raycaster();
+        touchInteractions.init(renderer.domElement, scene, camera, raycaster);
+
+        // Setup touch interaction callbacks
+        touchInteractions.onPlaceObjectCallback((position) => {
+            // Place object at touch position
+            if (window.pendingPlacementModelDetails) {
+                const { category, modelName } = window.pendingPlacementModelDetails;
+                loadModelToScene(category, modelName, position);
+            }
+        });
+
+        touchInteractions.onSelectObjectCallback((object) => {
+            window.selectedObject = object;
+            updateContextHelp();
+        });
+
+        touchInteractions.onDeleteObjectCallback((object) => {
+            deleteObjectFromScene(object);
+        });
+
+        console.log('Touch controls initialized');
+    }
 
     // Setup pending placement model (used by UI)
     window.pendingPlacementModelDetails = null;

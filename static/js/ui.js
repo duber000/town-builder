@@ -1,7 +1,7 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
 import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject, movingCars } from './scene.js'; // Added movingCars
 import { getActiveLoaderCount } from './models/loader.js'; // Import loader count tracker
-import { cleanupJoystick } from './joystick.js';
+import { cleanupJoystick, initJoystick } from './joystick.js';
 
 let currentMode = 'place';
 window.selectedObject = null; // For edit mode
@@ -177,6 +177,11 @@ export function setCurrentMode(mode) {
 
     // Update context-sensitive help panel
     updateContextHelp();
+
+    // Dispatch mode change event for mobile integration
+    window.dispatchEvent(new CustomEvent('mode-change', {
+        detail: { mode }
+    }));
 }
 
 // Call this function when a car is selected to drive
@@ -391,12 +396,17 @@ function onModelItemClick(event) {
 
     window.pendingPlacementModelDetails = { category, modelName, displayName };
     setCurrentMode('place'); // Switch to place mode
-    
+
     // Only show the notification if this model hasn't been placed before
     if (!hasModelBeenPlaced(category, modelName)) {
         showNotification(`Click on the ground to place ${displayName}`, 'info');
     }
-    
+
+    // Dispatch model-selected event for mobile integration
+    window.dispatchEvent(new CustomEvent('model-selected', {
+        detail: { category, modelName }
+    }));
+
     // The actual model loading will now happen in scene.js's onCanvasClick when in 'place' mode
 }
 
