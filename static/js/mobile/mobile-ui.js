@@ -110,8 +110,32 @@ class MobileUI {
   setupToolbarGestures() {
     if (!this.toolbar) return;
 
-    // Touch start - begin drag
+    // Create a draggable header area (title + drag handle)
+    const cardBody = this.toolbar.querySelector('.card-body');
+    const cardTitle = this.toolbar.querySelector('.card-title');
+    const modelContainer = this.toolbar.querySelector('#model-container');
+
+    if (!cardBody || !cardTitle) return;
+
+    // Touch start - begin drag (only on title area, not model container)
     this.boundHandlers.touchStart = (e) => {
+      // Don't drag if touching the scrollable model container
+      if (modelContainer && modelContainer.contains(e.target)) {
+        this.isDragging = false;
+        return;
+      }
+
+      // Don't drag if touching mode buttons or bottom section controls
+      const target = e.target;
+      if (target.closest('.mode-buttons') ||
+          target.closest('.toolbar-bottom-section') ||
+          target.closest('button') ||
+          target.closest('input') ||
+          target.closest('select')) {
+        this.isDragging = false;
+        return;
+      }
+
       const touch = e.touches[0];
       this.touchStartY = touch.clientY;
       this.isDragging = true;
