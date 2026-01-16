@@ -355,16 +355,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 20px;
   padding-top: calc(20px + var(--safe-area-inset-top));
   padding-bottom: calc(20px + var(--safe-area-inset-bottom));
   color: white;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tutorial-content {
   max-width: 400px;
+  width: 100%;
   text-align: center;
+  margin: auto 0;
+  flex-shrink: 0;
 }
 
 .tutorial-title {
