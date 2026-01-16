@@ -1,0 +1,652 @@
+/* Mobile-specific styles for Town Builder */
+/* Responsive design for mobile phones and tablets */
+
+/*
+ * NOTE: This file uses !important flags in several places to override:
+ * 1. Bootstrap's default styles which have high specificity
+ * 2. Inline styles set by JavaScript in index.html
+ * 3. Styles from desktop-first CSS that conflict with mobile layout
+ * These are intentional and necessary for mobile responsiveness.
+ */
+
+/* ============================================
+   CSS Variables for Mobile
+   ============================================ */
+:root {
+  --fab-size: 56px;
+  --fab-margin: 20px;
+  --bottom-bar-height: 60px;
+  --bottom-sheet-peek: 60px;
+  --mobile-toolbar-height: 70vh;
+  --touch-target-min: 44px;
+  --mobile-padding: 12px;
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* ============================================
+   Base Mobile Styles (up to 768px)
+   ============================================ */
+@media (max-width: 768px) {
+  /* Body adjustments */
+  body {
+    overscroll-behavior: none;
+    touch-action: pan-x pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* ============================================
+     Toolbar as Bottom Sheet
+     ============================================ */
+  #toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    height: var(--mobile-toolbar-height);
+    max-height: var(--mobile-toolbar-height);
+    transform: translateY(calc(100% - var(--bottom-sheet-peek)));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1500;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: var(--safe-area-inset-bottom);
+  }
+
+  #toolbar.open {
+    transform: translateY(0);
+  }
+
+  /* Drag handle for bottom sheet */
+  #toolbar::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--bs-secondary);
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+
+  #toolbar .card-body {
+    padding-top: 24px;
+    height: 100%;
+    max-height: 100%;
+  }
+
+  #toolbar .card-title {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ============================================
+     Mode Buttons - Larger Touch Targets
+     ============================================ */
+  .mode-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .mode-button {
+    height: 48px;
+    min-height: var(--touch-target-min);
+    font-size: 16px;
+    padding: 8px 12px;
+  }
+
+  .mode-button i {
+    font-size: 1.2rem;
+  }
+
+  /* ============================================
+     Model Container
+     ============================================ */
+  #model-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .model-item {
+    min-height: var(--touch-target-min);
+    padding: 12px !important;
+    font-size: 16px;
+  }
+
+  .model-item i {
+    font-size: 1.3rem;
+  }
+
+  /* ============================================
+     Navigation Bar
+     ============================================ */
+  .navbar {
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
+  }
+
+  .navbar-brand {
+    font-size: 1rem;
+  }
+
+  /* ============================================
+     Town Name - Smaller and Top
+     ============================================ */
+  #town-name-container {
+    top: 60px !important;
+    left: 50% !important;
+  }
+
+  #town-name-display {
+    font-size: 1rem !important;
+    padding: 8px 16px !important;
+  }
+
+  /* ============================================
+     Theme Toggle - Positioned for Mobile
+     ============================================ */
+  #theme-toggle-container {
+    top: 60px !important;
+    right: 10px !important;
+  }
+
+  #themeToggle i {
+    font-size: 1.5rem !important;
+  }
+
+  /* ============================================
+     User List - Hidden on Mobile
+     ============================================ */
+  #user-list {
+    display: none;
+  }
+
+  /* ============================================
+     Context Help - Hidden on Mobile
+     ============================================ */
+  #context-help {
+    display: none !important;
+  }
+
+  /* ============================================
+     Exit Driving Button - Larger
+     ============================================ */
+  #exit-driving-btn {
+    top: 60px !important;
+    right: 10px !important;
+    z-index: 2002;
+    min-height: var(--touch-target-min);
+    font-size: 16px;
+    padding: 12px 20px;
+  }
+
+  /* ============================================
+     Joystick - Better Positioning
+     ============================================ */
+  #joystick-container {
+    bottom: calc(80px + var(--safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+
+  #joystick-base {
+    width: 140px !important;
+    height: 140px !important;
+  }
+
+  #joystick-stick {
+    width: 70px !important;
+    height: 70px !important;
+    left: 35px !important;
+    top: 35px !important;
+  }
+
+  /* ============================================
+     Toolbar Bottom Section
+     ============================================ */
+  .toolbar-bottom-section button,
+  .toolbar-bottom-section .btn {
+    min-height: var(--touch-target-min);
+    font-size: 16px;
+  }
+
+  /* ============================================
+     Color Pickers
+     ============================================ */
+  #skyColorPicker,
+  #groundColorPicker {
+    height: var(--touch-target-min);
+  }
+}
+
+/* ============================================
+   FAB (Floating Action Button)
+   ============================================ */
+.fab {
+  position: fixed;
+  bottom: var(--fab-margin);
+  right: var(--fab-margin);
+  width: var(--fab-size);
+  height: var(--fab-size);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: none;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+.fab i {
+  font-size: 24px;
+}
+
+/* Hide FAB on desktop */
+@media (min-width: 769px) {
+  .fab {
+    display: none;
+  }
+}
+
+/* ============================================
+   Bottom Action Bar
+   ============================================ */
+.bottom-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--bottom-bar-height) + var(--safe-area-inset-bottom));
+  background: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color);
+  display: none;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px;
+  padding-bottom: calc(8px + var(--safe-area-inset-bottom));
+  z-index: 1400;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .bottom-action-bar {
+    display: flex;
+  }
+}
+
+.bottom-action-bar .btn {
+  flex: 1;
+  margin: 0 4px;
+  min-height: var(--touch-target-min);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.bottom-action-bar .btn i {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+/* ============================================
+   Backdrop Overlay
+   ============================================ */
+.mobile-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1400;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-backdrop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================
+   Gesture Tutorial Overlay
+   ============================================ */
+.tutorial-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  padding-top: calc(20px + var(--safe-area-inset-top));
+  padding-bottom: calc(20px + var(--safe-area-inset-bottom));
+  color: white;
+}
+
+.tutorial-content {
+  max-width: 400px;
+  text-align: center;
+}
+
+.tutorial-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.tutorial-steps {
+  margin-bottom: 2rem;
+}
+
+.tutorial-step {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.tutorial-step-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tutorial-step-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.tutorial-step-description {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.tutorial-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.tutorial-buttons .btn {
+  min-width: 120px;
+  min-height: var(--touch-target-min);
+}
+
+/* ============================================
+   Mobile Settings Panel
+   ============================================ */
+.mobile-settings {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bs-body-bg);
+  z-index: 2500;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  overflow-y: auto;
+  padding: 20px;
+  padding-top: calc(20px + var(--safe-area-inset-top));
+  padding-bottom: calc(20px + var(--safe-area-inset-bottom));
+}
+
+.mobile-settings.show {
+  transform: translateX(0);
+}
+
+.mobile-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.mobile-settings-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.mobile-settings-close {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+}
+
+.mobile-setting-item {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.mobile-setting-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-setting-description {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+
+/* ============================================
+   Touch Feedback
+   ============================================ */
+.touch-active {
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* ============================================
+   Camera Mode Indicator
+   ============================================ */
+.camera-mode-indicator {
+  position: fixed;
+  top: calc(70px + var(--safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1500;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.camera-mode-indicator.show {
+  opacity: 1;
+}
+
+/* ============================================
+   Mobile Portrait Specific (up to 576px)
+   ============================================ */
+@media (max-width: 576px) {
+  :root {
+    --mobile-toolbar-height: 75vh;
+    --bottom-sheet-peek: 50px;
+  }
+
+  #toolbar .card-title {
+    font-size: 1rem;
+  }
+
+  .mode-buttons {
+    gap: 0.4rem;
+  }
+
+  .mode-button {
+    font-size: 14px;
+    padding: 6px 10px;
+  }
+
+  .model-item {
+    padding: 10px !important;
+    font-size: 15px;
+  }
+}
+
+/* ============================================
+   Tablet Landscape (769px - 992px)
+   ============================================ */
+@media (min-width: 769px) and (max-width: 992px) {
+  #toolbar {
+    width: 320px;
+    height: auto;
+    max-height: calc(100vh - 76px);
+    transform: none;
+  }
+
+  #toolbar::before {
+    display: none;
+  }
+
+  .fab {
+    display: none;
+  }
+}
+
+/* ============================================
+   Landscape Mode Adjustments
+   ============================================ */
+@media (max-width: 768px) and (orientation: landscape) {
+  :root {
+    --mobile-toolbar-height: 90vh;
+  }
+
+  #toolbar {
+    height: 90vh;
+    max-height: 90vh;
+  }
+
+  .mode-buttons {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  #joystick-container {
+    bottom: calc(40px + var(--safe-area-inset-bottom)) !important;
+  }
+}
+
+/* ============================================
+   High DPI / Retina Displays
+   ============================================ */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .fab {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* ============================================
+   Dark Mode Adjustments
+   ============================================ */
+[data-bs-theme="dark"] .mobile-backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+[data-bs-theme="dark"] .tutorial-step {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-bs-theme="dark"] #toolbar::before {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Accessibility
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   iOS Specific Fixes
+   ============================================ */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific styles */
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, textarea, select {
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+}
