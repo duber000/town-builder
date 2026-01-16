@@ -22,7 +22,12 @@ class Tutorial {
     }
 
     // Check if tutorial has been shown before
-    this.hasShownBefore = localStorage.getItem(this.storageKey) === 'true';
+    try {
+      this.hasShownBefore = localStorage.getItem(this.storageKey) === 'true';
+    } catch (error) {
+      console.warn('Could not read tutorial state from localStorage:', error);
+      this.hasShownBefore = false; // Default to showing tutorial if can't read
+    }
 
     // Show tutorial for first-time users
     if (!this.hasShownBefore) {
@@ -160,21 +165,34 @@ class Tutorial {
   }
 
   /**
-   * Mark tutorial as shown
+   * Mark tutorial as shown with error handling
    */
   markAsShown() {
-    localStorage.setItem(this.storageKey, 'true');
-    this.hasShownBefore = true;
-    console.log('Tutorial marked as shown');
+    try {
+      localStorage.setItem(this.storageKey, 'true');
+      this.hasShownBefore = true;
+      console.log('Tutorial marked as shown');
+    } catch (error) {
+      // Handle quota exceeded or other localStorage errors
+      console.warn('Could not save tutorial state to localStorage:', error);
+      // Still mark as shown in memory even if storage fails
+      this.hasShownBefore = true;
+    }
   }
 
   /**
-   * Reset tutorial (for testing or user request)
+   * Reset tutorial (for testing or user request) with error handling
    */
   reset() {
-    localStorage.removeItem(this.storageKey);
-    this.hasShownBefore = false;
-    console.log('Tutorial reset');
+    try {
+      localStorage.removeItem(this.storageKey);
+      this.hasShownBefore = false;
+      console.log('Tutorial reset');
+    } catch (error) {
+      console.warn('Could not reset tutorial state in localStorage:', error);
+      // Still reset in memory even if storage fails
+      this.hasShownBefore = false;
+    }
   }
 
   /**

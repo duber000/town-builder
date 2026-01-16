@@ -32,6 +32,13 @@ class TouchControls {
     this.doubleTapDelay = 300; // ms
     this.lastTapTime = 0;
 
+    // Store bound event handlers for cleanup
+    this.boundHandlers = {
+      touchStart: null,
+      touchMove: null,
+      touchEnd: null
+    };
+
     console.log('TouchControls initialized');
   }
 
@@ -64,11 +71,16 @@ class TouchControls {
   setupEventListeners() {
     if (!this.canvas) return;
 
+    // Store bound handlers
+    this.boundHandlers.touchStart = this.handleTouchStart.bind(this);
+    this.boundHandlers.touchMove = this.handleTouchMove.bind(this);
+    this.boundHandlers.touchEnd = this.handleTouchEnd.bind(this);
+
     // Touch events
-    this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
-    this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
-    this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
-    this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
+    this.canvas.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: false });
+    this.canvas.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: false });
+    this.canvas.addEventListener('touchcancel', this.boundHandlers.touchEnd, { passive: false });
 
     console.log('Touch event listeners attached');
   }
@@ -423,23 +435,38 @@ class TouchControls {
   }
 
   /**
-   * Cleanup
+   * Cleanup and remove all event listeners
    */
   dispose() {
-    if (this.canvas) {
-      this.canvas.removeEventListener('touchstart', this.handleTouchStart);
-      this.canvas.removeEventListener('touchmove', this.handleTouchMove);
-      this.canvas.removeEventListener('touchend', this.handleTouchEnd);
-      this.canvas.removeEventListener('touchcancel', this.handleTouchEnd);
+    if (this.canvas && this.boundHandlers.touchStart) {
+      this.canvas.removeEventListener('touchstart', this.boundHandlers.touchStart);
+      this.canvas.removeEventListener('touchmove', this.boundHandlers.touchMove);
+      this.canvas.removeEventListener('touchend', this.boundHandlers.touchEnd);
+      this.canvas.removeEventListener('touchcancel', this.boundHandlers.touchEnd);
     }
 
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
     }
+
+    // Clear bound handlers
+    this.boundHandlers = {
+      touchStart: null,
+      touchMove: null,
+      touchEnd: null
+    };
 
     this.touches.clear();
     this.enabled = false;
     console.log('Touch controls disposed');
+  }
+
+  /**
+   * Destroy (alias for dispose)
+   */
+  destroy() {
+    this.dispose();
   }
 }
 

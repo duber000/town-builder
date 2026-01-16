@@ -1,6 +1,14 @@
 /* Mobile-specific styles for Town Builder */
 /* Responsive design for mobile phones and tablets */
 
+/*
+ * NOTE: This file uses !important flags in several places to override:
+ * 1. Bootstrap's default styles which have high specificity
+ * 2. Inline styles set by JavaScript in index.html
+ * 3. Styles from desktop-first CSS that conflict with mobile layout
+ * These are intentional and necessary for mobile responsiveness.
+ */
+
 /* ============================================
    CSS Variables for Mobile
    ============================================ */

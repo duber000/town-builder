@@ -3,12 +3,29 @@
 
 /**
  * Detects if the current device is a mobile device based on user agent and screen size
+ * Prioritizes user agent and touch capability to avoid false positives on resized desktop browsers
  * @returns {boolean} True if device is mobile
  */
 export function isMobile() {
+  // Check user agent first (most reliable)
   const userAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // If user agent indicates mobile, return true
+  if (userAgent) {
+    return true;
+  }
+
+  // For non-mobile user agents, only consider it mobile if:
+  // 1. Has touch support AND
+  // 2. Small screen AND
+  // 3. Has limited touch points (to exclude touch-enabled desktops)
+  const hasTouch = isTouchDevice();
   const screenSize = window.innerWidth <= 768;
-  return userAgent || screenSize;
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+
+  // Touch-enabled desktops often have >5 touch points, mobile typically ≤5
+  // Also check for narrow screen
+  return hasTouch && screenSize && maxTouchPoints > 0 && maxTouchPoints <= 5;
 }
 
 /**

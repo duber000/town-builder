@@ -38,6 +38,16 @@ class TouchInteractions {
     this.onRotateObject = null;
     this.onDeleteObject = null;
 
+    // Store bound event handlers for cleanup
+    this.boundHandlers = {
+      tap: null,
+      doubleTap: null,
+      longPress: null,
+      touchStart: null,
+      touchMove: null,
+      touchEnd: null
+    };
+
     console.log('TouchInteractions initialized');
   }
 
@@ -71,15 +81,23 @@ class TouchInteractions {
   setupEventListeners() {
     if (!this.canvas) return;
 
+    // Store bound handlers
+    this.boundHandlers.tap = this.handleTap.bind(this);
+    this.boundHandlers.doubleTap = this.handleDoubleTap.bind(this);
+    this.boundHandlers.longPress = this.handleLongPress.bind(this);
+    this.boundHandlers.touchStart = this.handleTouchStart.bind(this);
+    this.boundHandlers.touchMove = this.handleTouchMove.bind(this);
+    this.boundHandlers.touchEnd = this.handleTouchEnd.bind(this);
+
     // Listen for custom touch events from controls-touch.js
-    this.canvas.addEventListener('touch-tap', this.handleTap.bind(this));
-    this.canvas.addEventListener('touch-doubletap', this.handleDoubleTap.bind(this));
-    this.canvas.addEventListener('touch-longpress', this.handleLongPress.bind(this));
+    this.canvas.addEventListener('touch-tap', this.boundHandlers.tap);
+    this.canvas.addEventListener('touch-doubletap', this.boundHandlers.doubleTap);
+    this.canvas.addEventListener('touch-longpress', this.boundHandlers.longPress);
 
     // Direct touch events for drag operations
-    this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
-    this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
-    this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    this.canvas.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: false });
+    this.canvas.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: false });
 
     console.log('Touch interaction listeners attached');
   }
@@ -515,21 +533,38 @@ class TouchInteractions {
   }
 
   /**
-   * Cleanup
+   * Cleanup and remove all event listeners
    */
   dispose() {
-    if (this.canvas) {
-      this.canvas.removeEventListener('touch-tap', this.handleTap);
-      this.canvas.removeEventListener('touch-doubletap', this.handleDoubleTap);
-      this.canvas.removeEventListener('touch-longpress', this.handleLongPress);
-      this.canvas.removeEventListener('touchstart', this.handleTouchStart);
-      this.canvas.removeEventListener('touchmove', this.handleTouchMove);
-      this.canvas.removeEventListener('touchend', this.handleTouchEnd);
+    if (this.canvas && this.boundHandlers.tap) {
+      this.canvas.removeEventListener('touch-tap', this.boundHandlers.tap);
+      this.canvas.removeEventListener('touch-doubletap', this.boundHandlers.doubleTap);
+      this.canvas.removeEventListener('touch-longpress', this.boundHandlers.longPress);
+      this.canvas.removeEventListener('touchstart', this.boundHandlers.touchStart);
+      this.canvas.removeEventListener('touchmove', this.boundHandlers.touchMove);
+      this.canvas.removeEventListener('touchend', this.boundHandlers.touchEnd);
     }
+
+    // Clear bound handlers
+    this.boundHandlers = {
+      tap: null,
+      doubleTap: null,
+      longPress: null,
+      touchStart: null,
+      touchMove: null,
+      touchEnd: null
+    };
 
     this.deselectObject();
     this.enabled = false;
     console.log('Touch interactions disposed');
+  }
+
+  /**
+   * Destroy (alias for dispose)
+   */
+  destroy() {
+    this.dispose();
   }
 }
 

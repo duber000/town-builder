@@ -14,6 +14,17 @@ class MobileUI {
     this.isTouchSupported = isTouchDevice();
     this.touchStartY = 0;
     this.isDragging = false;
+
+    // Store bound event handlers for cleanup
+    this.boundHandlers = {
+      fabClick: null,
+      backdropClick: null,
+      touchStart: null,
+      touchMove: null,
+      touchEnd: null,
+      orientationChange: null,
+      resize: null
+    };
   }
 
   /**
@@ -59,11 +70,12 @@ class MobileUI {
 
     this.fab = fab;
 
-    // FAB click handler
-    this.fab.addEventListener('click', () => {
+    // FAB click handler - store bound function
+    this.boundHandlers.fabClick = () => {
       this.toggleToolbar();
       haptics.light();
-    });
+    };
+    this.fab.addEventListener('click', this.boundHandlers.fabClick);
 
     console.log('FAB created');
   }
@@ -82,11 +94,12 @@ class MobileUI {
 
     this.backdrop = backdrop;
 
-    // Backdrop click closes toolbar
-    this.backdrop.addEventListener('click', () => {
+    // Backdrop click closes toolbar - store bound function
+    this.boundHandlers.backdropClick = () => {
       this.closeToolbar();
       haptics.light();
-    });
+    };
+    this.backdrop.addEventListener('click', this.boundHandlers.backdropClick);
 
     console.log('Backdrop created');
   }
@@ -98,14 +111,14 @@ class MobileUI {
     if (!this.toolbar) return;
 
     // Touch start - begin drag
-    this.toolbar.addEventListener('touchstart', (e) => {
+    this.boundHandlers.touchStart = (e) => {
       const touch = e.touches[0];
       this.touchStartY = touch.clientY;
       this.isDragging = true;
-    }, { passive: true });
+    };
 
     // Touch move - drag toolbar
-    this.toolbar.addEventListener('touchmove', (e) => {
+    this.boundHandlers.touchMove = (e) => {
       if (!this.isDragging) return;
 
       const touch = e.touches[0];
@@ -122,10 +135,10 @@ class MobileUI {
         const newTransform = Math.max(0, currentOffset + deltaY);
         this.toolbar.style.transform = `translateY(${newTransform}px)`;
       }
-    }, { passive: true });
+    };
 
     // Touch end - snap to open/closed
-    this.toolbar.addEventListener('touchend', (e) => {
+    this.boundHandlers.touchEnd = (e) => {
       if (!this.isDragging) return;
 
       const touch = e.changedTouches[0];
@@ -146,14 +159,18 @@ class MobileUI {
       }
 
       this.isDragging = false;
-    }, { passive: true });
+    };
+
+    this.toolbar.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: true });
+    this.toolbar.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: true });
+    this.toolbar.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: true });
   }
 
   /**
    * Setup orientation change handler
    */
   setupOrientationHandler() {
-    window.addEventListener('orientationchange', () => {
+    this.boundHandlers.orientationChange = () => {
       setTimeout(() => {
         console.log('Orientation changed:', getViewportCategory());
         // Reset toolbar position
@@ -161,9 +178,9 @@ class MobileUI {
           this.toolbar.style.transform = 'translateY(0)';
         }
       }, 100);
-    });
+    };
 
-    window.addEventListener('resize', () => {
+    this.boundHandlers.resize = () => {
       // Check if switched from mobile to desktop
       const wasMobile = this.isMobileDevice;
       this.isMobileDevice = isMobile();
@@ -175,7 +192,10 @@ class MobileUI {
         // Switched to mobile - reinitialize
         this.init();
       }
-    });
+    };
+
+    window.addEventListener('orientationchange', this.boundHandlers.orientationChange);
+    window.addEventListener('resize', this.boundHandlers.resize);
   }
 
   /**
@@ -253,25 +273,65 @@ class MobileUI {
   }
 
   /**
-   * Cleanup mobile UI
+   * Cleanup mobile UI and remove all event listeners
    */
   cleanup() {
-    if (this.fab) {
+    // Remove FAB event listeners
+    if (this.fab && this.boundHandlers.fabClick) {
+      this.fab.removeEventListener('click', this.boundHandlers.fabClick);
       this.fab.remove();
       this.fab = null;
     }
 
-    if (this.backdrop) {
+    // Remove backdrop event listeners
+    if (this.backdrop && this.boundHandlers.backdropClick) {
+      this.backdrop.removeEventListener('click', this.boundHandlers.backdropClick);
       this.backdrop.remove();
       this.backdrop = null;
     }
 
+    // Remove toolbar gesture listeners
     if (this.toolbar) {
+      if (this.boundHandlers.touchStart) {
+        this.toolbar.removeEventListener('touchstart', this.boundHandlers.touchStart);
+      }
+      if (this.boundHandlers.touchMove) {
+        this.toolbar.removeEventListener('touchmove', this.boundHandlers.touchMove);
+      }
+      if (this.boundHandlers.touchEnd) {
+        this.toolbar.removeEventListener('touchend', this.boundHandlers.touchEnd);
+      }
       this.toolbar.classList.remove('open');
       this.toolbar.style.transform = '';
     }
 
+    // Remove window event listeners
+    if (this.boundHandlers.orientationChange) {
+      window.removeEventListener('orientationchange', this.boundHandlers.orientationChange);
+    }
+    if (this.boundHandlers.resize) {
+      window.removeEventListener('resize', this.boundHandlers.resize);
+    }
+
+    // Clear bound handlers
+    this.boundHandlers = {
+      fabClick: null,
+      backdropClick: null,
+      touchStart: null,
+      touchMove: null,
+      touchEnd: null,
+      orientationChange: null,
+      resize: null
+    };
+
     console.log('Mobile UI cleaned up');
+  }
+
+  /**
+   * Destroy the mobile UI instance (alias for cleanup)
+   */
+  destroy() {
+    this.cleanup();
   }
 
   /**

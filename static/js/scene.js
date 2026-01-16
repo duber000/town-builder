@@ -82,38 +82,98 @@ export function initializeScene() {
     renderer.domElement.addEventListener('click', onCanvasClick);
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
 
-    // Initialize touch controls for mobile
+    // Initialize touch controls for mobile (deferred to wait for WASM)
     if (isMobile()) {
-        console.log('Initializing touch controls for mobile');
-        touchControls.init(camera, renderer.domElement);
-
-        // Create raycaster for touch interactions
-        const raycaster = new THREE.Raycaster();
-        touchInteractions.init(renderer.domElement, scene, camera, raycaster);
-
-        // Setup touch interaction callbacks
-        touchInteractions.onPlaceObjectCallback((position) => {
-            // Place object at touch position
-            if (window.pendingPlacementModelDetails) {
-                const { category, modelName } = window.pendingPlacementModelDetails;
-                loadModelToScene(category, modelName, position);
-            }
-        });
-
-        touchInteractions.onSelectObjectCallback((object) => {
-            window.selectedObject = object;
-            updateContextHelp();
-        });
-
-        touchInteractions.onDeleteObjectCallback((object) => {
-            deleteObjectFromScene(object);
-        });
-
-        console.log('Touch controls initialized');
+        console.log('Scheduling touch controls initialization after WASM loads');
+        initializeTouchControlsWhenReady(camera, renderer, scene);
     }
 
     // Setup pending placement model (used by UI)
     window.pendingPlacementModelDetails = null;
+}
+
+/**
+ * Initialize touch controls after WASM is ready
+ * Prevents race condition where touch controls initialize before physics WASM loads
+ * @param {THREE.Camera} camera
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {THREE.Scene} scene
+ */
+async function initializeTouchControlsWhenReady(camera, renderer, scene) {
+    // Wait for WASM to be ready (with timeout)
+    const maxWaitTime = 10000; // 10 seconds max
+    const startTime = Date.now();
+
+    while (!isPhysicsWasmReady()) {
+        if (Date.now() - startTime > maxWaitTime) {
+            console.warn('WASM not ready after 10s, initializing touch controls anyway');
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    console.log('WASM ready, initializing touch controls for mobile');
+    touchControls.init(camera, renderer.domElement);
+
+    // Create raycaster for touch interactions
+    const raycaster = new THREE.Raycaster();
+    touchInteractions.init(renderer.domElement, scene, camera, raycaster);
+
+    // Setup touch interaction callbacks
+    touchInteractions.onPlaceObjectCallback((position) => {
+        // Place object at touch position
+        if (window.pendingPlacementModelDetails) {
+            const { category, modelName } = window.pendingPlacementModelDetails;
+            loadModelToScene(category, modelName, position);
+        }
+    });
+
+    touchInteractions.onSelectObjectCallback((object) => {
+        window.selectedObject = object;
+        updateContextHelp();
+    });
+
+    touchInteractions.onDeleteObjectCallback((object) => {
+        deleteObjectFromScene(object);
+    });
+
+    touchInteractions.onMoveObjectCallback((object, position) => {
+        // Broadcast position update to other clients
+        const eventData = {
+            type: 'edit',
+            category: object.userData.category,
+            id: object.userData.id,
+            position: [object.position.x, object.position.y, object.position.z],
+            rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
+        };
+
+        // Import and call broadcast if available
+        import('./network.js').then(({ broadcastSceneUpdate }) => {
+            if (broadcastSceneUpdate) {
+                broadcastSceneUpdate(eventData);
+            }
+        }).catch(err => console.warn('Could not broadcast move update:', err));
+    });
+
+    touchInteractions.onRotateObjectCallback((object, rotation) => {
+        // Broadcast rotation update to other clients
+        const eventData = {
+            type: 'edit',
+            category: object.userData.category,
+            id: object.userData.id,
+            position: [object.position.x, object.position.y, object.position.z],
+            rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
+        };
+
+        // Import and call broadcast if available
+        import('./network.js').then(({ broadcastSceneUpdate }) => {
+            if (broadcastSceneUpdate) {
+                broadcastSceneUpdate(eventData);
+            }
+        }).catch(err => console.warn('Could not broadcast rotate update:', err));
+    });
+
+    console.log('Touch controls initialized successfully');
 }
 
 /**
