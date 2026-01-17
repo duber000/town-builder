@@ -120,18 +120,9 @@ class MobileUI {
     // Create a draggable header zone (includes drag handle area at top of toolbar)
     const dragHandleZone = document.createElement('div');
     dragHandleZone.className = 'toolbar-drag-zone';
-    dragHandleZone.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      z-index: 1;
-      cursor: grab;
-    `;
     this.toolbar.insertBefore(dragHandleZone, cardBody);
 
-    // Touch start - begin drag (only on drag handle zone and title)
+    // Touch start - begin drag
     this.boundHandlers.touchStart = (e) => {
       const touch = e.touches[0];
       this.touchStartY = touch.clientY;
@@ -182,19 +173,14 @@ class MobileUI {
       this.isDragging = false;
     };
 
-    // Attach touch listeners ONLY to the drag handle zone and title
+    // Attach touch listeners ONLY to the drag handle zone
     // This prevents interference with model container scrolling and clicking
     dragHandleZone.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: true });
     dragHandleZone.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: true });
     dragHandleZone.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: true });
 
-    cardTitle.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: true });
-    cardTitle.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: true });
-    cardTitle.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: true });
-
-    // Store references for cleanup
+    // Store reference for cleanup
     this.dragHandleZone = dragHandleZone;
-    this.cardTitle = cardTitle;
   }
 
   /**
@@ -334,19 +320,6 @@ class MobileUI {
       }
       this.dragHandleZone.remove();
       this.dragHandleZone = null;
-    }
-
-    if (this.cardTitle) {
-      if (this.boundHandlers.touchStart) {
-        this.cardTitle.removeEventListener('touchstart', this.boundHandlers.touchStart);
-      }
-      if (this.boundHandlers.touchMove) {
-        this.cardTitle.removeEventListener('touchmove', this.boundHandlers.touchMove);
-      }
-      if (this.boundHandlers.touchEnd) {
-        this.cardTitle.removeEventListener('touchend', this.boundHandlers.touchEnd);
-      }
-      this.cardTitle = null;
     }
 
     if (this.toolbar) {

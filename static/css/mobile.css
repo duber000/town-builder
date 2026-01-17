@@ -85,9 +85,16 @@
 
   /* Drag zone for bottom sheet gestures */
   .toolbar-drag-zone {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--bottom-sheet-peek);
+    z-index: 1;
     touch-action: pan-y; /* Allow dragging gestures */
     -webkit-user-select: none;
     user-select: none;
+    cursor: grab;
   }
 
   .toolbar-drag-zone:active {
