@@ -80,6 +80,18 @@
     border-radius: 2.5px;
     opacity: 0.5;
     pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Drag zone for bottom sheet gestures */
+  .toolbar-drag-zone {
+    touch-action: pan-y; /* Allow dragging gestures */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .toolbar-drag-zone:active {
+    cursor: grabbing !important;
   }
 
   #toolbar .card-body {
@@ -146,7 +158,7 @@
     font-size: 16px;
     cursor: pointer;
     -webkit-tap-highlight-color: rgba(0, 123, 255, 0.3);
-    touch-action: manipulation; /* Prevent double-tap zoom, allow taps */
+    /* touch-action inherited from parent #model-container (pan-y) */
   }
 
   .model-item:active {

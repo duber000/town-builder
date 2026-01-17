@@ -117,25 +117,22 @@ class MobileUI {
 
     if (!cardBody || !cardTitle) return;
 
-    // Touch start - begin drag (only on title area, not model container)
+    // Create a draggable header zone (includes drag handle area at top of toolbar)
+    const dragHandleZone = document.createElement('div');
+    dragHandleZone.className = 'toolbar-drag-zone';
+    dragHandleZone.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 1;
+      cursor: grab;
+    `;
+    this.toolbar.insertBefore(dragHandleZone, cardBody);
+
+    // Touch start - begin drag (only on drag handle zone and title)
     this.boundHandlers.touchStart = (e) => {
-      // Don't drag if touching the scrollable model container
-      if (modelContainer && modelContainer.contains(e.target)) {
-        this.isDragging = false;
-        return;
-      }
-
-      // Don't drag if touching mode buttons or bottom section controls
-      const target = e.target;
-      if (target.closest('.mode-buttons') ||
-          target.closest('.toolbar-bottom-section') ||
-          target.closest('button') ||
-          target.closest('input') ||
-          target.closest('select')) {
-        this.isDragging = false;
-        return;
-      }
-
       const touch = e.touches[0];
       this.touchStartY = touch.clientY;
       this.isDragging = true;
@@ -185,9 +182,19 @@ class MobileUI {
       this.isDragging = false;
     };
 
-    this.toolbar.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: true });
-    this.toolbar.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: true });
-    this.toolbar.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: true });
+    // Attach touch listeners ONLY to the drag handle zone and title
+    // This prevents interference with model container scrolling and clicking
+    dragHandleZone.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: true });
+    dragHandleZone.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: true });
+    dragHandleZone.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: true });
+
+    cardTitle.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: true });
+    cardTitle.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: true });
+    cardTitle.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: true });
+
+    // Store references for cleanup
+    this.dragHandleZone = dragHandleZone;
+    this.cardTitle = cardTitle;
   }
 
   /**
@@ -315,16 +322,34 @@ class MobileUI {
     }
 
     // Remove toolbar gesture listeners
-    if (this.toolbar) {
+    if (this.dragHandleZone) {
       if (this.boundHandlers.touchStart) {
-        this.toolbar.removeEventListener('touchstart', this.boundHandlers.touchStart);
+        this.dragHandleZone.removeEventListener('touchstart', this.boundHandlers.touchStart);
       }
       if (this.boundHandlers.touchMove) {
-        this.toolbar.removeEventListener('touchmove', this.boundHandlers.touchMove);
+        this.dragHandleZone.removeEventListener('touchmove', this.boundHandlers.touchMove);
       }
       if (this.boundHandlers.touchEnd) {
-        this.toolbar.removeEventListener('touchend', this.boundHandlers.touchEnd);
+        this.dragHandleZone.removeEventListener('touchend', this.boundHandlers.touchEnd);
       }
+      this.dragHandleZone.remove();
+      this.dragHandleZone = null;
+    }
+
+    if (this.cardTitle) {
+      if (this.boundHandlers.touchStart) {
+        this.cardTitle.removeEventListener('touchstart', this.boundHandlers.touchStart);
+      }
+      if (this.boundHandlers.touchMove) {
+        this.cardTitle.removeEventListener('touchmove', this.boundHandlers.touchMove);
+      }
+      if (this.boundHandlers.touchEnd) {
+        this.cardTitle.removeEventListener('touchend', this.boundHandlers.touchEnd);
+      }
+      this.cardTitle = null;
+    }
+
+    if (this.toolbar) {
       this.toolbar.classList.remove('open');
       this.toolbar.style.transform = '';
     }
