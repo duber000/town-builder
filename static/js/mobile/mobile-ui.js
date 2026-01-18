@@ -236,6 +236,9 @@ class MobileUI {
     this.backdrop.classList.add('show');
     this.isToolbarOpen = true;
 
+    // Reset inline transform to let CSS handle it
+    this.toolbar.style.transform = '';
+
     // Update FAB icon
     if (this.fab) {
       this.fab.querySelector('i').className = 'bi bi-x-lg';
