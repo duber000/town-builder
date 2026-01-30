@@ -107,7 +107,7 @@
     max-height: 100%;
     display: flex;
     flex-direction: column;
-    overflow: visible; /* Allow model-container to scroll independently */
+    overflow: visible !important; /* Allow model-container to scroll independently */
   }
 
   /* Make the title area clearly draggable */
